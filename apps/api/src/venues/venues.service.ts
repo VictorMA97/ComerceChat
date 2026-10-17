@@ -24,7 +24,12 @@ export class VenuesService {
     const tableRows = await this.db
       .select()
       .from(tables)
-      .where(inArray(tables.locationId, locations.map((l) => l.id)))
+      .where(
+        inArray(
+          tables.locationId,
+          locations.map((l) => l.id),
+        ),
+      )
       .orderBy(asc(tables.label));
 
     const qrRows = tableRows.length
@@ -33,7 +38,10 @@ export class VenuesService {
           .from(qrCodes)
           .where(
             and(
-              inArray(qrCodes.tableId, tableRows.map((t) => t.id)),
+              inArray(
+                qrCodes.tableId,
+                tableRows.map((t) => t.id),
+              ),
               eq(qrCodes.type, 'STATIC_TABLE'),
               eq(qrCodes.status, 'ACTIVE'),
             ),

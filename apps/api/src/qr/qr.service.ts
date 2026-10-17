@@ -19,7 +19,11 @@ const cacheKey = (shortCode: string) => `qr:resolve:${shortCode}`;
 const INVALID = 'INVALID';
 
 const qrInvalid = () =>
-  new AppError('QR_INVALID', HttpStatus.NOT_FOUND, 'Este código QR no es válido o ha sido retirado');
+  new AppError(
+    'QR_INVALID',
+    HttpStatus.NOT_FOUND,
+    'Este código QR no es válido o ha sido retirado',
+  );
 
 @Injectable()
 export class QrService {
@@ -63,7 +67,11 @@ export class QrService {
   }
 
   /** Revoca el QR activo de la mesa y emite uno nuevo (FR-QR-05). Solo OWNER y MANAGER. */
-  async regenerateTableQr(principal: MerchantPrincipal, tableId: string, ip?: string): Promise<TableQr> {
+  async regenerateTableQr(
+    principal: MerchantPrincipal,
+    tableId: string,
+    ip?: string,
+  ): Promise<TableQr> {
     const { revokedCode, qr } = await this.db.transaction(async (tx) => {
       const [table] = await tx
         .select({ id: tables.id, locationId: tables.locationId })
@@ -127,7 +135,12 @@ export class QrService {
 
     const resolution = await this.resolveFromDb(shortCode);
     await this.redis
-      .set(cacheKey(shortCode), resolution ? JSON.stringify(resolution) : INVALID, 'EX', RESOLVE_CACHE_TTL_SECONDS)
+      .set(
+        cacheKey(shortCode),
+        resolution ? JSON.stringify(resolution) : INVALID,
+        'EX',
+        RESOLVE_CACHE_TTL_SECONDS,
+      )
       .catch((err: unknown) => this.logger.warn(`No se pudo cachear el QR: ${String(err)}`));
     if (!resolution) throw qrInvalid();
     return resolution;

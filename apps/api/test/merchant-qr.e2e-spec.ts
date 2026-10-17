@@ -35,7 +35,12 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
     await db.transaction(async (tx) => {
       const [m] = await tx
         .insert(s.merchants)
-        .values({ legalName: 'E2E S.L.', taxId: 'B99999999', brandName: `E2E ${suffix}`, status: 'ACTIVE' })
+        .values({
+          legalName: 'E2E S.L.',
+          taxId: 'B99999999',
+          brandName: `E2E ${suffix}`,
+          status: 'ACTIVE',
+        })
         .returning();
       await tx.insert(s.merchantUsers).values([
         { merchantId: m!.id, email: owner, passwordHash, role: 'OWNER' },
@@ -51,7 +56,10 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
           category: 'restaurant',
         })
         .returning();
-      const [t] = await tx.insert(s.tables).values({ locationId: loc!.id, label: 'Mesa 1' }).returning();
+      const [t] = await tx
+        .insert(s.tables)
+        .values({ locationId: loc!.id, label: 'Mesa 1' })
+        .returning();
       tableId = t!.id;
       const qr = await qrService.issueTableQr(tx, { locationId: loc!.id, tableId });
       shortCode = qr.shortCode;
@@ -63,8 +71,11 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
   });
 
   const login = async (email: string) =>
-    (await request(app.getHttpServer()).post('/v1/merchant/auth/login').send({ email, password: 'secreto123' }))
-      .body.accessToken as string;
+    (
+      await request(app.getHttpServer())
+        .post('/v1/merchant/auth/login')
+        .send({ email, password: 'secreto123' })
+    ).body.accessToken as string;
 
   it('rechaza credenciales incorrectas con problem+json', async () => {
     const res = await request(app.getHttpServer())
@@ -80,13 +91,19 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
       .get('/v1/merchant/locations')
       .set('authorization', `Bearer ${await login(owner)}`);
     expect(res.status).toBe(200);
-    expect(res.body[0].tables[0]).toMatchObject({ id: tableId, qr: { shortCode, status: 'ACTIVE' } });
+    expect(res.body[0].tables[0]).toMatchObject({
+      id: tableId,
+      qr: { shortCode, status: 'ACTIVE' },
+    });
   });
 
   it('resuelve el QR público con la identidad del comercio', async () => {
     const res = await request(app.getHttpServer()).get(`/v1/qr/${shortCode}`);
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ merchant: { brandName: `E2E ${suffix}` }, table: { label: 'Mesa 1' } });
+    expect(res.body).toMatchObject({
+      merchant: { brandName: `E2E ${suffix}` },
+      table: { label: 'Mesa 1' },
+    });
   });
 
   it('impide a STAFF regenerar QR', async () => {
@@ -103,7 +120,11 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
     expect(res.status).toBe(201);
     expect(res.body.shortCode).not.toBe(shortCode);
 
-    expect((await request(app.getHttpServer()).get(`/v1/qr/${shortCode}`)).body.code).toBe('QR_INVALID');
-    expect((await request(app.getHttpServer()).get(`/v1/qr/${res.body.shortCode}`)).status).toBe(200);
+    expect((await request(app.getHttpServer()).get(`/v1/qr/${shortCode}`)).body.code).toBe(
+      'QR_INVALID',
+    );
+    expect((await request(app.getHttpServer()).get(`/v1/qr/${res.body.shortCode}`)).status).toBe(
+      200,
+    );
   });
 });

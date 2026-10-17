@@ -33,7 +33,11 @@ const envSchema = z.object({
   AUTH_PROVIDER: z.enum(['local']).default('local'),
   TELEMETRY: z.enum(['on', 'off']).default('off'),
   JWT_SECRET: secret,
-  JWT_MERCHANT_TTL_SECONDS: z.coerce.number().int().positive().default(8 * 60 * 60),
+  JWT_MERCHANT_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(8 * 60 * 60),
   QR_HMAC_SECRET: secret,
   PII_ENCRYPTION_KEY: secret,
   FAKE_PSP_WEBHOOK_SECRET: secret,
@@ -45,7 +49,9 @@ export type Env = z.infer<typeof envSchema>;
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
   const result = envSchema.safeParse(source);
   if (!result.success) {
-    const issues = result.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
+    const issues = result.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
     throw new Error(`Configuración inválida:\n${issues}`);
   }
   const env = result.data;

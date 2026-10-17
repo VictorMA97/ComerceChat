@@ -35,7 +35,9 @@ export class ProblemFilter implements ExceptionFilter {
       problem = this.base(exception.getStatus(), exception.code, exception.title, exception.detail);
     } else if (exception instanceof BadRequestException) {
       const body = exception.getResponse() as { message?: string | string[] };
-      const messages = Array.isArray(body.message) ? body.message : [body.message ?? 'Petición inválida'];
+      const messages = Array.isArray(body.message)
+        ? body.message
+        : [body.message ?? 'Petición inválida'];
       problem = this.base(400, 'VALIDATION_FAILED', 'La petición no es válida');
       problem.errors = { body: messages.filter((m): m is string => typeof m === 'string') };
     } else if (exception instanceof HttpException) {

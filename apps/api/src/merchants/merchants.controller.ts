@@ -27,7 +27,11 @@ export class MerchantsController {
       merchantUserId: user.id,
       email: user.email,
       role: user.role,
-      merchant: { id: user.merchant.id, brandName: user.merchant.brandName, status: user.merchant.status },
+      merchant: {
+        id: user.merchant.id,
+        brandName: user.merchant.brandName,
+        status: user.merchant.status,
+      },
     };
   }
 }

@@ -13,7 +13,8 @@ export interface QrSignatureInput {
   version: number;
 }
 
-const canonical = (q: QrSignatureInput) => [q.id, q.locationId, q.tableId ?? '-', q.version].join('|');
+const canonical = (q: QrSignatureInput) =>
+  [q.id, q.locationId, q.tableId ?? '-', q.version].join('|');
 
 /** HMAC-SHA256 sobre los campos que identifican el QR (ARCHITECTURE §8). */
 export function signQr(secret: string, q: QrSignatureInput): string {

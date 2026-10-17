@@ -36,7 +36,11 @@ export class AuthService {
         after: { email: email.trim().toLowerCase() },
         ip,
       });
-      throw new AppError('INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED, 'Email o contraseña incorrectos');
+      throw new AppError(
+        'INVALID_CREDENTIALS',
+        HttpStatus.UNAUTHORIZED,
+        'Email o contraseña incorrectos',
+      );
     }
     const payload: MerchantJwtPayload = {
       sub: principal.merchantUserId,

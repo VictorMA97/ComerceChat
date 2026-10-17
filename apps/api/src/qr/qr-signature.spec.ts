@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { generateShortCode, qrUrl, SHORT_CODE_LENGTH, signQr, verifyQrSignature } from './qr-signature.js';
+import {
+  generateShortCode,
+  qrUrl,
+  SHORT_CODE_LENGTH,
+  signQr,
+  verifyQrSignature,
+} from './qr-signature.js';
 
 const secret = 's'.repeat(32);
 const qr = { id: 'qr-1', locationId: 'loc-1', tableId: 'table-1', version: 1 };

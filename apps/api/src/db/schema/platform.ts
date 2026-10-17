@@ -32,5 +32,9 @@ export const outboxEvents = pgTable(
     createdAt: createdAt(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
   },
-  (t) => [index('outbox_events_unpublished_idx').on(t.createdAt).where(sql`${t.publishedAt} is null`)],
+  (t) => [
+    index('outbox_events_unpublished_idx')
+      .on(t.createdAt)
+      .where(sql`${t.publishedAt} is null`),
+  ],
 );

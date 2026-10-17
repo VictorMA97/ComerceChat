@@ -39,7 +39,8 @@ export class MerchantAuthGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
-    const principal = scheme === 'Bearer' && token ? await this.auth.verifyMerchantToken(token) : null;
+    const principal =
+      scheme === 'Bearer' && token ? await this.auth.verifyMerchantToken(token) : null;
     if (!principal) {
       throw new AppError('UNAUTHENTICATED', HttpStatus.UNAUTHORIZED, 'Sesión no válida o caducada');
     }

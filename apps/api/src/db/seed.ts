@@ -122,7 +122,13 @@ try {
         .returning();
       await tx
         .insert(s.userConsents)
-        .values({ userId: user!.id, type: 'TERMS', granted: true, version: 'poc-1', source: 'seed' });
+        .values({
+          userId: user!.id,
+          type: 'TERMS',
+          granted: true,
+          version: 'poc-1',
+          source: 'seed',
+        });
     }
   });
 

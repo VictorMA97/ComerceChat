@@ -8,9 +8,21 @@ const DB_HANDLE = Symbol('DB_HANDLE');
 @Global()
 @Module({
   providers: [
-    { provide: DB_HANDLE, inject: [ENV], useFactory: (env: Env) => createDatabase(env.DATABASE_URL) },
-    { provide: DB, inject: [DB_HANDLE], useFactory: (h: ReturnType<typeof createDatabase>) => h.db },
-    { provide: PG_POOL, inject: [DB_HANDLE], useFactory: (h: ReturnType<typeof createDatabase>) => h.pool },
+    {
+      provide: DB_HANDLE,
+      inject: [ENV],
+      useFactory: (env: Env) => createDatabase(env.DATABASE_URL),
+    },
+    {
+      provide: DB,
+      inject: [DB_HANDLE],
+      useFactory: (h: ReturnType<typeof createDatabase>) => h.db,
+    },
+    {
+      provide: PG_POOL,
+      inject: [DB_HANDLE],
+      useFactory: (h: ReturnType<typeof createDatabase>) => h.pool,
+    },
   ],
   exports: [DB, PG_POOL],
 })

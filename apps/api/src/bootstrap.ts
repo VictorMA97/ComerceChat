@@ -7,7 +7,9 @@ import type { Env } from './config/env.js';
 export function configureApp(app: INestApplication, env: Env): void {
   app.setGlobalPrefix('v1');
   app.enableCors({ origin: [env.WEB_QR_BASE_URL, env.MERCHANT_PANEL_BASE_URL] });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+  );
   app.useGlobalFilters(new ProblemFilter());
   app.enableShutdownHooks();
 

@@ -57,8 +57,8 @@
 | Web QR | Next.js (App Router) + TypeScript + React, renderizado en servidor y en el borde | Carga < 1,5 s en 4G sin instalación (ADR-002) |
 | Panel comercio + backoffice | Next.js + shadcn/ui + TanStack Query | Mismo stack que la web QR |
 | App usuario | React Native con Expo (EAS Build + EAS Update) | Comparte TypeScript y tipos (ADR-008) |
-| Backend | NestJS (Node 22 LTS), monolito modular | ADR-009 |
-| ORM / migraciones | Prisma o Drizzle [elegir en M0] + migraciones SQL revisadas | Tipado de punta a punta |
+| Backend | NestJS 12 (ESM, Node 22 LTS), monolito modular; tests con Vitest | ADR-009, ADR-020 |
+| ORM / migraciones | Drizzle ORM + migraciones SQL generadas con drizzle-kit y revisadas | SQL explícito para bloqueos, RETURNING y PostGIS (ADR-019) |
 | Base de datos | PostgreSQL 16 + PostGIS (RDS Multi-AZ) | ACID para el registro de puntos y los canjes; consultas geográficas (ADR-010) |
 | Cache / bloqueos / tiempo real | Redis (ElastiCache) | ADR-010 |
 | Colas | SQS + colas de error (DLQ); BullMQ en local | Webhooks y campañas asíncronos con reintentos |
@@ -84,9 +84,9 @@ comercechat/
 │  └─ mobile/              # Expo React Native
 ├─ packages/
 │  ├─ shared-types/        # DTOs, enums, esquemas zod compartidos
-│  ├─ api-client/          # cliente generado desde OpenAPI
-│  ├─ ui/                  # componentes compartidos web (tokens, accesibilidad)
-│  └─ config/              # eslint, tsconfig, prettier
+│  ├─ api-client/          # cliente generado desde OpenAPI (pendiente, ADR-020)
+│  ├─ ui/                  # componentes compartidos web (pendiente)
+│  └─ config/              # eslint, tsconfig, prettier (de momento en la raíz)
 ├─ infra/
 │  └─ terraform/           # VPC, RDS, ElastiCache, ECS, SQS, S3, KMS, IAM, Secrets
 ├─ docs/                   # (opcional) diagramas, runbooks
@@ -481,7 +481,7 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 | Prueba | Herramienta | Cubre el criterio de SPEC §3.3 |
 |---|---|---|
 | Recorrido completo escaneo → pago → puntos → panel | Playwright (2 contextos de navegador: comensal + panel) | 1, 5 |
-| 4 pagadores simultáneos en la misma mesa | Test de integración (Vitest/Jest + Postgres real en Docker) | 2 |
+| 4 pagadores simultáneos en la misma mesa | Test de integración (Vitest + Postgres real en Docker) | 2 |
 | Webhook duplicado ×10 y desordenado | Test de integración con el modo caos | 3 |
 | 100 canjes paralelos del mismo cupón | Test de integración | 4 |
 | Firma de QR manipulada o caducada | Test unitario | — |

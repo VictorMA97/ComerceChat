@@ -4,7 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Todavía **no hay código**: el repositorio solo contiene documentación de diseño (en español). No existen comandos de build, lint ni test. Cuando se cree el monorepo (hito P1 de la PoC local, `ROADMAP.md` §2), actualiza este archivo con los comandos reales (pnpm + Turborepo).
+Monorepo pnpm + Turborepo con la **PoC local** en curso: hito P1 completado (`ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js); todavía no hay pagos (P2). Comentarios, documentación y textos de UI en español.
+
+## Comandos
+
+- Todo: `pnpm poc:up` (Docker + `.env.local` + migraciones + seed + dev). Requiere Docker.
+- `pnpm dev` · `pnpm lint` · `pnpm typecheck` · `pnpm build` · `pnpm test` (Turborepo, todo el monorepo).
+- Un solo test: `pnpm --filter @comercechat/api exec vitest run src/qr/qr-signature.spec.ts` (o `-t "nombre del test"`).
+- Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres y Redis reales de `.env.local`; crean sus propios datos con emails únicos.
+- Migraciones: edita `apps/api/src/db/schema/*`, ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
+- `pnpm db:seed` borra y recrea los datos de prueba.
+
+## Particularidades del stack (ADR-020)
+
+- La API es **ESM**: los imports relativos llevan extensión `.js` (`import { x } from './x.js'`). NestJS 12 es solo ESM.
+- Next.js 16: `cookies()`, `headers()` y `params` son asíncronos; `middleware` se llama `proxy`. Antes de usar una API de Next, consulta `node_modules/next/dist/docs/`.
+- TypeScript fijado a `~5.9` (el CLI de Nest no soporta TS 7).
+- Variables de entorno: un único `.env.local` en la raíz (generado por `pnpm poc:keys`), validado con zod en `apps/api/src/config/env.ts`. Las apps Next lo cargan en `next.config.ts`.
+- Errores de la API: lanza `AppError(code, status, title)`; `ProblemFilter` lo convierte en RFC 9457.
 
 ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con servicio en mesa en Madrid: web QR sin instalación (ver cuenta, pedir, dividir, propina, pagar), puntos y cupones del propio comercio, y panel con CRM. **No es una superapp** (ADR-001).
 
@@ -31,7 +48,7 @@ TypeScript de punta a punta en un monorepo pnpm + Turborepo (ADR-008):
 - `apps/api`: NestJS, **monolito modular** (ADR-009). El mismo código corre como proceso HTTP o como worker según una variable de entorno.
 - `apps/web-qr` (Next.js, `pay.<dominio>`): el producto principal; presupuesto estricto de rendimiento (NFR-01: < 1,5 s en 4G, JS inicial < 150 KB).
 - `apps/merchant-panel` (Next.js; incluye el backoffice en `/admin`), `apps/mobile` (Expo, secundaria).
-- `packages/shared-types` (DTOs, enums, esquemas zod), `packages/api-client` (generado desde el OpenAPI de NestJS), `packages/ui`, `packages/config`.
+- `packages/shared-types` (enums y contratos de la API). Previstos: `packages/api-client` (generado desde el OpenAPI de NestJS), `packages/ui`, `packages/config`.
 - PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. AWS eu-south-2, Terraform, ECS Fargate.
 
 Reglas entre módulos del backend: un módulo solo accede a datos de otro a través de su servicio público (nada de joins entre tablas de módulos distintos, salvo vistas de `analytics` sobre la réplica). Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).

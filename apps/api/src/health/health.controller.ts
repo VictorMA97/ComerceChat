@@ -18,8 +18,14 @@ export class HealthController {
   @ApiOperation({ summary: 'Estado de la API y sus dependencias' })
   async check(@Res({ passthrough: true }) res: Response) {
     const [postgres, redis] = await Promise.all([
-      this.db.execute(sql`select 1`).then(() => 'ok' as const, () => 'down' as const),
-      this.redis.ping().then(() => 'ok' as const, () => 'down' as const),
+      this.db.execute(sql`select 1`).then(
+        () => 'ok' as const,
+        () => 'down' as const,
+      ),
+      this.redis.ping().then(
+        () => 'ok' as const,
+        () => 'down' as const,
+      ),
     ]);
     const status = postgres === 'ok' && redis === 'ok' ? 'ok' : 'degraded';
     if (status !== 'ok') res.status(HttpStatus.SERVICE_UNAVAILABLE);

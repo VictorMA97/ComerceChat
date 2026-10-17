@@ -287,9 +287,6 @@ importers:
       '@comercechat/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@next/env':
-        specifier: ^16.4.2
-        version: 16.4.2
       next:
         specifier: ^16.4.2
         version: 16.4.2(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -327,9 +324,6 @@ importers:
       '@comercechat/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@next/env':
-        specifier: ^16.4.2
-        version: 16.4.2
       next:
         specifier: ^16.4.2
         version: 16.4.2(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

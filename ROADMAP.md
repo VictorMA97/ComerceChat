@@ -28,9 +28,9 @@
 
 Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHITECTURE.md#poc-local). La PoC se desarrolla **en paralelo** con las acciones de negocio de las semanas 1–6 del plan de 90 días (entrevistas, ofertas de PSP, opinión legal) y no depende de ninguna de ellas.
 
-### P1: base local (semana 1)
+### P1: base local (semana 1) · ✅ completado el 17-oct-2026
 - Monorepo (pnpm + Turborepo), docker compose (Postgres+PostGIS, Redis, Mailpit), `pnpm poc:up`.
-- Cerrar **D-06** (ORM). Primeras migraciones: `merchants`, `merchant_users`, `merchant_locations`, `tables`, `qr_codes`, `users`, `user_consents`, `audit_logs`, `outbox_events`.
+- Cerrar **D-06** (ORM) → Drizzle, [ADR-019](DECISIONS.md#adr-019). Primeras migraciones: `merchants`, `merchant_users`, `merchant_locations`, `tables`, `qr_codes`, `users`, `user_consents`, `audit_logs`, `outbox_events`.
 - NestJS base con OpenAPI/Swagger, autenticación local de comercio (`AuthProvider` local), módulos `merchants`, `venues` y `qr`.
 - Script de datos de prueba (§16.4 de ARCHITECTURE).
 - CI mínima: lint + tests.

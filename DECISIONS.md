@@ -268,11 +268,48 @@
   - El arranque falla en producción si algún selector está en `fake` o `console`.
   - Los simuladores se mantienen como dobles de prueba para los tests de integración y E2E del MVP.
 
+<a id="adr-019"></a>
+## ADR-019: Drizzle ORM con migraciones SQL generadas y revisadas (cierra D-06)
+
+- **Estado:** Aceptada (17-oct-2026)
+- **Contexto:**
+  - Las partes críticas del dominio necesitan SQL explícito: `SELECT … FOR UPDATE` al dividir la cuenta, `UPDATE … WHERE status='ACTIVE' RETURNING` para canjear cupones, índices parciales únicos y PostGIS.
+  - Ver [D-06](#d-06).
+- **Decisión:**
+  - Drizzle ORM (`drizzle-orm` + `node-postgres`). El esquema vive en `apps/api/src/db/schema`.
+  - Las migraciones SQL se generan con `drizzle-kit generate` en `apps/api/drizzle/` y **se revisan a mano antes de aplicarlas**.
+- **Alternativas descartadas:** Prisma. Es más cómodo para CRUD, pero los bloqueos, el `RETURNING` condicional y PostGIS obligan a usar `$queryRaw` justo en el código más delicado.
+- **Consecuencias:**
+  - `drizzle-kit` (0.31) entrecomilla los tipos personalizados con paréntesis. La columna `geography(Point, 4326)` hay que corregirla a mano en el SQL generado.
+  - La migración inicial añade a mano `CREATE EXTENSION postgis`.
+  - Hay que revisar ambas cosas en cada migración que toque PostGIS.
+
+<a id="adr-020"></a>
+## ADR-020: versiones y herramientas del stack fijadas en P1
+
+- **Estado:** Aceptada (17-oct-2026)
+- **Contexto:** al montar el monorepo, las versiones actuales del ecosistema difieren de las que se suponían al escribir la arquitectura.
+  - NestJS 12 y sus paquetes son solo ESM.
+  - Next.js 16 elimina el acceso síncrono a `cookies()`/`params` y renombra `middleware` a `proxy`.
+  - TypeScript 7 (compilador nativo) no es compatible con el compilador del CLI de Nest.
+- **Decisión:**
+  - **API:** NestJS 12 en ESM (`"type": "module"`, `module: NodeNext`, imports relativos con extensión `.js`).
+  - **Tests:** Vitest con `unplugin-swc` (SWC emite los metadatos de decoradores), en lugar de Jest.
+  - **Frontends:** Next.js 16 + React 19.
+  - **TypeScript:** fijado a `~5.9` en todo el monorepo.
+  - **Gestor de paquetes:** pnpm 12, fijado en `packageManager`. Los scripts de instalación se aprueban de forma explícita en `pnpm-workspace.yaml`: `@swc/core` y `esbuild` permitidos; `@scarf/scarf`, telemetría de Swagger UI, bloqueado.
+  - **Variables de entorno:** un único `.env.local` en la raíz.
+    - La API lo carga con `dotenv`.
+    - Las apps Next lo cargan con `process.loadEnvFile` desde `next.config.ts`. `@next/env` no sirve: Next ya lo ha ejecutado para la carpeta de la app y no recarga otro directorio.
+- **Consecuencias:**
+  - Subir TypeScript a 7 queda pendiente de que el CLI de Nest lo soporte.
+  - `packages/api-client`, `packages/ui` y `packages/config` se crean cuando haga falta. De momento solo existe `packages/shared-types`, con los contratos escritos a mano.
+
 ---
 
 ## Decisiones abiertas
 
-> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 (en su versión local) y D-06 se resuelven en la primera semana de la PoC.
+> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 se resuelve en M0; la PoC usa autenticación local. D-06 está cerrada (ADR-019).
 
 <a id="d-01"></a>
 ### D-01: qué PSP usar en el MVP
@@ -340,7 +377,7 @@
 - **Impacto técnico:** `merchants.plan_id`, cálculo de `platform_fee_cents` y facturación de la cuota SaaS (posiblemente vía el sistema de suscripciones del PSP o una herramienta externa).
 
 <a id="d-06"></a>
-### D-06: ORM (Prisma o Drizzle)
+### D-06: ORM (Prisma o Drizzle). **Cerrada → Drizzle ([ADR-019](#adr-019))**
 
 - **Criterios:**
   1. Control sobre el SQL generado (bloqueos `FOR UPDATE`, PostGIS).

@@ -8,6 +8,8 @@ import { api, ApiError, SESSION_COOKIE } from './api';
 
 export interface LoginState {
   error?: string;
+  /** Se devuelve para no vaciar el email tras un error (React resetea el formulario). */
+  email?: string;
 }
 
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
@@ -24,8 +26,9 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
       maxAge: res.expiresIn,
     });
   } catch (err) {
-    if (err instanceof ApiError) return { error: err.problem.title };
-    return { error: 'No se ha podido conectar con la API. ¿Está arrancada?' };
+    const email = String(form.get('email') ?? '');
+    if (err instanceof ApiError) return { error: err.problem.title, email };
+    return { error: 'No se ha podido conectar con la API. ¿Está arrancada?', email };
   }
   redirect('/');
 }
