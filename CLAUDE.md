@@ -1,0 +1,66 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Estado del repositorio
+
+Todavía **no hay código**: el repositorio solo contiene documentación de diseño (en español). No existen comandos de build, lint ni test. Cuando se cree el monorepo (hito P1 de la PoC local, `ROADMAP.md` §2), actualiza este archivo con los comandos reales (pnpm + Turborepo).
+
+ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con servicio en mesa en Madrid: web QR sin instalación (ver cuenta, pedir, dividir, propina, pagar), puntos y cupones del propio comercio, y panel con CRM. **No es una superapp** (ADR-001).
+
+## Mapa de documentos
+
+| Documento | Para qué consultarlo |
+|---|---|
+| `SPEC.md` | Requisitos con IDs estables: `REG-xx` (regulatorios), `FR-<ÁREA>-xx` (funcionales), `NFR-xx`; recorridos de usuario y máquinas de estado (§7) |
+| `ARCHITECTURE.md` | Stack, estructura del monorepo, módulos del backend, interfaces de proveedores, flujo de pago, diseño de QR, modelo de datos (§10), API |
+| `DECISIONS.md` | ADRs aceptados (`ADR-xxx`) y decisiones abiertas (`D-xx`) con su criterio de desbloqueo |
+| `ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho", KPIs de salida |
+| `CONTEXT.md` | Negocio, mercado y regulación (resumen) |
+| `ANALISIS_PROYECTO.md` | Fuente detallada de la que derivan los demás, con cifras y fuentes |
+
+Convenciones de la documentación:
+- Etiquetas `[HECHO]`, `[HIPÓTESIS]`, `[INCIERTO]` en afirmaciones y cifras; mantenlas al editar.
+- Los documentos se enlazan entre sí por ID (`ADR-003`, `FR-PAY-05`, `D-01`) y anclas `<a id="adr-001">`. Si cambias un ID o una decisión, actualiza las referencias cruzadas en todos los documentos.
+- Las decisiones nuevas se añaden como ADR con contexto, decisión, alternativas descartadas, consecuencias y estado. Una decisión que cambia otra se marca `Sustituida por ADR-XXX`, no se borra.
+- Toda función nueva debe justificar su impacto en un KPI de salida de la fase en curso (ADR-001).
+
+## Arquitectura prevista
+
+TypeScript de punta a punta en un monorepo pnpm + Turborepo (ADR-008):
+- `apps/api`: NestJS, **monolito modular** (ADR-009). El mismo código corre como proceso HTTP o como worker según una variable de entorno.
+- `apps/web-qr` (Next.js, `pay.<dominio>`): el producto principal; presupuesto estricto de rendimiento (NFR-01: < 1,5 s en 4G, JS inicial < 150 KB).
+- `apps/merchant-panel` (Next.js; incluye el backoffice en `/admin`), `apps/mobile` (Expo, secundaria).
+- `packages/shared-types` (DTOs, enums, esquemas zod), `packages/api-client` (generado desde el OpenAPI de NestJS), `packages/ui`, `packages/config`.
+- PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. AWS eu-south-2, Terraform, ECS Fargate.
+
+Reglas entre módulos del backend: un módulo solo accede a datos de otro a través de su servicio público (nada de joins entre tablas de módulos distintos, salvo vistas de `analytics` sobre la réplica). Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).
+
+Los proveedores externos van detrás de interfaces: `PaymentProvider` (PSP) y `PosConnector` (software de caja, con `ManualPosConnector` como modo degradado). El PSP y el software de caja concretos aún no están elegidos (D-01, D-02); no acoples código a un proveedor fuera de su adaptador.
+
+## Invariantes que no se pueden romper
+
+Romper estas reglas cambia el estatus regulatorio de la empresa o permite cobrar dos veces (SPEC §4, ADR-003/004/006/012/015):
+- El dinero nunca pasa por cuentas de ComerceChat; solo comisión de plataforma descontada por el PSP. Sin monedero, saldo, envíos entre usuarios ni cashback en dinero.
+- Los datos de tarjeta nunca tocan nuestros servidores: solo componentes alojados del PSP (PCI SAQ A).
+- No se emiten tickets ni facturas; solo "Justificante de pago, no válido como factura" (VeriFactu).
+- Un pago pasa a `CAPTURED` **solo** por webhook firmado del PSP, nunca por la redirección del navegador. Webhooks: firma sobre el cuerpo en bruto, deduplicación por `psp_event_id`, responder 200 y procesar en el worker.
+- `Idempotency-Key` obligatoria en todo POST que cree pagos, reembolsos, canjes o campañas.
+- Los puntos solo se crean desde el procesamiento de webhooks (nunca hay endpoint de cliente para añadirlos). `points_ledger_entries` es de solo-inserción: las correcciones son entradas `REVERSE`/`ADJUST`; `EARN` nace `PENDING`. Los puntos no se compran ni se canjean por dinero, y en el MVP cada programa pertenece a un único comercio.
+- Canje de cupones atómico (`UPDATE … WHERE status='ACTIVE' RETURNING`, `UNIQUE(coupon_redemptions.coupon_id)`).
+- El CRM del comercio solo muestra usuarios cuyo último `user_consents(SHARE_WITH_MERCHANT, merchant_id)` es `granted`. Los consentimientos son de solo-inserción y versionados.
+- Si falla registrar el pago en el software de caja, se reintenta y se avisa al STAFF; el pago **no** se revierte.
+
+Convenciones del modelo de datos: ids UUIDv7, importes en `*_cents BIGINT` + `currency`, `status` como enum de Postgres, errores de API en RFC 9457 con `code` estable, paginación por cursor, textos externalizados (ES/EN) desde el día 1.
+
+## PoC local (primera fase de desarrollo)
+
+El primer código es una PoC que corre entera en local (SPEC §3.3, ARCHITECTURE §16, ADR-017/018). Usa el mismo monorepo y stack que el MVP, no es desechable. Los proveedores externos se sustituyen por simuladores seleccionados por variables de entorno detrás de las mismas interfaces:
+- `PAYMENT_PROVIDER=fake|stripe`
+- `POS_CONNECTOR=fake|manual`
+- `OTP_SENDER=console`
+- `QUEUE_DRIVER=bullmq`
+- `STORAGE_DRIVER=local`
+- `AUTH_PROVIDER=local`
+
+Los simuladores viven en `apps/api/src/<módulo>/providers/fake-*.ts`. El arranque debe fallar con `NODE_ENV=production` si algún selector vale `fake` o `console`. `FakePaymentProvider` envía webhooks firmados por el mismo camino que el PSP real: no hay atajos que marquen pagos como capturados sin pasar por el webhook. Las invariantes de arriba aplican también a la PoC.
