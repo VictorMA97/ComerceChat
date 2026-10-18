@@ -348,3 +348,271 @@ a:focus-visible {
   border-top: 1px solid var(--border);
   padding-top: 10px;
 }
+
+/* --- P3: reparto de la cuenta --- */
+.lines li.paid .name,
+.lines li.paid .price {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+.tag-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+.tag-paying {
+  background: #fff4e5;
+  color: #9a5b00;
+}
+.totals .paying {
+  color: #9a5b00;
+}
+.split {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.split legend {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.split-options {
+  display: grid;
+  gap: 8px;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.option span {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+}
+.option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+.option:has(input:checked) {
+  border-color: var(--accent);
+  background: #e7f3f1;
+}
+/* Cada modo muestra sus campos solo con CSS: funciona sin JavaScript. */
+.split-panel {
+  display: none;
+  gap: 10px;
+  margin-top: 12px;
+}
+.split:has(input[name='split'][value='EQUAL']:checked) .split-panel[data-mode='EQUAL'],
+.split:has(input[name='split'][value='ITEMS']:checked) .split-panel[data-mode='ITEMS'],
+.split:has(input[name='split'][value='AMOUNT']:checked) .split-panel[data-mode='AMOUNT'] {
+  display: grid;
+}
+.split-panel label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.split-panel select,
+.split-panel input:not([type='checkbox']) {
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.pick {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pick li label {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pick input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--accent);
+  justify-self: center;
+}
+.pick input[type='number'] {
+  width: 64px;
+  font: inherit;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pick small {
+  color: var(--muted);
+}
+
+/* --- P4: puntos, cupones y cuenta --- */
+.account-link {
+  margin: 8px 4px 0;
+  font-size: 0.9rem;
+  text-align: right;
+}
+.account-link a,
+.points a {
+  color: var(--accent);
+}
+.big {
+  margin: 4px 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+.points {
+  border-color: var(--accent);
+  background: #f4fbf9;
+}
+.points h2 {
+  margin-bottom: 6px;
+}
+.signin {
+  display: grid;
+  gap: 12px;
+}
+.signin label:not(.check) {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.signin input:not([type='checkbox']) {
+  font: inherit;
+  font-size: 1.1rem;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.consents {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.check {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 0.85rem;
+}
+.check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+.pay-button.as-link {
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+.coupon-list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+.coupon {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px dashed var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.totals .discount {
+  color: #166534;
+}
+.account-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.account-head h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+.section-title {
+  margin: 20px 4px 4px;
+  font-size: 1.05rem;
+}
+.points-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.points-head h3 {
+  margin: 0;
+}
+.rewards {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.rewards li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.consent-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.psp-actions form {
+  display: grid;
+}
+.psp-actions .pay-button {
+  margin-top: 0;
+}
+.as-button {
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  text-decoration: none;
+}

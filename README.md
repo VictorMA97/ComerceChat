@@ -2,7 +2,7 @@
 
 *Pedir, pagar y volver* para restaurantes con servicio en mesa: web QR sin instalación, puntos y cupones del propio comercio y panel con CRM. Esta rama contiene la **PoC local** ([SPEC §3.3](docs/SPEC.md#poc), [ARCHITECTURE §16](docs/ARCHITECTURE.md#poc-local)).
 
-**Estado:** hitos **P1 y P2** de la PoC completados ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta de la mesa leída de una caja simulada, propina, pago con un PSP simulado (webhooks firmados, idempotencia, worker) y justificante. Siguiente: dividir la cuenta y tiempo real (P3).
+**Estado:** hitos **P1, P2 y P3** de la PoC completados ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta leída de una caja simulada, pago con un PSP simulado (webhooks firmados, idempotencia, worker), dividir la cuenta entre varios comensales, cobro con QR desde la caja, vista de sala y tiempo real. Siguiente: usuarios, puntos y cupones (P4).
 
 ## Requisitos
 
@@ -35,6 +35,15 @@ pnpm poc:up
 3. En la página del **PSP simulado** elige: pagar, pagar con 3DS, o simular una tarjeta rechazada.
 4. Llegas al justificante. En el simulador de caja la mesa aparece **Cerrada** con el pago de ComerceChat.
 5. Desde el simulador puedes **simular una caída del TPV**: la web QR pedirá avisar al personal.
+
+### Dividir la cuenta y cobrar con QR desde la caja (P3)
+
+1. Abre en el panel la **Sala** (se actualiza sola) y, en dos o más móviles, el QR de una mesa con cuenta.
+2. En cada móvil elige **qué pagas**: todo lo pendiente, a partes iguales, solo tus platos u otro importe. Mientras uno paga, los demás ven «Pagando ahora otros comensales» y no pueden pagar lo mismo.
+3. **Cobrar con QR desde la caja**: en el **Simulador de caja**, pulsa «Cobrar con QR» en una mesa. Sale un QR por lo que queda por pagar; el cliente lo escanea, paga y la mesa pasa a «Cobrado con QR» al instante. Caduca a los 5 min y solo admite un pago.
+4. Si un comensal abandona el pago, en su página de estado puede **liberar su parte**.
+
+Por el túnel (`pnpm poc:tunnel`) el móvil se actualiza cada ~3 s en lugar de al instante: el túnel rápido de Cloudflare no deja pasar SSE ([ADR-022](docs/DECISIONS.md#adr-022)).
 
 ### Probar desde el móvil
 

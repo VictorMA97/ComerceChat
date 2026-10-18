@@ -10,6 +10,7 @@ const base = {
   QR_HMAC_SECRET: 'y'.repeat(32),
   PII_ENCRYPTION_KEY: 'z'.repeat(32),
   FAKE_PSP_WEBHOOK_SECRET: 'w'.repeat(32),
+  QR_SIGNING_KEY: 'k'.repeat(48),
 };
 
 describe('parseEnv', () => {

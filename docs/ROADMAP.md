@@ -45,12 +45,13 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 - **Hecho cuando:** desde un móvil en la misma wifi se paga una mesa y el simulador de caja la marca como pagada.
 - **Resultado:** verificado en un iPhone simulado contra la app local (cuenta → propina 10 % → 3DS → justificante → cuenta cerrada en el simulador) y con tests E2E (webhook ×10 → un solo cobro; tarjeta rechazada; caja caída). Desde un móvil real se prueba con el túnel (`pnpm poc:tunnel`), no por wifi: en WSL2 la red local no llega. Decisiones de implementación en [ADR-021](DECISIONS.md#adr-021).
 
-### P3: dividir la cuenta, tiempo real e idempotencia (semana 3)
+### P3: dividir la cuenta, tiempo real e idempotencia (semana 3) · ✅ completado el 18-oct-2026
 - `order_allocations`, dividir a partes iguales, por artículos o por importe.
 - SSE por mesa; vista del camarero en el panel.
-- Modo caos del PSP simulado; QR dinámico de mostrador.
+- Modo caos del PSP simulado; QR dinámico de cobro (generado desde la caja para cada mesa, ADR-023).
 - Tests de concurrencia y de idempotencia (criterios 2 y 3).
 - **Hecho cuando:** 4 móviles pagan la misma mesa a la vez sin pagar dos veces ninguna parte, y el panel se actualiza en < 3 s.
+- **Resultado:** verificado a través del túnel con 4 iPhones simulados sobre la Mesa 2 (65,60 €): dos piden el mismo plato a la vez y solo uno lo consigue; los otros pagan a partes iguales y por importe; un 5.º móvil y la **Sala** del panel se actualizan solos. La caja recibió exactamente 65,60 € en 4 pagos sin duplicados y la Sala mostró «Pagada» **0,6 s** después del último pago. Cobro con QR desde la caja («Cobrar con QR» en cada mesa del simulador, [ADR-023](DECISIONS.md#adr-023)): «Cobrado» en 0,8 s y la cuenta de la mesa cerrada. Tests E2E con el modo caos (webhooks retrasados y duplicados) estables en ejecuciones repetidas. Decisiones en [ADR-022](DECISIONS.md#adr-022).
 
 ### P4: usuarios, puntos, cupones y panel (semana 4)
 - Registro tras el pago con OTP por consola y consentimientos.

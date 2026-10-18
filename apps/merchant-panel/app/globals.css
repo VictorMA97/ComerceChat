@@ -296,3 +296,365 @@ button:disabled {
   font-size: 0.85rem;
   margin: 0;
 }
+
+/* --- P3: navegación, sala y mostrador --- */
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.nav-item {
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.nav-item[aria-current='page'] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.nav-logout {
+  margin-left: auto;
+}
+.floor {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.floor-table {
+  border-left-width: 6px;
+  padding: 14px;
+}
+.floor-table header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.floor-table h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.floor-status {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.floor-table dl {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+.floor-table dl div {
+  display: flex;
+  justify-content: space-between;
+}
+.floor-table dt,
+.floor-table dd {
+  margin: 0;
+}
+.floor-table dd {
+  font-variant-numeric: tabular-nums;
+}
+.floor-foot {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.st-free {
+  border-left-color: var(--border);
+}
+.st-free .floor-status {
+  color: var(--muted);
+}
+.st-open {
+  border-left-color: #2563eb;
+}
+.st-open .floor-status {
+  color: #1d4ed8;
+}
+.st-paying {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+.st-paying .floor-status {
+  color: #9a5b00;
+}
+.st-partial {
+  border-left-color: #7c3aed;
+}
+.st-partial .floor-status {
+  color: #6d28d9;
+}
+.st-paid {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+.st-paid .floor-status {
+  color: #166534;
+}
+.st-down {
+  border-left-color: var(--danger);
+}
+.st-down .floor-status {
+  color: var(--danger);
+}
+.counter-form {
+  max-width: 420px;
+  display: grid;
+  gap: 14px;
+}
+.counter-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+.counter-form input,
+.counter-form select {
+  font: inherit;
+  font-size: 1.4rem;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.counter {
+  max-width: 420px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+}
+.counter-amount {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.counter-qr svg {
+  width: 260px;
+  height: 260px;
+  display: block;
+}
+.counter-paid {
+  background: #f0fdf4;
+}
+.counter-ok {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #166534;
+}
+a.button {
+  display: inline-block;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+a.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* --- QR de cobro de la mesa en el simulador de caja --- */
+.pos-qr-button {
+  display: grid;
+  gap: 6px;
+}
+.pos-qr {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: #f4fbf9;
+  text-align: center;
+}
+.pos-qr-code svg {
+  width: 200px;
+  height: 200px;
+  display: block;
+}
+.pos-qr-amount {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pos-qr-paid {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  font-weight: 700;
+}
+
+/* --- P4: analítica y promociones --- */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented a {
+  padding: 6px 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+.segmented a[aria-current='true'] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.tile {
+  padding: 14px;
+}
+.tile-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.tile-value {
+  margin: 4px 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.delta {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.delta.up {
+  color: #166534;
+}
+.delta.down {
+  color: var(--danger);
+}
+.chart-card h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.chart {
+  position: relative;
+}
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.chart-bar {
+  fill: var(--accent);
+}
+.chart-bar.active {
+  fill: #0b5d56;
+}
+.chart-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart-tick {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.chart g:focus {
+  outline: none;
+}
+.chart g:focus-visible .chart-bar {
+  stroke: #5eead4;
+  stroke-width: 3;
+}
+.chart-tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 2px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  font-size: 0.8rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.promo-form {
+  max-width: 640px;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.promo-form h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.promo-form label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.promo-form input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.promo-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.promo-list {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+.promo header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.promo h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.badge-muted {
+  background: var(--bg);
+  color: var(--muted);
+}
+.ok {
+  color: #166534;
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .promo-row {
+    grid-template-columns: 1fr;
+  }
+}

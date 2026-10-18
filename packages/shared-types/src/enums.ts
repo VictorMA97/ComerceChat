@@ -94,3 +94,20 @@ export const TransactionType = {
   FEE: 'FEE',
 } as const;
 export type TransactionType = (typeof TransactionType)[keyof typeof TransactionType];
+
+export const AllocationStatus = {
+  RESERVED: 'RESERVED',
+  PAID: 'PAID',
+  RELEASED: 'RELEASED',
+} as const;
+export type AllocationStatus = (typeof AllocationStatus)[keyof typeof AllocationStatus];
+
+export const SplitMode = {
+  FULL: 'FULL',
+  EQUAL: 'EQUAL',
+  ITEMS: 'ITEMS',
+  AMOUNT: 'AMOUNT',
+  /** Cobro con el QR de un solo uso que el personal genera desde la caja para una mesa (FR-QR-03). */
+  POS_QR: 'POS_QR',
+} as const;
+export type SplitMode = (typeof SplitMode)[keyof typeof SplitMode];

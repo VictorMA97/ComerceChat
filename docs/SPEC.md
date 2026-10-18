@@ -112,7 +112,7 @@ La **prueba de concepto (PoC) local** es una versión del MVP que funciona enter
 
 | Área | Incluido | Simplificación en la PoC |
 |---|---|---|
-| QR | FR-QR-01, FR-QR-03, FR-QR-04, FR-QR-06 | El PDF de placas puede ser una página imprimible en HTML. La URL apunta a la IP local o a un túnel |
+| QR | FR-QR-01, FR-QR-03, FR-QR-04, FR-QR-06 | El PDF de placas puede ser una página imprimible en HTML. La URL apunta a la IP local o a un túnel. FR-QR-03: el QR dinámico se genera desde el simulador de caja para una mesa («Cobrar con QR») por lo que queda por pagar, en lugar de un importe libre de mostrador (ADR-023) |
 | Cuenta y pedidos | FR-ORD-01, FR-ORD-02, FR-ORD-05 | La cuenta viene del **simulador de caja** (`FakePosConnector`). No hay pedido desde la mesa (FR-ORD-03/04 fuera) |
 | Pagos | FR-PAY-01, FR-PAY-02, FR-PAY-03, FR-PAY-05, FR-PAY-06, FR-PAY-10 | **PSP simulado** con página de pago falsa que permite pagar, rechazar o "pedir 3DS" y que envía un webhook firmado a la API. Opcional: Stripe en modo de pruebas. Sin Bizum ni Apple/Google Pay reales |
 | Usuarios | FR-USR-01, FR-USR-02, FR-USR-04 | OTP mostrado en la consola o en Mailpit; no se envían SMS. Sin passkeys ni Apple/Google |

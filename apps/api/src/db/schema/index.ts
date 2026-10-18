@@ -6,3 +6,4 @@ export * from './platform.js';
 export * from './orders.js';
 export * from './payments.js';
 export * from './fake.js';
+export * from './loyalty.js';

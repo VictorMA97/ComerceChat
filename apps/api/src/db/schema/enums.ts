@@ -1,4 +1,5 @@
 import {
+  AllocationStatus,
   ConsentType,
   MerchantStatus,
   MerchantUserRole,
@@ -27,3 +28,4 @@ export const orderStatus = pgEnum('order_status', values(OrderStatus));
 export const paymentMethod = pgEnum('payment_method', values(PaymentMethod));
 export const paymentStatus = pgEnum('payment_status', values(PaymentStatus));
 export const transactionType = pgEnum('transaction_type', values(TransactionType));
+export const allocationStatus = pgEnum('allocation_status', values(AllocationStatus));

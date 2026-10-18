@@ -22,6 +22,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  SMTP_URL: z.string().url().default('smtp://localhost:1025'),
   API_PORT: z.coerce.number().int().positive().default(4000),
   API_BASE_URL: z.string().url().default('http://localhost:4000'),
   /** all = HTTP + workers en el mismo proceso (PoC); http / worker para separarlos (ARCHITECTURE §2). */
@@ -38,12 +39,20 @@ const envSchema = z.object({
   AUTH_PROVIDER: z.enum(['local']).default('local'),
   TELEMETRY: z.enum(['on', 'off']).default('off'),
   JWT_SECRET: secret,
+  /** Sesión del comensal en la web QR (PoC: 30 días, sin token de renovación). */
+  JWT_USER_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 24 * 60 * 60),
   JWT_MERCHANT_TTL_SECONDS: z.coerce
     .number()
     .int()
     .positive()
     .default(8 * 60 * 60),
   QR_HMAC_SECRET: secret,
+  /** Clave Ed25519 (PKCS#8 DER, base64url) para firmar los QR dinámicos. */
+  QR_SIGNING_KEY: z.string().min(40, 'falta QR_SIGNING_KEY (ejecuta pnpm poc:keys)'),
   PII_ENCRYPTION_KEY: secret,
   FAKE_PSP_WEBHOOK_SECRET: secret,
   /** Modo caos del PSP simulado: webhooks retrasados, duplicados y desordenados (ARCHITECTURE §16.3). */
@@ -58,6 +67,13 @@ const envSchema = z.object({
     .int()
     .positive()
     .default(15 * 60),
+  /** Vida de un QR dinámico de mostrador (FR-QR-03: 5 min, configurable a 10). */
+  DYNAMIC_QR_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(60)
+    .max(600)
+    .default(5 * 60),
 });
 
 export type Env = z.infer<typeof envSchema>;

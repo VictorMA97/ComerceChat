@@ -211,16 +211,15 @@ web-qr                     api                          PSP                     
 - **Conciliación diaria** (trabajo a las 06:00): `listBalanceTransactions` frente a `Transaction`. Las discrepancias generan una alerta y un ticket interno.
 
 **Reparto de la cuenta y concurrencia:**
-- La cuenta de la mesa vive en Redis (`bill:{locationId}:{tableId}`) con su versión.
-- La reserva de artículos o importe se hace con un script Lua atómico, o con `SELECT … FOR UPDATE` sobre `order_allocations`.
-- Las reservas no pagadas caducan con la sesión.
+- La cuenta se lee del TPV y se refleja en `orders`/`order_items` (con `pos_line_id`). Cada pago reserva su parte en `order_allocations` (importe o unidades de una línea) con el pedido bloqueado (`SELECT … FOR UPDATE`), así que dos comensales no pueden reservar lo mismo (implementado en P3, [ADR-022](DECISIONS.md#adr-022)).
+- Las reservas no pagadas caducan con la sesión y se liberan si el pago falla, se cancela o se sustituye.
 
 ## 8. Diseño de QR
 
 | Tipo | Contenido | Validación |
 |---|---|---|
 | `STATIC_TABLE` / `STATIC_COUNTER` | `https://pay.<dominio>/t/{shortCode}` (10–12 caracteres base62 aleatorios) | El `shortCode` se busca en BD (índice único); el registro guarda `signature = HMAC-SHA256(secret_kms, id‖location‖table‖version)`, que se recalcula para detectar manipulación de la BD; estado ACTIVE |
-| `DYNAMIC_AMOUNT` | `https://pay.<dominio>/d/{token}`; `token` = JWS (Ed25519) con `{qrId, locationId, amountCents, exp, nonce}` | Firma válida, `exp` no vencido, `nonce` no consumido (Redis `SETNX` + BD) |
+| `DYNAMIC_AMOUNT` | `https://pay.<dominio>/d/{token}`; `token` = JWS (Ed25519) con `{qrId, locationId, tableId, amountCents, exp, nonce}`. Lo genera la caja para una mesa por lo pendiente ([ADR-023](DECISIONS.md#adr-023)) | Firma válida, `exp` no vencido, `nonce` igual al de la BD, QR `ACTIVE` y sin otra sesión viva (fila bloqueada); `CONSUMED` al capturar ([ADR-022](DECISIONS.md#adr-022)) |
 
 - La clave de firma se rota (`kid` en la cabecera del JWS) y las claves privadas se custodian en KMS.
 - Revocación: `status = REVOKED` + invalidación de la cache en Redis. Efectiva en < 60 s (FR-QR-05).
@@ -339,8 +338,8 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 
 ## 12. Tiempo real
 
-- Canal por mesa: `table:{locationId}:{tableId}`. Los eventos son `bill.updated`, `payment.captured` y `order.status`.
-- La web QR usa **SSE** (más sencillo y compatible con proxies). El panel usa WebSocket (Socket.IO) para el mapa de mesas.
+- Canal de Redis por local: `rt:location:{locationId}`. Eventos `table.updated` y `counter.updated` con un motivo (`payment.started`, `payment.captured`, `bill.closed`, `pos.item_added`…). Solo avisan: el cliente vuelve a pedir los datos.
+- **SSE** en la web QR y en el panel, a través de sus propias rutas de Next (la API no se expone al navegador). El flujo empieza con `ready`; si no llega, el cliente pasa a sondeo cada 3 s (necesario tras el túnel rápido de Cloudflare, que no admite SSE). Se descarta WebSocket para el panel ([ADR-022](DECISIONS.md#adr-022)).
 - Varias réplicas de la API se coordinan mediante pub/sub de Redis.
 
 ## 13. Trabajos asíncronos
@@ -484,8 +483,8 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 | Prueba | Herramienta | Cubre el criterio de SPEC §3.3 |
 |---|---|---|
 | Recorrido completo escaneo → pago → puntos → panel | Playwright (2 contextos de navegador: comensal + panel) | 1, 5 |
-| 4 pagadores simultáneos en la misma mesa | Test de integración (Vitest + Postgres real en Docker) | 2 |
-| Webhook duplicado ×10 | `apps/api/test/payments.e2e-spec.ts` (✅ P2). El modo caos queda para P3 | 3 |
+| 4 pagadores simultáneos en la misma mesa | `apps/api/test/split-realtime.e2e-spec.ts` (✅ P3) + navegador con 4 móviles por el túnel | 2 |
+| Webhook duplicado ×10 y desordenado | `apps/api/test/payments.e2e-spec.ts` (✅ P2) y `split-realtime.e2e-spec.ts` con `FAKE_PSP_CHAOS=on` (✅ P3) | 3 |
 | 100 canjes paralelos del mismo cupón | Test de integración | 4 |
 | Firma de QR manipulada o caducada | Test unitario | — |
 

@@ -22,6 +22,6 @@ import { MerchantAuthGuard } from './merchant-auth.guard.js';
     // AUTH_PROVIDER=local es el único valor en la PoC (D-03).
     { provide: MERCHANT_AUTH_PROVIDER, useClass: LocalMerchantAuthProvider },
   ],
-  exports: [AuthService, MerchantAuthGuard],
+  exports: [AuthService, MerchantAuthGuard, JwtModule],
 })
 export class AuthModule {}

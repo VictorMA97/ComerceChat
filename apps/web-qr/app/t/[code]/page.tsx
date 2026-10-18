@@ -1,8 +1,11 @@
-import type { TableBill } from '@comercechat/shared-types';
+import type { CouponView, TableBill } from '@comercechat/shared-types';
 import { headers } from 'next/headers';
 import { randomUUID } from 'node:crypto';
+import { AccountLink } from '@/components/account-link';
 import { MerchantHeader } from '@/components/merchant-header';
+import { apiAsUser, userToken } from '@/lib/user';
 import { api, ApiError } from '@/lib/api';
+import { LiveRefresh } from '@/lib/live-refresh';
 import { formatCents } from '@/lib/money';
 import { PayForm } from './pay-form';
 
@@ -27,15 +30,22 @@ export default async function TablePage({ params }: PageProps<'/t/[code]'>) {
             ? 'Pide la cuenta al personal del local.'
             : err.problem.title}
         </p>
+        {err.problem.code === 'POS_UNAVAILABLE' && <LiveRefresh src={`/t/${code}/events`} />}
       </main>
     );
   }
 
   const host = (await headers()).get('host');
   const { bill } = data;
+  // Cupones del comensal identificado en este comercio; si falla, se paga sin cupón.
+  const coupons = (await userToken())
+    ? await apiAsUser<CouponView[]>(`/me/coupons?merchantId=${data.qr.merchant.id}`).catch(() => [])
+    : [];
   return (
     <main>
+      <LiveRefresh src={`/t/${code}/events`} />
       <MerchantHeader qr={data.qr} host={host} />
+      <AccountLink />
 
       {!bill ? (
         <section className="card empty">
@@ -45,12 +55,20 @@ export default async function TablePage({ params }: PageProps<'/t/[code]'>) {
       ) : (
         <>
           <section className="card" aria-labelledby="bill-title">
-            <h2 id="bill-title">Tu cuenta</h2>
+            <h2 id="bill-title">Cuenta de la mesa</h2>
             <ul className="lines">
-              {bill.lines.map((l, i) => (
-                <li key={i}>
+              {bill.lines.map((l) => (
+                <li key={l.lineId} className={l.paidUnits >= l.qty ? 'paid' : undefined}>
                   <span className="qty">{l.qty}×</span>
-                  <span className="name">{l.name}</span>
+                  <span className="name">
+                    {l.name}
+                    {l.paidUnits > 0 && (
+                      <small className="tag tag-paid">
+                        {l.paidUnits === l.qty ? 'pagado' : `${l.paidUnits} pagado`}
+                      </small>
+                    )}
+                    {l.reservedUnits > 0 && <small className="tag tag-paying">pagando</small>}
+                  </span>
                   <span className="price">{formatCents(l.totalCents)}</span>
                 </li>
               ))}
@@ -66,18 +84,34 @@ export default async function TablePage({ params }: PageProps<'/t/[code]'>) {
                   <dd>−{formatCents(bill.paidCents)}</dd>
                 </div>
               )}
+              {bill.reservedCents > 0 && (
+                <div className="paying">
+                  <dt>Pagando ahora otros comensales</dt>
+                  <dd>−{formatCents(bill.reservedCents)}</dd>
+                </div>
+              )}
+              <div className="grand">
+                <dt>Queda por pagar</dt>
+                <dd>{formatCents(bill.availableCents)}</dd>
+              </div>
             </dl>
           </section>
 
-          {bill.pendingCents > 0 ? (
+          {bill.availableCents > 0 ? (
             <section className="card">
               <PayForm
-                qrCode={code}
-                pendingCents={bill.pendingCents}
+                target={{ qrCode: code }}
+                bill={bill}
                 tips={data.tips}
                 guestMaxPaymentCents={data.guestMaxPaymentCents}
                 idempotencyBase={randomUUID()}
+                coupons={coupons}
               />
+            </section>
+          ) : bill.reservedCents > 0 ? (
+            <section className="card empty" aria-live="polite">
+              <h2>Otro comensal está pagando lo que queda</h2>
+              <p>Esta página se actualizará sola cuando termine.</p>
             </section>
           ) : (
             <section className="card empty">

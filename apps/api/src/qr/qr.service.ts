@@ -175,7 +175,7 @@ export class QrService {
     return {
       shortCode: row.shortCode,
       type: row.type,
-      merchant: { brandName: merchant.brandName, logoUrl: merchant.logoUrl },
+      merchant: { id: merchant.id, brandName: merchant.brandName, logoUrl: merchant.logoUrl },
       location: { id: row.location.id, name: row.location.name, address: row.location.address },
       table: row.table ? { id: row.table.id, label: row.table.label } : null,
     };

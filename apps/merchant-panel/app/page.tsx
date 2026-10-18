@@ -1,10 +1,9 @@
 import type { LocationView, MerchantMe } from '@comercechat/shared-types';
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import { PrintButton, RegenerateQrButton } from '@/components/table-actions';
-import { logout } from '@/lib/actions';
+import { Nav } from '@/components/nav';
 import { api, isUnauthenticated, SESSION_COOKIE } from '@/lib/api';
 
 const qrSvg = (url: string) =>
@@ -39,6 +38,7 @@ export default async function TablesPage() {
 
   return (
     <div className="shell">
+      <Nav current="/" />
       <p className="poc-banner">
         PoC local: sin pagos reales. Los QR apuntan a <code>{qrOrigin}</code>.
       </p>
@@ -50,13 +50,7 @@ export default async function TablesPage() {
           </span>
         </div>
         <div className="table-actions">
-          <Link className="button nav-link" href="/pos-simulator">
-            Simulador de caja
-          </Link>
           <PrintButton />
-          <form action={logout}>
-            <button type="submit">Salir</button>
-          </form>
         </div>
       </header>
 

@@ -313,7 +313,7 @@
 - **Decisión:**
   - **Lo pendiente de una mesa** = total del TPV − pagado según el TPV − lo capturado por ComerceChat que aún no se ha registrado en el TPV. Así no se cobra dos veces mientras el registro en caja está en curso.
   - **Pedido espejo:** al crear una sesión de pago, la cuenta del TPV se copia en `orders`/`order_items` (`source=POS`, `pos_external_id`). Su fila se bloquea (`FOR UPDATE`) para serializar los pagos de la misma mesa.
-  - **Una sola sesión de pago viva por cuenta (solo P2, pago completo):** una sesión nueva sustituye a las anteriores (`FAILED`/`SUPERSEDED`) y las cancela en el PSP. Si el PSP cobra una sesión ya cancelada, se registra igualmente como `CAPTURED` (el PSP manda) y se anota `payment.captured_after_cancel` en auditoría para reembolsarla. En P3 se sustituye por `order_allocations` (varios pagadores).
+  - ~~**Una sola sesión de pago viva por cuenta (solo P2, pago completo):**~~ *Sustituida por [ADR-022](#adr-022) en P3.* una sesión nueva sustituye a las anteriores (`FAILED`/`SUPERSEDED`) y las cancela en el PSP. Si el PSP cobra una sesión ya cancelada, se registra igualmente como `CAPTURED` (el PSP manda) y se anota `payment.captured_after_cancel` en auditoría para reembolsarla. En P3 se sustituye por `order_allocations` (varios pagadores).
   - **La web QR hace de intermediaria (BFF):** el navegador del comensal no llama a la API. Usa renderizado en servidor y *server actions* de Next, y la página de estado se refresca con `router.refresh()`. Solo hay que exponer la web QR (túnel) y la API no queda en internet.
   - **El formulario de pago funciona sin JavaScript** (mejora progresiva): las propinas son radios nativos y la *server action* calcula la propina a partir de la opción elegida. En móviles lentos el comensal puede tocar antes de que cargue la página; si no, el toque se perdía y se pagaba sin propina (detectado en la verificación de P2).
   - **Estado del pago sin cuenta:** `GET /v1/payments/:id?t=` con un token HMAC del id del pago (versión simplificada de la `guest_session` de ARCHITECTURE §11).
@@ -323,6 +323,50 @@
 - **Consecuencias:**
   - P3 debe sustituir la regla de «una sola sesión» por asignaciones.
   - Los eventos SSE de la mesa no llegan al navegador directamente: habrá que pasarlos por la web QR (P3).
+
+<a id="adr-022"></a>
+## ADR-022: reparto de la cuenta, tiempo real y cobro en mostrador (P3)
+
+- **Estado:** Aceptada (18-oct-2026). Sustituye la regla de «una sola sesión viva por cuenta» de ADR-021.
+- **Decisión:**
+  - **Asignaciones (`order_allocations`):** cada pago reserva su parte, sea un importe (`AMOUNT`) o unidades de una línea del TPV (`ITEM`, por `pos_line_id`).
+    - Se crean con el pedido bloqueado (`FOR UPDATE`) y releyendo el estado en la misma transacción.
+    - **Invariante:** pagado en el TPV + cobrado sin registrar + reservado vigente ≤ total.
+    - Las reservas caducan con la sesión (15 min). Se liberan si el pago falla, caduca, se cancela o se sustituye, y pasan a `PAID` al capturarse.
+  - **Modos (FR-PAY-02):**
+    - `FULL`: lo disponible.
+    - `EQUAL`: `ceil(total × partes/personas)`, limitado a lo disponible, para que la suma cubra el total.
+    - `ITEMS`: unidades libres de cada línea.
+    - `AMOUNT`: un importe ≤ lo disponible.
+    - El cálculo de `EQUAL` y de la propina está en `packages/shared-types`, y lo usan tanto la API como la web QR.
+  - **Propina:** la web QR envía `{percent}` o `{amount}` y la API la calcula sobre la parte de cada comensal (FR-PAY-03).
+  - **Reintentos:** un nuevo intento desde **el mismo dispositivo** (cookie `cc_guest` → `guestSessionId`) sustituye sus sesiones anteriores. Los demás comensales no se ven afectados. El comensal también puede liberar su parte desde la página de estado (`POST /payments/:id/cancel`).
+  - **Tiempo real:** pub/sub de Redis por local y SSE tanto en la web QR como en el panel. Se descarta WebSocket en el panel: SSE basta para avisos de un solo sentido y pasa por los mismos *route handlers* de Next (la API no se expone).
+    - El evento solo avisa; el cliente vuelve a pedir la página (`router.refresh()`).
+    - El flujo empieza con `ready`. Si no llega en 4 s, el cliente pasa a sondeo cada 3 s.
+    - **Motivo:** el túnel rápido de Cloudflare (`trycloudflare.com`) no admite SSE: retiene el cuerpo de la respuesta, comprobado incluso con un servidor SSE mínimo. Con un túnel con nombre o en el MVP el SSE funciona directamente.
+  - **QR dinámico (FR-QR-03):** token JWS compacto EdDSA (`QR_SIGNING_KEY`), caduca a los 5 min (`DYNAMIC_QR_TTL_SECONDS`). El nonce y el uso único se garantizan en la BD: fila del QR bloqueada, una sesión viva por QR y `CONSUMED` al capturar. No se usa Redis `SETNX`.
+  - ~~**Cobro en mostrador** sin mesa, con importe libre y sin registro en el TPV.~~ *Sustituido por [ADR-023](#adr-023): el QR dinámico se genera desde la caja para una mesa.*
+  - **Vista de sala (FR-MER-08):** estado por mesa (libre / con cuenta / pagando / pago parcial / pagada / caja sin conexión) y propinas del día (zona horaria de Madrid).
+- **Consecuencias:**
+  - Al pagar por importe o a partes iguales no se marcan platos; si alguien paga por platos después, el límite lo pone el importe disponible.
+  - Si el TPV cobra una parte por su cuenta (efectivo), ComerceChat solo conoce el importe, no qué platos.
+
+<a id="adr-023"></a>
+## ADR-023: el QR dinámico se genera desde la caja para cada mesa («Cobrar con QR»)
+
+- **Estado:** Aceptada (18-oct-2026). Sustituye el «cobro en mostrador» de ADR-022.
+- **Contexto:** el producto pidió quitar la sección «Cobro en mostrador» del panel y que el cobro con QR dinámico fuera un botón en cada mesa del simulador de caja. Es lo que haría el camarero desde su TPV: pulsar «Cobrar con QR» en una mesa y enseñar el QR al cliente.
+- **Decisión:**
+  - `POST /v1/merchant/tables/:tableId/payment-qr` genera un QR de un solo uso por **lo que queda por pagar en la mesa** en ese momento (`availableCents`). Si había otro QR activo de esa mesa, se anula.
+  - El token firma también la mesa: `{qrId, locationId, tableId, amountCents, exp, nonce}`.
+  - **El pago se trata como cualquier otro pago de la mesa** (`splitMode=POS_QR`): reserva su importe en `order_allocations` con el pedido bloqueado, se registra en la cuenta del TPV y la cierra.
+  - Si, entre que se genera el QR y se paga, los comensales pagan parte desde sus móviles y el importe ya no cabe, se rechaza con `PAYMENT_QR_OUTDATED`: el personal genera uno nuevo. Nunca se cobra de más.
+  - **Simulador de caja:** cada mesa con saldo pendiente tiene «Cobrar con QR». El QR aparece en la tarjeta con «Anular QR» y pasa a «Cobrado con QR» en tiempo real. La API devuelve en `FakePosState` el último QR de cada mesa.
+  - Se eliminan la página `/mostrador`, el endpoint por local y el evento `counter.updated`; todo va por `table.updated`.
+- **Consecuencias:**
+  - En la PoC no hay cobro sin mesa. FR-QR-02 (QR estático de mostrador) sigue fuera del alcance de la PoC.
+  - **Pendiente:** el QR lleva el token firmado entero en la URL (~300 caracteres) y sale denso. Si cuesta escanearlo desde una pantalla, se puede usar un código corto en la URL y dejar la firma en la BD, como en los QR de mesa.
 
 ---
 

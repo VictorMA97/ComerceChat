@@ -15,6 +15,20 @@
       "when": 1792337756796,
       "tag": "0001_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792339795078,
+      "tag": "0002_split_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792343792464,
+      "tag": "0003_loyalty_coupons",
+      "breakpoints": true
     }
   ]
 }
