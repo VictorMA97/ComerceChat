@@ -1,68 +1,92 @@
-import type { ProblemDetails, QrResolution } from '@comercechat/shared-types';
+import type { TableBill } from '@comercechat/shared-types';
 import { headers } from 'next/headers';
+import { randomUUID } from 'node:crypto';
+import { MerchantHeader } from '@/components/merchant-header';
+import { api, ApiError } from '@/lib/api';
+import { formatCents } from '@/lib/money';
+import { PayForm } from './pay-form';
 
-const apiBase = () => process.env.API_BASE_URL ?? 'http://localhost:4000';
+const ERROR_TITLES: Record<string, string> = {
+  QR_INVALID: 'Este código QR no es válido',
+  MERCHANT_UNAVAILABLE: 'Este comercio no acepta pagos por QR ahora',
+};
 
-type Result = { ok: true; qr: QrResolution } | { ok: false; problem: ProblemDetails | null };
-
-async function resolveQr(code: string): Promise<Result> {
-  try {
-    const res = await fetch(`${apiBase()}/v1/qr/${encodeURIComponent(code)}`, {
-      cache: 'no-store',
-    });
-    const body: unknown = await res.json();
-    return res.ok
-      ? { ok: true, qr: body as QrResolution }
-      : { ok: false, problem: body as ProblemDetails };
-  } catch {
-    return { ok: false, problem: null };
-  }
-}
-
-export default async function QrPage({ params }: PageProps<'/t/[code]'>) {
+export default async function TablePage({ params }: PageProps<'/t/[code]'>) {
   const { code } = await params;
-  const result = await resolveQr(code);
-
-  if (!result.ok) {
+  let data: TableBill;
+  try {
+    data = await api<TableBill>(`/qr/${encodeURIComponent(code)}/bill`);
+  } catch (err) {
+    if (!(err instanceof ApiError)) throw err;
     // Página de error segura: nunca muestra datos del comercio (FR-QR-01).
-    const unavailable = result.problem?.code === 'MERCHANT_UNAVAILABLE';
     return (
       <main className="error-box">
-        <h1>
-          {unavailable
-            ? 'Este comercio no acepta pagos por QR ahora'
-            : 'Este código QR no es válido'}
-        </h1>
+        <h1>{ERROR_TITLES[err.problem.code] ?? 'No podemos mostrar la cuenta'}</h1>
         <p>
-          {result.problem
+          {ERROR_TITLES[err.problem.code]
             ? 'Pide la cuenta al personal del local.'
-            : 'No hemos podido conectar. Inténtalo de nuevo en unos segundos.'}
+            : err.problem.title}
         </p>
       </main>
     );
   }
 
-  const { qr } = result;
   const host = (await headers()).get('host');
+  const { bill } = data;
   return (
     <main>
-      <header className="identity">
-        <div className="logo" aria-hidden="true">
-          {qr.merchant.brandName.charAt(0)}
-        </div>
-        <div>
-          <h1>{qr.merchant.brandName}</h1>
-          <p>{qr.location.address}</p>
-          {qr.table && <span className="table-label">{qr.table.label}</span>}
-        </div>
-      </header>
-      <p className="domain-hint">
-        Comprueba que la dirección empieza por <strong>{host}</strong> antes de pagar.
-      </p>
-      <section className="next" aria-live="polite">
-        <p>Aquí verás la cuenta de la mesa, podrás dividirla, dejar propina y pagar.</p>
-        <p>(Llega en el hito P2 de la PoC.)</p>
-      </section>
+      <MerchantHeader qr={data.qr} host={host} />
+
+      {!bill ? (
+        <section className="card empty">
+          <h2>No hay ninguna cuenta abierta</h2>
+          <p>Cuando el personal abra la cuenta de esta mesa podrás verla y pagarla aquí.</p>
+        </section>
+      ) : (
+        <>
+          <section className="card" aria-labelledby="bill-title">
+            <h2 id="bill-title">Tu cuenta</h2>
+            <ul className="lines">
+              {bill.lines.map((l, i) => (
+                <li key={i}>
+                  <span className="qty">{l.qty}×</span>
+                  <span className="name">{l.name}</span>
+                  <span className="price">{formatCents(l.totalCents)}</span>
+                </li>
+              ))}
+            </ul>
+            <dl className="totals">
+              <div>
+                <dt>Total</dt>
+                <dd>{formatCents(bill.totalCents)}</dd>
+              </div>
+              {bill.paidCents > 0 && (
+                <div>
+                  <dt>Ya pagado</dt>
+                  <dd>−{formatCents(bill.paidCents)}</dd>
+                </div>
+              )}
+            </dl>
+          </section>
+
+          {bill.pendingCents > 0 ? (
+            <section className="card">
+              <PayForm
+                qrCode={code}
+                pendingCents={bill.pendingCents}
+                tips={data.tips}
+                guestMaxPaymentCents={data.guestMaxPaymentCents}
+                idempotencyBase={randomUUID()}
+              />
+            </section>
+          ) : (
+            <section className="card empty">
+              <h2>Cuenta pagada</h2>
+              <p>¡Gracias! No queda nada pendiente en esta mesa.</p>
+            </section>
+          )}
+        </>
+      )}
     </main>
   );
 }

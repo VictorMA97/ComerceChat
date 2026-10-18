@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Monorepo pnpm + Turborepo con la **PoC local** en curso: hito P1 completado (`ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js); todavía no hay pagos (P2). Comentarios, documentación y textos de UI en español.
+Monorepo pnpm + Turborepo con la **PoC local** en curso: hitos P1 y P2 completados (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js), con pago simulado de la cuenta completa de una mesa; dividir la cuenta y el tiempo real llegan en P3. Comentarios, documentación y textos de UI en español.
 
 ## Comandos
 
@@ -22,6 +22,8 @@ Monorepo pnpm + Turborepo con la **PoC local** en curso: hito P1 completado (`RO
 - TypeScript fijado a `~5.9` (el CLI de Nest no soporta TS 7).
 - Variables de entorno: un único `.env.local` en la raíz (generado por `pnpm poc:keys`), validado con zod en `apps/api/src/config/env.ts`. Las apps Next lo cargan en `next.config.ts`.
 - Errores de la API: lanza `AppError(code, status, title)`; `ProblemFilter` lo convierte en RFC 9457.
+- Asíncrono: `QueueService` (BullMQ) registra workers que solo arrancan si `PROCESS_ROLE` ≠ `http`. Los eventos de dominio se escriben con `OutboxService.enqueue(tx, …)` dentro de la transacción y se consumen con `OutboxRelayService.on(tipo, handler)`; los handlers deben ser idempotentes.
+- El navegador del comensal nunca llama a la API: `apps/web-qr` la consulta desde el servidor (ADR-021).
 
 ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con servicio en mesa en Madrid: web QR sin instalación (ver cuenta, pedir, dividir, propina, pagar), puntos y cupones del propio comercio, y panel con CRM. **No es una superapp** (ADR-001).
 
@@ -29,12 +31,12 @@ ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con serv
 
 | Documento | Para qué consultarlo |
 |---|---|
-| `SPEC.md` | Requisitos con IDs estables: `REG-xx` (regulatorios), `FR-<ÁREA>-xx` (funcionales), `NFR-xx`; recorridos de usuario y máquinas de estado (§7) |
-| `ARCHITECTURE.md` | Stack, estructura del monorepo, módulos del backend, interfaces de proveedores, flujo de pago, diseño de QR, modelo de datos (§10), API |
-| `DECISIONS.md` | ADRs aceptados (`ADR-xxx`) y decisiones abiertas (`D-xx`) con su criterio de desbloqueo |
-| `ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho", KPIs de salida |
-| `CONTEXT.md` | Negocio, mercado y regulación (resumen) |
-| `ANALISIS_PROYECTO.md` | Fuente detallada de la que derivan los demás, con cifras y fuentes |
+| `docs/SPEC.md` | Requisitos con IDs estables: `REG-xx` (regulatorios), `FR-<ÁREA>-xx` (funcionales), `NFR-xx`; recorridos de usuario y máquinas de estado (§7) |
+| `docs/ARCHITECTURE.md` | Stack, estructura del monorepo, módulos del backend, interfaces de proveedores, flujo de pago, diseño de QR, modelo de datos (§10), API |
+| `docs/DECISIONS.md` | ADRs aceptados (`ADR-xxx`) y decisiones abiertas (`D-xx`) con su criterio de desbloqueo |
+| `docs/ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho", KPIs de salida |
+| `docs/CONTEXT.md` | Negocio, mercado y regulación (resumen) |
+| `docs/ANALISIS_PROYECTO.md` | Fuente detallada de la que derivan los demás, con cifras y fuentes |
 
 Convenciones de la documentación:
 - Etiquetas `[HECHO]`, `[HIPÓTESIS]`, `[INCIERTO]` en afirmaciones y cifras; mantenlas al editar.

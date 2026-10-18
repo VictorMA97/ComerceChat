@@ -22,7 +22,7 @@ jobs:
           POSTGRES_DB: comercechat
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U comercechat -d comercechat"
+          --health-cmd "pg_isready -h 127.0.0.1 -U comercechat -d comercechat"
           --health-interval 2s --health-timeout 3s --health-retries 30
       redis:
         image: redis:7-alpine

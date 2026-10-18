@@ -305,6 +305,25 @@
   - Subir TypeScript a 7 queda pendiente de que el CLI de Nest lo soporte.
   - `packages/api-client`, `packages/ui` y `packages/config` se crean cuando haga falta. De momento solo existe `packages/shared-types`, con los contratos escritos a mano.
 
+<a id="adr-021"></a>
+## ADR-021: flujo de pago de la PoC (P2)
+
+- **Estado:** Aceptada (18-oct-2026)
+- **Contexto:** al implementar el pago simulado de P2 hubo que concretar varias cosas que la arquitectura dejaba abiertas.
+- **Decisión:**
+  - **Lo pendiente de una mesa** = total del TPV − pagado según el TPV − lo capturado por ComerceChat que aún no se ha registrado en el TPV. Así no se cobra dos veces mientras el registro en caja está en curso.
+  - **Pedido espejo:** al crear una sesión de pago, la cuenta del TPV se copia en `orders`/`order_items` (`source=POS`, `pos_external_id`). Su fila se bloquea (`FOR UPDATE`) para serializar los pagos de la misma mesa.
+  - **Una sola sesión de pago viva por cuenta (solo P2, pago completo):** una sesión nueva sustituye a las anteriores (`FAILED`/`SUPERSEDED`) y las cancela en el PSP. Si el PSP cobra una sesión ya cancelada, se registra igualmente como `CAPTURED` (el PSP manda) y se anota `payment.captured_after_cancel` en auditoría para reembolsarla. En P3 se sustituye por `order_allocations` (varios pagadores).
+  - **La web QR hace de intermediaria (BFF):** el navegador del comensal no llama a la API. Usa renderizado en servidor y *server actions* de Next, y la página de estado se refresca con `router.refresh()`. Solo hay que exponer la web QR (túnel) y la API no queda en internet.
+  - **El formulario de pago funciona sin JavaScript** (mejora progresiva): las propinas son radios nativos y la *server action* calcula la propina a partir de la opción elegida. En móviles lentos el comensal puede tocar antes de que cargue la página; si no, el toque se perdía y se pagaba sin propina (detectado en la verificación de P2).
+  - **Estado del pago sin cuenta:** `GET /v1/payments/:id?t=` con un token HMAC del id del pago (versión simplificada de la `guest_session` de ARCHITECTURE §11).
+  - **Comisión de plataforma provisional:** 0,5 % del importe sin propina (`PLATFORM_FEE_BPS`, `PLATFORM_FEE_FIXED_CENTS`) hasta cerrar D-05.
+  - **Worker en el mismo proceso** (`PROCESS_ROLE=all`): colas BullMQ con prefijo configurable (`QUEUE_PREFIX`; los tests usan uno propio) y relé del outbox cada 300 ms.
+  - **Tablas `fake_*` en el esquema `public`** durante la PoC (ARCHITECTURE §16.7: separarlas antes de producción).
+- **Consecuencias:**
+  - P3 debe sustituir la regla de «una sola sesión» por asignaciones.
+  - Los eventos SSE de la mesa no llegan al navegador directamente: habrá que pasarlos por la web QR (P3).
+
 ---
 
 ## Decisiones abiertas

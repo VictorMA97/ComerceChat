@@ -11,7 +11,6 @@ export interface DomainEvent {
 
 /**
  * Patrón outbox (ARCHITECTURE §5): el evento se guarda en la misma transacción que el cambio.
- * El publicador (worker) llega en P2.
  */
 @Injectable()
 export class OutboxService {

@@ -24,7 +24,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
-  const body: unknown = res.status === 204 ? null : await res.json();
+  const text = await res.text();
+  const body: unknown = text ? JSON.parse(text) : null;
   if (!res.ok) throw new ApiError(body as ProblemDetails);
   return body as T;
 }

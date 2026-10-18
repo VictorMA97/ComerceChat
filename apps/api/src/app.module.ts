@@ -6,8 +6,12 @@ import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
 import { MerchantsModule } from './merchants/merchants.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
+import { PosModule } from './pos/pos.module.js';
 import { QrModule } from './qr/qr.module.js';
+import { QueueModule } from './queue/queue.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { TablesModule } from './tables/tables.module.js';
 import { VenuesModule } from './venues/venues.module.js';
 
 @Module({
@@ -15,12 +19,16 @@ import { VenuesModule } from './venues/venues.module.js';
     ConfigModule,
     DbModule,
     RedisModule,
+    QueueModule,
     AuditModule,
     OutboxModule,
     AuthModule,
     MerchantsModule,
     VenuesModule,
     QrModule,
+    PosModule,
+    TablesModule,
+    PaymentsModule,
   ],
   controllers: [HealthController],
 })

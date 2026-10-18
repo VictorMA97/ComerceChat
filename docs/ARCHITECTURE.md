@@ -163,12 +163,15 @@ Para la PoC y los tests existe además `FakePaymentProvider`, que simula el PSP 
 
 ```ts
 interface PosConnector {
-  getOpenBill(externalTableId: string): Promise<Bill | null>;
-  getMenu(externalLocationId: string): Promise<MenuSnapshot>;
-  sendOrder(externalTableId: string, items: OrderItemInput[]): Promise<{ externalOrderId: string }>;
-  registerPayment(externalTableId: string, p: { amountCents: number; tipCents: number; reference: string }): Promise<void>;
-  listTables(externalLocationId: string): Promise<ExternalTable[]>;
-  health(): Promise<'ok' | 'degraded' | 'down'>;
+  // Implementado en P2 (apps/api/src/pos/pos-connector.ts). `locationId` selecciona credenciales y local.
+  getOpenBill(locationId: string, externalTableId: string): Promise<PosBill | null>;
+  registerPayment(locationId: string, externalTableId: string,
+    p: { amountCents: number; tipCents: number; reference: string }): Promise<{ billClosed: boolean }>;
+  health(locationId: string): Promise<'ok' | 'degraded' | 'down'>;
+  // Pendiente (M2, con D-02):
+  getMenu(locationId: string): Promise<MenuSnapshot>;
+  sendOrder(locationId: string, externalTableId: string, items: OrderItemInput[]): Promise<{ externalOrderId: string }>;
+  listTables(locationId: string): Promise<ExternalTable[]>;
 }
 ```
 
@@ -422,24 +425,26 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Autenticación gestionada (D-03) | JWT propio + OTP por consola, detrás de la misma interfaz `AuthProvider` | `AUTH_PROVIDER=local` |
 | Cloudflare / WAF | Límites de peticiones en la aplicación (Redis) | — |
 | Sentry / OpenTelemetry / PostHog | Desactivados por defecto; logs estructurados (pino) en la consola | `TELEMETRY=off` |
+| Proceso worker separado | Workers BullMQ y relé del outbox dentro del proceso de la API | `PROCESS_ROLE=all\|http\|worker` |
+| Colas aisladas por entorno | Prefijo de colas en Redis (los tests usan uno propio) | `QUEUE_PREFIX` |
 | Terraform / AWS / ECS | No aplica | — |
 | App móvil (Expo) | No aplica | — |
 
-**Regla de código:** las implementaciones simuladas viven en `apps/api/src/<módulo>/providers/fake-*.ts` y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
+**Regla de código:** las implementaciones simuladas viven en `apps/api/src/pos/fake-pos.*` y `apps/api/src/payments/fake-psp/` y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
 
 <a id="poc-fakes"></a>
 ### 16.3 Simuladores
 
 **`FakePaymentProvider`:**
 - `createPaymentSession` crea un registro `fake_psp_sessions` y devuelve `checkoutUrl = /fake-psp/checkout/{sessionId}`.
-- La página `/fake-psp/checkout/{id}` (en `web-qr`, visualmente marcada como "PSP SIMULADO") tiene los botones **Pagar**, **Rechazar**, **Requerir 3DS → Aprobar/Fallar** y **Abandonar**.
-- Al pulsar, el simulador envía un webhook `payment.succeeded` o `payment.failed` firmado con HMAC (`FAKE_PSP_WEBHOOK_SECRET`) a `POST /v1/webhooks/psp/fake`. Así se ejercita **exactamente el mismo camino** que en producción: verificación de firma, deduplicación por `psp_event_id`, worker y outbox.
+- La página `/fake-psp/checkout/{id}` (en `web-qr`, visualmente marcada como "PSP SIMULADO") tiene los botones **Pagar**, **Pagar con verificación 3DS → Aprobar/Fallar**, **Simular tarjeta rechazada** y **Abandonar el pago**.
+- Al pulsar, el simulador encola la entrega (BullMQ, con reintentos) de un webhook `payment.succeeded` o `payment.failed` firmado al estilo Stripe (`fake-psp-signature: t=…,v1=HMAC(t.body)`, ventana de 5 min) con `FAKE_PSP_WEBHOOK_SECRET`, y lo envía por HTTP a `POST /v1/webhooks/psp/fake`. Así se ejercita **exactamente el mismo camino** que en producción: verificación de firma, deduplicación por `psp_event_id`, worker y outbox.
 - **Modo caos** (`FAKE_PSP_CHAOS=on`): retrasa los webhooks de 0 a 10 s, los duplica (×1–3) y los envía desordenados. Sirve para probar la idempotencia.
 - La comisión de plataforma se calcula igual que en el MVP y se registra en `transactions` (`CHARGE` + `FEE`), sin dinero real.
 
 **`FakePosConnector` + simulador de caja:**
-- Las tablas `fake_pos_bills` y `fake_pos_bill_items` hacen de "software de caja".
-- La página `/pos-simulator` del panel permite abrir una cuenta en una mesa, añadir y quitar productos de la carta de prueba, ver los pagos registrados (`registerPayment`) y cerrar la mesa.
+- Las tablas `fake_pos_menu_items`, `fake_pos_bills`, `fake_pos_bill_items`, `fake_pos_payments` y `fake_pos_locations` hacen de "software de caja". Las mesas se enlazan por `tables.external_table_id`.
+- La página `/pos-simulator` del panel permite abrir una cuenta en una mesa, añadir y quitar productos de la carta de prueba, ver los pagos registrados (`registerPayment`) y cerrar la mesa. Cuando un pago cubre la cuenta, el TPV simulado la cierra; el simulador la sigue mostrando 30 min como «Cerrada» con sus pagos.
 - `health()` se puede forzar a `down` desde el simulador para probar el modo degradado (FR-POS-06).
 
 **`ConsoleOtpSender`:** escribe `OTP para +34600000001: 123456` en la consola de la API y lo envía a Mailpit. Hay un número mágico (`+34600000000` → `000000`) para las demos.
@@ -447,9 +452,9 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 ### 16.4 Datos de prueba (`pnpm db:seed`)
 
 - 2 comercios: "Casa Pepe" (Malasaña) y "La Tasca de Ana" (Chamberí), con coordenadas reales del barrio.
-- 8 mesas por local, con sus QR estáticos, y una carta de ~20 productos con alérgenos.
-- Programa de puntos (1 punto/€, recompensa "Postre gratis = 50 puntos", `hold_hours = 0`).
-- Una promoción "Vuelve y te invitamos".
+- 8 mesas por local, con sus QR estáticos, enlazadas con la caja simulada (`M1`…`M8`).
+- Carta de 20 productos en la caja simulada y cuentas abiertas en las mesas 1, 2 y 3 de cada local (P2). Los alérgenos llegan con la carta propia (FR-ORD-02).
+- *(P4)* Programa de puntos (1 punto/€, recompensa "Postre gratis = 50 puntos", `hold_hours = 0`) y una promoción "Vuelve y te invitamos".
 - Usuarios del comercio: `owner@casapepe.test` y `staff@casapepe.test` (contraseña `poc1234`).
 - 3 usuarios comensales con historial, para que la analítica no aparezca vacía.
 
@@ -472,9 +477,7 @@ pnpm poc:up
 
 Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el móvil.
 
-**Acceso desde móviles:**
-- **Opción por defecto:** misma wifi y `PUBLIC_BASE_URL=http://<IP-LAN>:3000`. Los QR se generan con esa URL base.
-- **Con Stripe en modo de pruebas:** hacen falta HTTPS y webhooks entrantes. Se usa un túnel (`cloudflared tunnel` o similar) para `PUBLIC_BASE_URL`, y `stripe listen --forward-to localhost:4000/v1/webhooks/psp/stripe` para los webhooks.
+**Acceso desde móviles:** `pnpm poc:tunnel` (o `pnpm poc:up --tunnel`) levanta un túnel rápido de Cloudflare (servicio `tunnel` de docker compose) y escribe su URL en `WEB_QR_BASE_URL`. Solo se expone la web QR: **el navegador del comensal nunca llama a la API**, la web QR la consulta desde su servidor (ADR-021). En desarrollo la API relee `WEB_QR_BASE_URL` sin reiniciar. Con Stripe en modo de pruebas haría falta además `stripe listen --forward-to localhost:4000/v1/webhooks/psp/stripe`.
 
 ### 16.6 Pruebas de la PoC
 
@@ -482,7 +485,7 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 |---|---|---|
 | Recorrido completo escaneo → pago → puntos → panel | Playwright (2 contextos de navegador: comensal + panel) | 1, 5 |
 | 4 pagadores simultáneos en la misma mesa | Test de integración (Vitest + Postgres real en Docker) | 2 |
-| Webhook duplicado ×10 y desordenado | Test de integración con el modo caos | 3 |
+| Webhook duplicado ×10 | `apps/api/test/payments.e2e-spec.ts` (✅ P2). El modo caos queda para P3 | 3 |
 | 100 canjes paralelos del mismo cupón | Test de integración | 4 |
 | Firma de QR manipulada o caducada | Test unitario | — |
 

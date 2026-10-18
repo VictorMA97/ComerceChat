@@ -1,4 +1,5 @@
 import type { LocationView, MerchantMe } from '@comercechat/shared-types';
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
@@ -49,6 +50,9 @@ export default async function TablesPage() {
           </span>
         </div>
         <div className="table-actions">
+          <Link className="button nav-link" href="/pos-simulator">
+            Simulador de caja
+          </Link>
           <PrintButton />
           <form action={logout}>
             <button type="submit">Salir</button>

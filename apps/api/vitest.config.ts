@@ -8,5 +8,7 @@ export default defineConfig({
     include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
     testTimeout: 20_000,
     hookTimeout: 30_000,
+    // Los tests arrancan workers BullMQ: con un prefijo propio no compiten con los de `pnpm dev`.
+    env: { QUEUE_PREFIX: `cc-test-${process.pid}` },
   },
 });

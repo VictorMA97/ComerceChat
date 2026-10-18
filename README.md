@@ -1,8 +1,8 @@
 # ComerceChat
 
-*Pedir, pagar y volver* para restaurantes con servicio en mesa: web QR sin instalación, puntos y cupones del propio comercio y panel con CRM. Esta rama contiene la **PoC local** ([SPEC §3.3](SPEC.md#poc), [ARCHITECTURE §16](ARCHITECTURE.md#poc-local)).
+*Pedir, pagar y volver* para restaurantes con servicio en mesa: web QR sin instalación, puntos y cupones del propio comercio y panel con CRM. Esta rama contiene la **PoC local** ([SPEC §3.3](docs/SPEC.md#poc), [ARCHITECTURE §16](docs/ARCHITECTURE.md#poc-local)).
 
-**Estado:** hito **P1** de la PoC completado ([ROADMAP §2](ROADMAP.md#poc)): monorepo, base de datos, autenticación del panel, mesas y QR firmados. Todavía no hay pagos (P2).
+**Estado:** hitos **P1 y P2** de la PoC completados ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta de la mesa leída de una caja simulada, propina, pago con un PSP simulado (webhooks firmados, idempotencia, worker) y justificante. Siguiente: dividir la cuenta y tiempo real (P3).
 
 ## Requisitos
 
@@ -27,6 +27,14 @@ pnpm poc:up
 | Web QR | http://localhost:3000/t/{código} | Escanea un QR del panel |
 | API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
+
+### Probar un pago (P2)
+
+1. En el panel, abre **Simulador de caja**: las mesas 1–3 ya tienen cuenta abierta; añade platos a cualquier otra.
+2. Vuelve a **Mesas y QR** y abre (o escanea) el QR de una mesa con cuenta: verás la cuenta, eliges propina y pulsas **Pagar**.
+3. En la página del **PSP simulado** elige: pagar, pagar con 3DS, o simular una tarjeta rechazada.
+4. Llegas al justificante. En el simulador de caja la mesa aparece **Cerrada** con el pago de ComerceChat.
+5. Desde el simulador puedes **simular una caída del TPV**: la web QR pedirá avisar al personal.
 
 ### Probar desde el móvil
 
@@ -62,4 +70,4 @@ apps/merchant-panel  Next.js 16 · panel del comercio
 packages/shared-types  enums y contratos de la API compartidos
 ```
 
-Documentación de diseño: [SPEC](SPEC.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DECISIONS](DECISIONS.md) · [ROADMAP](ROADMAP.md) · [CONTEXT](CONTEXT.md).
+Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [CONTEXT](docs/CONTEXT.md).

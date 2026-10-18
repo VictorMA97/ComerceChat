@@ -23,6 +23,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   API_PORT: z.coerce.number().int().positive().default(4000),
+  API_BASE_URL: z.string().url().default('http://localhost:4000'),
+  /** all = HTTP + workers en el mismo proceso (PoC); http / worker para separarlos (ARCHITECTURE §2). */
+  PROCESS_ROLE: z.enum(['all', 'http', 'worker']).default('all'),
+  /** Prefijo de las colas en Redis: permite que los tests no compartan colas con `pnpm dev`. */
+  QUEUE_PREFIX: z.string().min(1).default('cc'),
   WEB_QR_BASE_URL: z.string().url(),
   MERCHANT_PANEL_BASE_URL: z.string().url(),
   PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
@@ -41,6 +46,18 @@ const envSchema = z.object({
   QR_HMAC_SECRET: secret,
   PII_ENCRYPTION_KEY: secret,
   FAKE_PSP_WEBHOOK_SECRET: secret,
+  /** Modo caos del PSP simulado: webhooks retrasados, duplicados y desordenados (ARCHITECTURE §16.3). */
+  FAKE_PSP_CHAOS: z.enum(['on', 'off']).default('off'),
+  // Comisión de plataforma (FR-PAY-10). Valores provisionales hasta cerrar D-05.
+  PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(1000).default(50),
+  PLATFORM_FEE_FIXED_CENTS: z.coerce.number().int().min(0).default(0),
+  /** Importe máximo por pago sin cuenta de usuario (FR-PAY-09). */
+  GUEST_MAX_PAYMENT_CENTS: z.coerce.number().int().positive().default(30_000),
+  PAYMENT_SESSION_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15 * 60),
 });
 
 export type Env = z.infer<typeof envSchema>;

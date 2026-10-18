@@ -36,13 +36,14 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 - CI mínima: lint + tests.
 - **Hecho cuando:** `pnpm poc:up` levanta todo desde cero y el panel lista las mesas del comercio de prueba con sus QR.
 
-### P2: QR, cuenta y pago simulado (semana 2)
+### P2: QR, cuenta y pago simulado (semana 2) · ✅ completado el 18-oct-2026
 - `FakePosConnector` + página `/pos-simulator`.
 - Web QR: cabecera de identidad, cuenta de la mesa, propina.
 - `FakePaymentProvider` con página de pago simulada y webhooks firmados.
 - Tablas `payments`, `transactions` y `psp_webhook_events`; worker BullMQ; justificante.
 - Registro del pago en el simulador de caja.
 - **Hecho cuando:** desde un móvil en la misma wifi se paga una mesa y el simulador de caja la marca como pagada.
+- **Resultado:** verificado en un iPhone simulado contra la app local (cuenta → propina 10 % → 3DS → justificante → cuenta cerrada en el simulador) y con tests E2E (webhook ×10 → un solo cobro; tarjeta rechazada; caja caída). Desde un móvil real se prueba con el túnel (`pnpm poc:tunnel`), no por wifi: en WSL2 la red local no llega. Decisiones de implementación en [ADR-021](DECISIONS.md#adr-021).
 
 ### P3: dividir la cuenta, tiempo real e idempotencia (semana 3)
 - `order_allocations`, dividir a partes iguales, por artículos o por importe.

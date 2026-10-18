@@ -193,3 +193,106 @@ button:disabled {
     height: 55mm;
   }
 }
+
+/* --- Simulador de caja (P2) --- */
+.location-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.badge-warn {
+  background: #fff4e5;
+  color: #9a5b00;
+}
+.badge-danger {
+  background: #fdecea;
+  color: var(--danger);
+}
+.pos-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.pos-table {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.pos-table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pos-table-head h3 {
+  margin: 0;
+}
+.pos-lines,
+.pos-payments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.pos-lines li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pos-amount,
+.pos-total {
+  font-variant-numeric: tabular-nums;
+}
+.pos-total {
+  margin: 0;
+  text-align: right;
+}
+.pos-payments li {
+  color: #166534;
+  padding: 2px 0;
+}
+.pos-add {
+  display: grid;
+  grid-template-columns: 1fr 64px auto;
+  gap: 6px;
+}
+.pos-add select,
+.pos-add input {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.icon-button {
+  padding: 0 8px;
+  line-height: 1.6;
+}
+.link-button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  text-decoration: underline;
+  padding: 0;
+  font-size: 0.85rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.nav-link {
+  margin-right: 4px;
+}
+.small {
+  font-size: 0.85rem;
+  margin: 0;
+}

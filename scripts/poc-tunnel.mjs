@@ -43,11 +43,19 @@ if (process.argv.includes('--stop')) {
 
 compose('up', '-d', 'tunnel');
 
+// Cada arranque del contenedor publica una URL nueva, pero `docker compose logs` conserva las de
+// arranques anteriores: solo se leen los logs desde el arranque actual.
+const containerId = compose('ps', '-q', 'tunnel').trim();
+const startedAt = execFileSync('docker', ['inspect', '-f', '{{.State.StartedAt}}', containerId], {
+  encoding: 'utf8',
+}).trim();
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let url;
 for (let i = 0; i < 60 && !url; i++) {
-  const logs = compose('logs', '--no-color', 'tunnel');
+  const logs = compose('logs', '--no-color', '--since', startedAt, 'tunnel');
   url = [...logs.matchAll(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g)].at(-1)?.[0];
-  if (!url) await new Promise((r) => setTimeout(r, 1000));
+  if (!url) await sleep(1000);
 }
 if (!url) {
   console.error('El túnel no ha publicado su URL en 60 s. Revisa: docker compose logs tunnel');
@@ -55,6 +63,20 @@ if (!url) {
 }
 
 setWebQrBaseUrl(url);
+
+// La URL tarda unos segundos en resolverse en DNS. Se comprueba que responde de verdad.
+let reachable = false;
+for (let i = 0; i < 30 && !reachable; i++) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    reachable = res.status < 500;
+  } catch {
+    await sleep(1000);
+  }
+}
+if (!reachable) {
+  console.warn(`  Aviso: ${url} aún no responde. ¿Está arrancado \`pnpm dev\` (web QR en :3000)?`);
+}
 console.log(`
   Túnel activo: ${url}
   WEB_QR_BASE_URL actualizado en .env.local.
