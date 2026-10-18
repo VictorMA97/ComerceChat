@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
@@ -68,16 +68,39 @@ export function parseEnv(source: NodeJS.ProcessEnv): Env {
   return env;
 }
 
+const envLocalFile = join(repoRoot, '.env.local');
 let cached: Env | undefined;
 
 /** Carga .env.local de la raíz del monorepo (si existe) y devuelve el entorno validado. */
 export function loadEnv(): Env {
   if (!cached) {
-    const file = join(repoRoot, '.env.local');
-    if (existsSync(file)) loadDotenv({ path: file, quiet: true });
+    if (existsSync(envLocalFile)) loadDotenv({ path: envLocalFile, quiet: true });
     cached = parseEnv(process.env);
   }
   return cached;
+}
+
+const WEB_QR_REFRESH_MS = 2_000;
+let webQrBase: { readAt: number; url: string } | undefined;
+
+/**
+ * URL pública de la web QR. Fuera de producción se relee de .env.local (como mucho cada 2 s) para que
+ * `pnpm poc:tunnel`, cuya URL cambia si el túnel se reinicia, no obligue a reiniciar la API.
+ * No se usa el mtime: dos escrituras seguidas pueden compartirlo por la resolución del reloj.
+ */
+export function webQrBaseUrl(env: Env): string {
+  if (env.NODE_ENV === 'production') return env.WEB_QR_BASE_URL;
+  const now = Date.now();
+  if (!webQrBase || now - webQrBase.readAt > WEB_QR_REFRESH_MS) {
+    let url: string | undefined;
+    try {
+      url = /^WEB_QR_BASE_URL=(.+)$/m.exec(readFileSync(envLocalFile, 'utf8'))?.[1]?.trim();
+    } catch {
+      // Sin .env.local: se usa el valor del arranque.
+    }
+    webQrBase = { readAt: now, url: url && URL.canParse(url) ? url : env.WEB_QR_BASE_URL };
+  }
+  return webQrBase.url;
 }
 
 export const ENV = Symbol('ENV');

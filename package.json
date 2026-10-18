@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @comercechat/api db:migrate",
     "db:seed": "pnpm --filter @comercechat/api db:seed",
     "poc:keys": "node scripts/poc-keys.mjs",
-    "poc:up": "bash scripts/poc-up.sh"
+    "poc:up": "bash scripts/poc-up.sh",
+    "poc:tunnel": "node scripts/poc-tunnel.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

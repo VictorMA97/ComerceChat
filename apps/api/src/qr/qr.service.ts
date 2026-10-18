@@ -6,7 +6,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { MerchantPrincipal } from '../auth/auth.types.js';
 import { AppError } from '../common/app-error.js';
 import { newId } from '../common/ids.js';
-import { ENV, type Env } from '../config/env.js';
+import { ENV, type Env, webQrBaseUrl } from '../config/env.js';
 import { DB, type Database, type Tx } from '../db/client.js';
 import { merchantLocations, merchants, qrCodes, tables } from '../db/schema/index.js';
 import { OutboxService } from '../outbox/outbox.service.js';
@@ -187,7 +187,7 @@ export class QrService {
       shortCode: qr.shortCode,
       type: qr.type,
       status: qr.status,
-      url: qrUrl(this.env.WEB_QR_BASE_URL, qr.shortCode),
+      url: qrUrl(webQrBaseUrl(this.env), qr.shortCode),
     };
   }
 }

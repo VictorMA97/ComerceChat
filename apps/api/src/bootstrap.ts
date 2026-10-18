@@ -1,12 +1,15 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ProblemFilter } from './common/problem.filter.js';
-import type { Env } from './config/env.js';
+import { type Env, webQrBaseUrl } from './config/env.js';
 
 /** Configuración común de la app (servidor y tests E2E). */
 export function configureApp(app: INestApplication, env: Env): void {
   app.setGlobalPrefix('v1');
-  app.enableCors({ origin: [env.WEB_QR_BASE_URL, env.MERCHANT_PANEL_BASE_URL] });
+  app.enableCors({
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) =>
+      cb(null, !origin || [webQrBaseUrl(env), env.MERCHANT_PANEL_BASE_URL].includes(origin)),
+  });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );

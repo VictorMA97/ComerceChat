@@ -25,6 +25,9 @@ export default async function TablesPage() {
   }
 
   const canRegenerate = me.role === 'OWNER' || me.role === 'MANAGER';
+  // La API es la fuente de verdad de la URL pública (cambia con `pnpm poc:tunnel`).
+  const firstQrUrl = locations.flatMap((l) => l.tables).find((t) => t.qr)?.qr?.url;
+  const qrOrigin = firstQrUrl ? new URL(firstQrUrl).origin : '(sin QR)';
   const svgs = new Map(
     await Promise.all(
       locations.flatMap((l) =>
@@ -36,7 +39,7 @@ export default async function TablesPage() {
   return (
     <div className="shell">
       <p className="poc-banner">
-        PoC local: sin pagos reales. Los QR apuntan a <code>{process.env.WEB_QR_BASE_URL}</code>.
+        PoC local: sin pagos reales. Los QR apuntan a <code>{qrOrigin}</code>.
       </p>
       <header className="topbar no-print">
         <div>

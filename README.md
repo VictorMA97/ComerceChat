@@ -28,7 +28,17 @@ pnpm poc:up
 | API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
 
-**Probar desde el móvil:** pon en `WEB_QR_BASE_URL` (en `.env.local`) una URL accesible desde el móvil y vuelve a ejecutar `pnpm db:seed` para regenerar los QR. En WSL2 la IP de la WSL no es accesible desde la wifi: usa la red en modo *mirrored* de WSL o un túnel HTTPS.
+### Probar desde el móvil
+
+```bash
+pnpm poc:up --tunnel
+```
+
+Arranca un túnel HTTPS de Cloudflare (contenedor `tunnel` de `docker-compose.yml`, perfil `tunnel`) y pone su URL `https://xxxx.trycloudflare.com` en `WEB_QR_BASE_URL`. Los QR del panel apuntan entonces a esa URL: escanéalos desde la pantalla con el móvil, en wifi o con datos. Solo se expone la web QR (puerto 3000); la API y el panel siguen siendo locales. **Cualquiera con la URL puede abrir la web QR mientras el túnel esté activo.**
+
+- Con la app ya arrancada: `pnpm poc:tunnel`. No hace falta reiniciar: en desarrollo la API relee `WEB_QR_BASE_URL` de `.env.local` y la web QR acepta cualquier `*.trycloudflare.com`.
+- Volver a local: `pnpm poc:tunnel --stop`.
+- **La URL cambia si el contenedor del túnel se reinicia** (p. ej. al reiniciar el PC). Si los QR dejan de abrir en el móvil, vuelve a ejecutar `pnpm poc:tunnel`: recoge la URL nueva. No hace falta regenerar los QR.
 
 ## Comandos
 
@@ -41,6 +51,7 @@ pnpm poc:up
 | `pnpm db:migrate` | Aplica las migraciones |
 | `pnpm db:seed` | **Borra** y recrea los datos de prueba |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
+| `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
 
 ## Estructura
 

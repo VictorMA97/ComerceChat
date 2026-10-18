@@ -9,7 +9,18 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const envFile = join(repoRoot, '.env.local');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
+// En desarrollo, Next solo sirve sus recursos (y el websocket de recarga) a localhost. Se permite el
+// host de WEB_QR_BASE_URL y cualquier túnel rápido de Cloudflare (pnpm poc:tunnel): su URL cambia si
+// el contenedor se reinicia y, si Next rechaza el websocket, cloudflared se cae.
+const publicHost = process.env.WEB_QR_BASE_URL
+  ? new URL(process.env.WEB_QR_BASE_URL).hostname
+  : null;
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    '*.trycloudflare.com',
+    ...(publicHost && publicHost !== 'localhost' ? [publicHost] : []),
+  ],
   transpilePackages: ['@comercechat/shared-types'],
   turbopack: { root: repoRoot },
 };

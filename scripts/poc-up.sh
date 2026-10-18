@@ -10,6 +10,11 @@ fi
 
 docker compose up -d --wait
 node scripts/poc-keys.mjs
+
+# pnpm poc:up --tunnel → expone la web QR por HTTPS para probar desde el móvil.
+if [[ "${1:-}" == "--tunnel" ]]; then
+  node scripts/poc-tunnel.mjs
+fi
 pnpm db:migrate
 pnpm db:seed
 
@@ -18,7 +23,7 @@ cat <<MSG
   ComerceChat PoC
   ─────────────────────────────────────────────
   Panel comercio  http://localhost:3001   (owner@casapepe.test / poc1234)
-  Web QR          http://localhost:3000
+  Web QR          $(grep -E '^WEB_QR_BASE_URL=' .env.local | cut -d= -f2-)
   API + Swagger   http://localhost:4000/docs
   Mailpit (OTP)   http://localhost:8025
 

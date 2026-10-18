@@ -13,7 +13,10 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U comercechat -d comercechat']
+      # Por TCP (-h 127.0.0.1): durante el primer arranque la imagen levanta un servidor temporal
+      # solo por socket Unix para instalar PostGIS y luego lo reinicia. pg_isready por socket
+      # lo daría por sano y las migraciones conectarían justo antes del reinicio.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U comercechat -d comercechat']
       interval: 2s
       timeout: 3s
       retries: 30
@@ -33,6 +36,17 @@ services:
     ports:
       - '8025:8025'
       - '1025:1025'
+
+  # Túnel HTTPS opcional para abrir la web QR desde el móvil (pnpm poc:tunnel).
+  # Expone SOLO la web QR (puerto 3000) en una URL aleatoria *.trycloudflare.com que cambia
+  # cada vez que se recrea el contenedor. La API y el panel siguen siendo solo locales.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate --url http://host.docker.internal:3000
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
 
 volumes:
   postgres-data:
