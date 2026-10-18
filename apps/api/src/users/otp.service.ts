@@ -28,7 +28,9 @@ export class OtpService {
   async start(phone: string): Promise<{ expiresInSeconds: number }> {
     const key = this.key(phone);
     if (await this.redis.exists(`${key}:blocked`)) throw this.blocked();
-    const sends = await this.redis.incr(`${key}:sends`);
+    const isDemo = this.env.NODE_ENV !== 'production' && phone === DEMO_PHONE;
+    // El número de demo se usa en cada demo y en el E2E: sin límite de envíos (nunca en producción).
+    const sends = isDemo ? 1 : await this.redis.incr(`${key}:sends`);
     if (sends === 1) await this.redis.expire(`${key}:sends`, 3600);
     if (sends > MAX_SENDS_PER_HOUR) {
       throw new AppError(
@@ -37,10 +39,7 @@ export class OtpService {
         'Has pedido demasiados códigos. Espera un rato.',
       );
     }
-    const code =
-      this.env.NODE_ENV !== 'production' && phone === DEMO_PHONE
-        ? '000000'
-        : String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const code = isDemo ? '000000' : String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.redis.multi().set(key, sha(code), 'EX', TTL_SECONDS).del(`${key}:attempts`).exec();
     await this.sender.send(phone, code);
     return { expiresInSeconds: TTL_SECONDS };
