@@ -1,40 +1,41 @@
-# DEMO: guion de 5 minutos de la PoC
+# DEMO: recorrido manual de la PoC
 
-> Para enseñar ComerceChat a hosteleros e inversores (criterio 6 de [SPEC §3.3](SPEC.md#poc)). Se apoya en los datos de prueba de `pnpm db:seed`.
+> Guía técnica para ejecutar a mano el recorrido completo de la PoC ([SPEC §3.3](SPEC.md#poc)) sobre los datos de prueba de `pnpm db:seed`. La versión automatizada es `pnpm e2e` ([ARCHITECTURE §16.6](ARCHITECTURE.md#poc-local)).
 
-## Antes de empezar (5 min antes)
+## 1. Preparación
 
-1. Arranca la PoC (o, si ya hay datos, solo `pnpm dev`):
+1. Arranca el entorno, o solo `pnpm dev` si los servicios de Docker ya están levantados:
    ```bash
    pnpm poc:up --tunnel
    ```
-2. Si quieres limpiar los datos: `pnpm db:seed` (los QR cambian; vuelve a imprimirlos o enséñalos en pantalla).
-3. Abre en el portátil:
-   - **Sala:** http://localhost:3001/sala (`owner@casapepe.test` / `poc1234`).
-   - **Simulador de caja**, en otra pestaña.
-4. Ten a mano un móvil. Por el túnel la web QR va igual que en producción, pero se actualiza cada ~3 s en lugar de al instante (ADR-022).
-5. Número de demo para darse de alta: **600 000 000**, código **000000**. Cualquier otro número recibe el código en la consola de la API y en Mailpit (http://localhost:8025).
+2. Para partir de datos limpios, ejecuta `pnpm db:seed`. Los códigos de los QR cambian.
+3. En el portátil, abre:
+   - el panel en http://localhost:3001 (`owner@casapepe.test` / `poc1234`), con la **Sala** en una pestaña y el **Simulador de caja** en otra;
+   - Mailpit en http://localhost:8025, para ver los códigos de un solo uso de números que no sean el de demo.
+4. Para usar un móvil real, la web QR tiene que ser accesible a través del túnel (`WEB_QR_BASE_URL`). Por el túnel, la web QR se actualiza por sondeo cada ~3 s, porque el túnel rápido de Cloudflare no admite SSE (ADR-022).
+5. Número de demo: `+34600000000`, con código `000000`, sin límite de envíos y solo fuera de producción (ADR-024).
 
-## Guion
+## 2. Recorrido
 
-| Min. | Qué haces | Qué cuentas |
+| # | Acción | Resultado esperado | Qué se ejercita |
+|---|---|---|---|
+| 1 | Panel → **Sala** | Casa Pepe: mesas 1–3 «Con cuenta», resto «Libre» | `GET /merchant/floor`, estado del TPV simulado |
+| 2 | Panel → **Mesas y QR** → escanear el QR de la **Mesa 1** | Cabecera con comercio y mesa, y la cuenta leída del TPV | QR firmado (FR-QR-01/04), `GET /qr/:code/bill` |
+| 3 | Propina **10 %** → **Pagar** → en el PSP simulado, **Pagar** | Justificante con cuenta, propina y total | Sesión idempotente, webhook firmado, captura (ADR-015) |
+| 4 | Mirar la **Sala** sin recargar | Mesa 1 → «Pagada» en < 3 s (por SSE en local) | Outbox → registro en el TPV → tiempo real (criterio 5) |
+| 5 | En el justificante: móvil `600 000 000` → código `000000` → aceptar condiciones → **Guardar mis puntos** | «+33 puntos guardados», saldo y cupón «Vuelve y te invitamos» | Código de un solo uso, consentimientos (REG-07), reclamación (FR-USR-02), cupón de bienvenida |
+| 6 | Escanear la **Mesa 2** en dos navegadores: uno paga **Solo mis platos** (el jamón) y el otro **A partes iguales** | Ninguno puede reservar lo que el otro está pagando; la cuenta refleja «Pagando ahora otros comensales» | `order_allocations` con el pedido bloqueado (ADR-022, criterio 2) |
+| 7 | Con la sesión del paso 5, pagar con el **cupón de 5 €** | Línea «Cupón −5,00 €», propina sobre lo que paga el comensal, puntos automáticos | Reserva y canje atómico del cupón (FR-CPN-06), puntos por outbox |
+| 8 | **Simulador de caja** → **Cobrar con QR** en la Mesa 3 → pagarlo con el móvil | La tarjeta de la mesa pasa a «Cobrado con QR» y la cuenta se cierra | QR dinámico firmado (ADR-023) |
+| 9 | **Simulador de caja** → **Simular caída** | La web QR muestra «No podemos consultar la cuenta» | `PosUnavailableError` (FR-POS-06) |
+| 10 | Panel → **Analítica** y **Promociones** | Volumen, pagos, propinas, descuentos y clientes identificados; cupones emitidos y canjeados | `GET /merchant/analytics`, `GET /merchant/promotions` |
+
+## 3. Resolución de problemas
+
+| Síntoma | Causa probable | Solución |
 |---|---|---|
-| 0:00 | Enseña la **Sala**: Casa Pepe con mesas libres y mesas con cuenta | «Esto es lo que ve el camarero. Las mesas 1–3 tienen cuenta abierta en su caja.» |
-| 0:30 | Desde **Mesas y QR**, escanea con el móvil el QR de la **Mesa 1** | «El cliente no descarga nada: escanea y ve su cuenta, leída de la caja del restaurante.» |
-| 1:00 | Elige **10 %** de propina → **Pagar** → en el PSP simulado, **Pagar** | «Paga en segundos con Apple Pay, Google Pay, Bizum o tarjeta. Aquí el pago es simulado.» |
-| 1:30 | Señala la **Sala**: la Mesa 1 pasa a **Pagada** sola | «El camarero no ha hecho nada: la mesa está cobrada y registrada en su caja.» |
-| 2:00 | En el móvil: **Guardar mis puntos** con el número de demo, acepta las condiciones y marca compartir datos | «Sin contraseñas. El cliente decide si comparte sus datos con el restaurante (RGPD).» Verás **+33 puntos** y el cupón **«Vuelve y te invitamos»**. |
-| 2:45 | Escanea la **Mesa 2**, elige **Solo mis platos** (el jamón) y que otra persona (u otro navegador) pague **A partes iguales** | «Dividir la cuenta es el momento más incómodo de la cena. Aquí cada uno paga lo suyo y nadie puede pagar dos veces lo mismo.» |
-| 3:30 | Con tu sesión, aplica el **cupón de 5 €** al pagar | «La próxima visita la paga en parte el restaurante: fidelización sin tarjetas de cartón.» |
-| 4:00 | En el **Simulador de caja**, pulsa **Cobrar con QR** en la Mesa 3 y págalo con el móvil | «Si el cliente prefiere que se lo cobre el camarero, el TPV genera un QR por lo que queda.» |
-| 4:30 | Panel → **Analítica** y **Promociones** | «Ventas por QR, propinas, ticket medio y clientes identificados. Y cuántos cupones se canjean de verdad.» |
-| 5:00 | Cierra | Pregunta: «¿Cuánto tardáis hoy en cobrar una mesa de 6? ¿Usaríais esto mañana?» Anota el feedback. |
-
-## Si algo falla
-
-| Síntoma | Solución |
-|---|---|
-| El QR no abre en el móvil | El túnel ha cambiado de URL: `pnpm poc:tunnel` (no hace falta reiniciar ni reimprimir). |
-| «No hay ninguna cuenta abierta» | Añade platos a la mesa desde el **Simulador de caja**. |
-| El número de demo ya existe | `pnpm db:seed` (o usa otro número y lee el código en Mailpit). |
-| Puertos ocupados al arrancar | `pnpm poc:stop` y vuelve a arrancar. |
+| El QR no abre en el móvil | La URL del túnel ha cambiado o el túnel no ha registrado la conexión | `pnpm poc:tunnel`; si sigue sin resolver, reinicia el contenedor `tunnel` y repite |
+| «No hay ninguna cuenta abierta» | La mesa no tiene cuenta en el TPV simulado | Añade platos desde el **Simulador de caja** |
+| El número de demo ya existe | Se dio de alta en una prueba anterior | `pnpm db:seed` o usa otro número (código en Mailpit) |
+| Puertos 3000/3001/4000 ocupados | Procesos huérfanos de un `pnpm dev` anterior | `pnpm poc:stop` |
+| Postgres o Redis rechazan la conexión | Otro servicio ocupa el puerto 5432/6379 y el contenedor arrancó sin publicarlo | Libera el puerto y ejecuta `docker compose up -d --force-recreate postgres redis` |

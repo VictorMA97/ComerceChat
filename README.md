@@ -2,7 +2,7 @@
 
 *Pedir, pagar y volver* para restaurantes con servicio en mesa: web QR sin instalación, puntos y cupones del propio comercio y panel con CRM. Esta rama contiene la **PoC local** ([SPEC §3.3](docs/SPEC.md#poc), [ARCHITECTURE §16](docs/ARCHITECTURE.md#poc-local)).
 
-**Estado:** **PoC completa** (hitos P1–P4) ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta leída de una caja simulada, pago con un PSP simulado (webhooks firmados, idempotencia, worker), dividir la cuenta entre varios comensales, cobro con QR desde la caja, vista de sala, tiempo real, alta del comensal con código, puntos, recompensas, cupones, promoción «Vuelve y te invitamos» y analítica. Guion de demo: [docs/DEMO.md](docs/DEMO.md).
+**Estado:** **PoC completa** (hitos P1–P4) ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta leída de una caja simulada, pago con un PSP simulado (webhooks firmados, idempotencia, worker), dividir la cuenta entre varios comensales, cobro con QR desde la caja, vista de sala, tiempo real, alta del comensal con código, puntos, recompensas, cupones, promoción «Vuelve y te invitamos» y analítica. Recorrido manual: [docs/DEMO.md](docs/DEMO.md).
 
 ## Requisitos
 
@@ -92,4 +92,4 @@ apps/merchant-panel  Next.js 16 · panel del comercio
 packages/shared-types  enums y contratos de la API compartidos
 ```
 
-Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [CONTEXT](docs/CONTEXT.md).
+Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md).

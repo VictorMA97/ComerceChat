@@ -1,32 +1,32 @@
 # ROADMAP: hoja de ruta de desarrollo de ComerceChat
 
-> **Estado:** borrador v0.2 (17-oct-2026). Añade la fase PoC local (§2). El mes 0 es el inicio del trabajo a tiempo completo con CTO.
+> **Estado:** v0.3 (19-oct-2026). Solo contenido técnico. El mes 0 es el inicio del desarrollo del MVP.
 >
 > **Documentos relacionados:**
 > - Requisitos en [SPEC.md](SPEC.md).
 > - Arquitectura en [ARCHITECTURE.md](ARCHITECTURE.md).
 > - Decisiones en [DECISIONS.md](DECISIONS.md).
-> - Plan de negocio de 90 días en [CONTEXT.md › Plan de 90 días](CONTEXT.md#plan-90-dias).
+> - Guía de demo en [DEMO.md](DEMO.md).
 >
-> Los objetivos numéricos son **[HIPÓTESIS]** que se recalibran con los datos del piloto.
+> Las duraciones son orientativas **[HIPÓTESIS]**.
 
 ---
 
-## 1. Fases y KPIs de salida
+## 1. Fases
 
-| Fase | Objetivo | Entregables de producto y tecnología | KPIs de salida |
-|---|---|---|---|
-| **Semanas 1–4** · PoC local | Demo tangible + reducir el riesgo técnico sin depender de terceros (ADR-017) | Hitos **P1–P4** (§2): monorepo, simuladores de PSP y de caja, web QR, dividir cuenta, puntos, cupones, panel básico | Los 6 criterios de éxito de [SPEC §3.3](SPEC.md#poc); demo vista por ≥ 5 hosteleros |
-| **0–3 meses** · Validación | Validar el dolor y la disposición a pagar; elegir PSP y software de caja | Hitos **M0–M1**: base técnica, web QR + pago con importe manual, panel mínimo. Prototipo en Figma probado. Piloto en 3–5 locales | ≥10 cartas de intención; ≥3 locales en uso real; ≥15 % de mesas pagadas por QR en esos locales; D-01 y D-02 cerradas |
-| **3–6 meses** · Piloto profesional | MVP completo en 2 barrios | Hitos **M2–M5**: integración con el software de caja, dividir cuenta y propinas, puntos y cupones, CRM y analítica, endurecimiento y pentest | 30–50 comercios activos; volumen ≥ 250 k€/mes; churn < 3 %/mes; ≥ 20 % de pagadores registrados; NPS de comercios > 40 |
-| **6–12 meses** · Ajuste producto-mercado | ROI demostrable y venta repetible | **App nativa** (Expo); campañas por WhatsApp; **2.ª integración** con software de caja; **Tap to Pay**; **carta multiidioma + Alipay+/WeChat Pay vía PSP** (ADR-014); App Clip / Instant App (evaluar); segundo PSP preparado | 150–250 comercios; 2–3 M€/mes de volumen; ARR ≥ 250–350 k€; payback ≤ 12 meses; repetición de usuarios a 60 días ≥ 30 % |
-| **12–24 meses** · Escalar Madrid + 2.ª ciudad | Densidad y efecto red local | **Coalición de puntos de barrio** (tras opinión legal, ADR-005); descubrimiento "Cerca" mejorado; motor de campañas avanzado; patrocinios de marcas de bebida (campañas cofinanciadas); multi-ciudad (Barcelona o Valencia); almacén de datos (BigQuery o ClickHouse); despliegue blue/green | 800–1.200 comercios; ARR 1–1,5 M€; retención neta de ingresos de comercios ≥ 100 %; 150–300 k usuarios registrados |
-| **24–36 meses** · Plataforma | Multi-ciudad y apertura | API pública y webhooks salientes; reservas y pedidos para llevar; publicidad local / comercio destacado; valorar figura de agente o licencia de entidad de pago; valorar Portugal; certificación ISO 27001 / SOC 2 | 2.500–4.000 comercios; ARR 3–5 M€; margen de contribución positivo por cohorte |
+| Fase | Entregables técnicos | Criterio técnico de salida |
+|---|---|---|
+| **Semanas 1–4** · PoC local (ADR-017) | Hitos **P1–P4** (§2): monorepo, simuladores de PSP y de caja, web QR, dividir cuenta, puntos, cupones, panel básico | Criterios 1–5 de [SPEC §3.3](SPEC.md#poc) ✅ |
+| **0–3 meses** · MVP base | Hitos **M0–M1**: staging en AWS, CI completa, PSP real (D-01), web QR con importe manual, panel mínimo | Un pago en el modo en vivo del PSP se liquida con la comisión de plataforma descontada y la conciliación cuadra; D-01 y D-02 cerradas |
+| **3–6 meses** · MVP completo | Hitos **M2–M5**: integración con el software de caja, dividir cuenta y propinas, puntos y cupones, CRM y analítica, endurecimiento y pentest | Pentest sin hallazgos críticos abiertos; NFR-01 y NFR-04 cumplidos; 2 semanas en producción sin incidentes de severidad 1 |
+| **6–12 meses** · Ampliación | **App nativa** (Expo); campañas por WhatsApp; **2.ª integración** con software de caja; **Tap to Pay**; **carta multiidioma + Alipay+/WeChat Pay vía PSP** (ADR-014); App Clip / Instant App (evaluar); segundo PSP preparado | Segundo PSP y segunda caja funcionando detrás de `PaymentProvider` y `PosConnector` sin cambios en el dominio; app publicada en las tiendas |
+| **12–24 meses** · Escala | **Coalición de puntos** (tras opinión legal, ADR-005); descubrimiento "Cerca"; motor de campañas; soporte multi-ciudad; almacén de datos (BigQuery o ClickHouse); despliegue blue/green | Despliegue blue/green en producción; la analítica se sirve desde el almacén de datos sin consultas a la BD principal |
+| **24–36 meses** · Plataforma | API pública y webhooks salientes; reservas y pedidos para llevar; certificación ISO 27001 / SOC 2; adaptación a licencia de entidad de pago si se decide operar con licencia propia | API pública versionada con entorno de pruebas (*sandbox*); certificación obtenida |
 
 <a id="poc"></a>
 ## 2. PoC local (semanas 1–4)
 
-Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHITECTURE.md#poc-local). La PoC se desarrolla **en paralelo** con las acciones de negocio de las semanas 1–6 del plan de 90 días (entrevistas, ofertas de PSP, opinión legal) y no depende de ninguna de ellas.
+Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHITECTURE.md#poc-local). La PoC no depende de proveedores externos: el PSP, el software de caja y el envío de códigos se simulan (ADR-018).
 
 ### P1: base local (semana 1) · ✅ completado el 17-oct-2026
 - Monorepo (pnpm + Turborepo), docker compose (Postgres+PostGIS, Redis, Mailpit), `pnpm poc:up`.
@@ -58,17 +58,17 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 - Registro de puntos, recompensa → cupón, una plantilla de promoción, canje atómico.
 - Panel de analítica básico (FR-ANA-01 reducido).
 - Test E2E con Playwright del recorrido completo; test de 100 canjes paralelos.
-- Guion de demo de 5 minutos.
+- Guía de demo ([DEMO.md](DEMO.md)).
 - (Opcional) `StripeConnectProvider` en modo de pruebas con túnel.
-- **Hecho cuando:** se cumplen los criterios 1–5 de SPEC §3.3. El criterio 6 (feedback de ≥ 5 hosteleros) se completa en las 2 semanas siguientes.
+- **Hecho cuando:** se cumplen los criterios 1–5 de SPEC §3.3.
 - **Resultado:** criterios 1–5 cumplidos.
   - **Criterio 1:** 0,9–2,7 s del escaneo al pago (`pnpm e2e`, Playwright).
   - **Criterio 2:** P3.
   - **Criterio 3:** webhook ×10 → 1 cobro y 1 sola entrada de puntos (`loyalty-coupons.e2e-spec.ts`).
   - **Criterio 4:** 100 peticiones paralelas sobre el mismo cupón → 1 canje.
   - **Criterio 5:** 0,3–1,8 s hasta «Pagada» en la sala.
-  - **Guion de demo:** [DEMO.md](DEMO.md).
-  - **Pendiente:** el opcional de Stripe en modo de pruebas y el criterio 6 (demos con hosteleros).
+  - **Guía de demo:** [DEMO.md](DEMO.md).
+  - **Pendiente:** el opcional de Stripe en modo de pruebas.
   - Decisiones de implementación en [ADR-024](DECISIONS.md#adr-024).
 
 ## 3. Hitos técnicos del MVP (meses 0–6)
@@ -123,9 +123,9 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 - Pruebas de carga (objetivo: pico de 50 pagos/s y 2.000 conexiones SSE) y presupuesto de rendimiento de la web QR (NFR-01).
 - Auditoría de accesibilidad WCAG 2.1 AA (NFR-04).
 - Guías de incidentes, alertas y prueba de restauración de copias de seguridad.
-- DPIA, términos y política de privacidad finales (en [CONTEXT.md](CONTEXT.md)).
+- DPIA, términos y política de privacidad finales.
 - **App de usuario v1** (Expo) en TestFlight / beta de Play (FR-APP-*), si hay capacidad. Si no, pasa a la fase 6–12 m.
-- **Hecho cuando:** 30+ comercios activos en 2 barrios, sin incidentes de severidad 1 durante 2 semanas.
+- **Hecho cuando:** el piloto lleva 2 semanas en producción sin incidentes de severidad 1.
 
 ```
 Semana:  1    3    5    7    9   11   13   15   17   19   21   23   25   27
@@ -136,44 +136,18 @@ M2                              ██████████
 M3                                   ██████████
 M4                                        ██████████
 M5                                                  ████████████
-Demo PoC a hosteleros ▲ (sem. 5–6)
-Piloto 3–5 locales             ▲ (sem. 11–12)
-Piloto 30–50 locales                                           ▲ (sem. 24–28)
+Demo de la PoC   ▲ (sem. 5–6)
+Piloto (M1)                    ▲ (sem. 11–12)
+Piloto (MVP completo)                                          ▲ (sem. 24–28)
 (M1 y M2 pueden acortarse porque parten de la PoC; el calendario es conservador)
 ```
 
-## 4. Criterios para cerrar o pivotar (revisión en el mes 6)
-
-Si con **30+ locales** activos se cumple **cualquiera** de estos criterios, **no se levanta la seed**: se pivota o se para.
-- Penetración media en el local < 10 % (porcentaje de mesas pagadas por QR).
-- Churn de comercios > 5 % mensual.
-- Más del 50 % de los comercios no pagan tras el periodo gratuito.
-
-Opciones de pivote registradas:
-- Software de fidelización y CRM puro, sin pagos.
-- Vender o licenciar a un fabricante de software de caja.
-
-## 5. Equipo y coste por fase (resumen)
-
-| Fase | Equipo a tiempo completo | Externo | Coste de desarrollo orientativo |
-|---|---|---|---|
-| Semanas 1–4 (PoC local) | CTO + 0–1 desarrollador fullstack | — | ~0 € si la hacen los fundadores; 10–25 k€ si se paga a un desarrollador sénior autónomo durante 4 semanas [HIPÓTESIS] |
-| 0–3 m (MVP muy básico) | CEO + CTO + 1 desarrollador fullstack | UX/UI autónomo, despacho legal y fintech | 55–100 k€ (o mucho menos en efectivo si lo construyen los fundadores) |
-| 3–6 m → 6–12 m (MVP profesional) | + 1 backend sénior, + 1 móvil/fullstack, + 1–2 comerciales de campo, + 1 persona de onboarding y soporte | Pentest, diseño | 290–535 k€ en total para el MVP profesional |
-| 12–24 m | Producto y diseño 2–3, ingeniería 6–10, pagos y riesgo 1, seguridad 1 | Legal, compliance | — |
-| 24–36 m (plataforma escalable) | Ingeniería 10–16 + datos + plataforma | — | 1,8–3,1 M€/año en producto y tecnología |
-
-**Perfiles críticos que no se externalizan:** CTO y núcleo de ingeniería; ventas de campo.
-**Perfiles externalizables al inicio:** UX/UI, legal, compliance, pentest, marketing de contenidos.
-
-Desglose completo de costes y financiación en [CONTEXT.md](CONTEXT.md#costes).
-
-## 6. Dependencias críticas y riesgos de calendario
+## 4. Dependencias críticas y riesgos de calendario
 
 | Dependencia | Bloquea | Mitigación |
 |---|---|---|
-| Contrato con el PSP y alta como plataforma (D-01) | M1 | Pedir ofertas en la semana 1; empezar con el modo de pruebas del PSP mientras se negocia |
-| Acceso a la API del software de caja (D-02) | M2 | Alianza comercial temprana; mantener `ManualPosConnector` como alternativa |
+| Contrato con el PSP y alta como plataforma (D-01) | M1 | Desarrollar con el modo de pruebas del PSP mientras se cierra el contrato |
+| Acceso a la API del software de caja (D-02) | M2 | Pedir pronto el entorno de pruebas del fabricante; mantener `ManualPosConnector` como alternativa |
 | Opinión legal (flujo de fondos, puntos, GDPR) | Piloto en vivo | Encargarla en la semana 2 |
 | Bizum disponible en el PSP elegido | Método de pago | Se lanza solo con tarjeta, Apple Pay y Google Pay si no está |
 | Aprobación de plantillas de WhatsApp por Meta | Campañas en M4 | Push y email como alternativa |

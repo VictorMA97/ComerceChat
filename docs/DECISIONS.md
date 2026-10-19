@@ -10,27 +10,19 @@
 > - [SPEC.md](SPEC.md)
 > - [ARCHITECTURE.md](ARCHITECTURE.md)
 > - [ROADMAP.md](ROADMAP.md)
-> - [CONTEXT.md](CONTEXT.md)
 
 ---
 
 <a id="adr-001"></a>
-## ADR-001: MVP reducido para hostelería, no superapp
+## ADR-001: alcance del MVP: pago y pedido en mesa para restaurantes (no superapp)
 
 - **Estado:** Aceptada (17-oct-2026)
-- **Contexto:** la idea original era un "WeChat español" (pagos, envíos entre usuarios, descubrimiento, reservas, delivery, mini-apps). El análisis ([CONTEXT.md](CONTEXT.md)) concluye:
-  - En España el pago ya está resuelto: tarjeta + NFC + Bizum, que tiene 30,6 M de usuarios y funciona en tienda desde mayo de 2026.
-  - Sin licencia, el margen de pagos es mínimo.
-  - El problema real está en la experiencia en mesa del restaurante y en la relación comercio–cliente.
-- **Decisión:** el MVP es *pedir, pagar y volver* para restaurantes con servicio en mesa (ticket 25–60 €), en 2 barrios de Madrid. La superapp queda como visión a largo plazo y solo se aborda si hay densidad de comercios.
-- **Alternativas descartadas:**
-  - Superapp completa por fases.
-  - Varios segmentos a la vez (cafeterías, peluquerías, gimnasios, hoteles).
-  - Nicho de turistas chinos como lanzamiento.
+- **Contexto:** el alcance inicial planteado incluía envíos de dinero entre usuarios, descubrimiento de comercios, reservas, delivery y mini-apps de terceros. Cada uno de esos bloques añade dominios, integraciones y obligaciones regulatorias propias (ADR-004).
+- **Decisión:** el MVP cubre un único flujo, *pedir, pagar y volver*, en restaurantes con servicio en mesa: cuenta de la mesa, reparto, propina, pago, puntos y cupones del comercio, y el panel del comercio. El resto queda fuera del alcance técnico del MVP.
+- **Alternativas descartadas:** construir la superapp completa por fases desde el principio.
 - **Consecuencias:**
   - El alcance excluido está listado en SPEC §3.2.
-  - Cualquier función nueva debe justificar su impacto en uno de los KPI de salida de la fase en curso (ROADMAP).
-  - Cafeterías excluidas porque el ticket pequeño destruye el margen: en un café de 2,50 €, la comisión supone ~11 %.
+  - Las funciones nuevas se incorporan por hitos del ROADMAP, con requisitos en SPEC.
 
 <a id="adr-002"></a>
 ## ADR-002: la web QR sin instalación es el canal principal; la app nativa es secundaria
@@ -68,9 +60,8 @@
   - Licencia de entidad de pago o de dinero electrónico.
   - Cobrar a una cuenta propia y repartir después.
 - **Consecuencias:**
-  - Coste por transacción más alto que el TPV bancario del comercio: hay que compensarlo con valor (rotación, propinas, repetición).
-  - Dependencia del PSP; se mitiga con la interfaz `PaymentProvider` y un segundo PSP preparado a partir de ~200 comercios.
-  - Reconsiderar una licencia propia o la figura de agente solo con más de 1.000–2.000 comercios (fase 24–36 m).
+  - Dependencia del PSP; se mitiga con la interfaz `PaymentProvider` y un segundo PSP preparado (fase 6–12 m).
+  - Operar con licencia propia o como agente de una entidad de pago exigiría rediseñar el flujo de fondos; queda fuera del MVP.
 
 <a id="adr-004"></a>
 ## ADR-004: sin monedero, envíos entre usuarios ni cashback en dinero
@@ -79,7 +70,6 @@
 - **Contexto:**
   - Un saldo prepago es dinero electrónico (requiere licencia de entidad de dinero electrónico, con capital mínimo de 350 k€).
   - Los envíos entre usuarios son un servicio de pago.
-  - Bizum ya cubre los envíos entre personas: 1.237 M de operaciones en 2025.
   - Además, el saldo y los envíos elevan mucho el riesgo de blanqueo.
 - **Decisión:** se eliminan del producto el envío y la solicitud de dinero, el saldo, las recargas y el cashback monetario.
 - **Consecuencias:**
@@ -94,7 +84,7 @@
 - **Contexto:**
   - Los puntos gratuitos, que no se compran ni se canjean por dinero y solo valen en el comercio emisor, normalmente no son dinero electrónico [HIPÓTESIS jurídica: pendiente de opinión legal].
   - Una coalición entre varios comercios puede entrar en la exclusión de "red limitada", que obliga a notificar al Banco de España si se superan 1 M€ en 12 meses.
-- **Decisión:** en el MVP, cada programa de fidelización pertenece a un único comercio. La coalición de barrio se aborda en la fase 12–24 m, tras la opinión legal.
+- **Decisión:** en el MVP, cada programa de fidelización pertenece a un único comercio. La coalición entre comercios se aborda en la fase 12–24 m, tras la opinión legal.
 - **Consecuencias:**
   - `loyalty_programs.merchant_id` es obligatorio en el MVP.
   - El modelo de datos admite un `coalition_id` futuro sin migraciones destructivas.
@@ -115,13 +105,13 @@
 ## ADR-007: la integración con el software de caja es un requisito del MVP
 
 - **Estado:** Aceptada (los proveedores concretos quedan abiertos: [D-02](#d-02))
-- **Contexto:** sin integración, el camarero tiene que teclear el importe. Eso añade fricción y el valor del producto cae a la mitad. Es el foso defensivo técnico frente a competidores (Honei, Qamarero, etc.).
+- **Contexto:** sin integración, el camarero tiene que teclear el importe de cada cuenta, no se puede pagar por platos y el pago no queda registrado en la caja del restaurante.
 - **Decisión:**
-  - Integrar 1–2 softwares de caja de hostelería populares en los barrios objetivo antes del piloto profesional, mediante la interfaz `PosConnector`.
+  - Integrar 1–2 softwares de caja de hostelería antes del piloto, mediante la interfaz `PosConnector`.
   - Mantener `ManualPosConnector` como modo degradado.
 - **Consecuencias:**
   - Es la tarea técnica de mayor riesgo del roadmap (hito M2).
-  - Requiere acuerdos comerciales con los fabricantes.
+  - Requiere acceso a la API (o al programa de socios) de cada fabricante.
 
 <a id="adr-008"></a>
 ## ADR-008: TypeScript de punta a punta (Next.js, React Native/Expo, NestJS)
@@ -170,7 +160,7 @@
   - Terraform y ECS Fargate (sin Kubernetes en el MVP).
   - Cloudflare como CDN y WAF.
 - **Alternativas descartadas:**
-  - GCP europe-southwest1 (Madrid): igual de válida; se elige AWS por la madurez de RDS, SQS y KMS y por la familiaridad del mercado.
+  - GCP europe-southwest1 (Madrid): igual de válida; se elige AWS por la madurez de RDS, SQS y KMS.
   - Kubernetes: sobrecarga operativa.
 - **Consecuencias:** datos alojados en la UE (ayuda con GDPR y con las auditorías de los PSP).
 
@@ -202,10 +192,7 @@
 ## ADR-014: Alipay+/WeChat Pay y carta multiidioma solo en fase 2 y solo vía PSP
 
 - **Estado:** Aceptada
-- **Contexto:**
-  - En 2025 llegaron ~795.500 turistas chinos a España y el 27 % visita Madrid.
-  - Alipay+ ya está presente vía BBVA, Sabadell, ABANCA/Starpay y El Corte Inglés.
-  - Es una funcionalidad útil para locales del centro, pero no un segmento de lanzamiento.
+- **Contexto:** aceptar monederos asiáticos (Alipay+, WeChat Pay) y traducir la carta son ampliaciones sin impacto en el dominio si llegan a través del PSP.
 - **Decisión:**
   - En la fase 6–12 m: carta traducida (ZH, FR, KO…) y Alipay+/WeChat Pay como métodos de pago **solo si el PSP elegido o un integrador lo ofrece llave en mano**.
   - Sin acuerdo directo con Ant Group ni con Tencent.
@@ -239,13 +226,13 @@
 - **Estado:** Aceptada (17-oct-2026)
 - **Contexto:**
   - El MVP depende de decisiones externas lentas: contrato con el PSP (D-01), API del software de caja (D-02) y opinión legal.
-  - Mientras tanto hace falta algo tangible que enseñar a hosteleros e inversores, más convincente que un Figma, y validar pronto las partes técnicas de más riesgo (dividir la cuenta en paralelo, idempotencia, canje atómico, tiempo real).
+  - Mientras tanto conviene tener una demo funcional de extremo a extremo y validar pronto las partes técnicas de más riesgo (dividir la cuenta en paralelo, idempotencia, canje atómico, tiempo real).
 - **Decisión:**
   - Construir en 3–4 semanas una PoC que funciona entera en local (docker compose + `pnpm dev`), con el alcance de [SPEC §3.3](SPEC.md#poc).
   - Usar el mismo monorepo, stack y módulos que el MVP ([ARCHITECTURE §16](ARCHITECTURE.md#poc-local)), para que el código evolucione hacia el MVP.
 - **Alternativas descartadas:**
   - Prototipo desechable (no-code o un único Next.js con todo dentro): más rápido, pero no valida la arquitectura y obliga a reescribir.
-  - Esperar a cerrar D-01 y D-02: retrasa el feedback de 1 a 2 meses.
+  - Esperar a cerrar D-01 y D-02: retrasa 1–2 meses el inicio del desarrollo.
 - **Consecuencias:**
   - D-06 (ORM) y una versión local de D-03 (autenticación) se deciden al empezar la PoC.
   - El hito M0 del ROADMAP se reduce, porque parte de la base técnica ya existe.
@@ -426,18 +413,18 @@
   8. Calidad de la API y del modo de pruebas.
   9. Tap to Pay en España.
   10. Alipay+/WeChat Pay.
-- **Se desbloquea con:** ofertas escritas de los 3 candidatos (acción 9 del plan de 90 días) y la opinión legal sobre el flujo de fondos.
+- **Se desbloquea con:** condiciones escritas de los 3 candidatos y la opinión legal sobre el flujo de fondos.
 - **Fecha objetivo:** antes de empezar el hito M1.
 
 <a id="d-02"></a>
 ### D-02: qué softwares de caja integrar primero (1–2)
 
 - **Criterios:**
-  1. Cuota de mercado en los barrios objetivo (según el recuento de la acción 3 del plan de 90 días).
+  1. Implantación en los restaurantes del piloto.
   2. API pública o de socios (leer cuenta, enviar pedido, registrar pago).
-  3. Disposición a una alianza de canal.
+  3. Entorno de pruebas disponible.
   4. Cumplimiento de VeriFactu.
-- **Se desbloquea con:** mapeo de los barrios y conversaciones con 2–3 fabricantes.
+- **Se desbloquea con:** evaluación técnica de las APIs de 2–3 fabricantes.
 - **Fecha objetivo:** antes del hito M2.
 
 <a id="d-03"></a>
@@ -464,13 +451,11 @@
 - **Se desbloquea con:** ofertas y pruebas en el hito M1 (para OTP) y en el M4 (para campañas).
 
 <a id="d-05"></a>
-### D-05: modelo de precios para el comercio
+### D-05: cálculo de la comisión de plataforma
 
-- **Opciones:**
-  - (a) Plan SaaS de 49–79 €/mes + margen sobre pagos de ~0,3–0,5 %.
-  - (b) Sin cuota, con +1 % por transacción.
-- **Se desbloquea con:** test A/B con los primeros 30 comercios y el dato real de lo que pagan hoy en su TPV bancario (acción 7 del plan de 90 días).
-- **Impacto técnico:** `merchants.plan_id`, cálculo de `platform_fee_cents` y facturación de la cuota SaaS (posiblemente vía el sistema de suscripciones del PSP o una herramienta externa).
+- **Opciones:** porcentaje sobre el importe, fijo por operación, cuota periódica por comercio o una combinación (los valores los fija negocio).
+- **Impacto técnico:** `merchants.plan_id`, cálculo de `platform_fee_cents` en `fees.ts` y, si hay cuota periódica, su facturación (posiblemente vía el sistema de suscripciones del PSP o una herramienta externa).
+- **En la PoC:** `PLATFORM_FEE_BPS` y `PLATFORM_FEE_FIXED_CENTS` (ADR-021).
 
 <a id="d-06"></a>
 ### D-06: ORM (Prisma o Drizzle). **Cerrada → Drizzle ([ADR-019](#adr-019))**

@@ -3,10 +3,10 @@
 > **Estado:** v0.2 (17-oct-2026). El plan de 90 días incluye la PoC local. Resumen de [ANALISIS_PROYECTO.md](ANALISIS_PROYECTO.md), que sigue siendo la fuente detallada con todas las cifras, tablas y fuentes.
 >
 > **Documentos relacionados:**
-> - [SPEC.md](SPEC.md)
-> - [ARCHITECTURE.md](ARCHITECTURE.md)
-> - [DECISIONS.md](DECISIONS.md)
-> - [ROADMAP.md](ROADMAP.md)
+> - [SPEC.md](../docs/SPEC.md)
+> - [ARCHITECTURE.md](../docs/ARCHITECTURE.md)
+> - [DECISIONS.md](../docs/DECISIONS.md)
+> - [ROADMAP.md](../docs/ROADMAP.md)
 >
 > **Etiquetas:** [HECHO] (con fuente en el análisis) · [HIPÓTESIS] · [INCIERTO].
 >
@@ -24,7 +24,7 @@
 - **Acordado:** software vertical para hostelería con pagos incrustados, *pedir, pagar y volver*:
   - Producto: QR web en la mesa + dividir cuenta + propinas + fidelización y CRM propios del comercio.
   - Segmento: restaurantes independientes con ticket de 25–60 € en 2 barrios de Madrid.
-  - Ver [DECISIONS.md › ADR-001](DECISIONS.md#adr-001).
+  - Ver [DECISIONS.md › ADR-001](../docs/DECISIONS.md#adr-001).
 - **Ambición realista:** una empresa de 50–150 M€ de valoración [HIPÓTESIS]. Salida plausible por adquisición: softwares de caja, adquirentes, bancos, Lightspeed, Toast, TheFork.
 
 ## 2. Problema y propuesta de valor
@@ -76,7 +76,7 @@ Tabla completa en ANALISIS_PROYECTO.md §4.
 | API / mini-apps | Fase 4+ | — |
 | Delivery, monedero, cashback | **Nunca** en el horizonte de 3 años | — |
 
-Modelo de precios pendiente de test A/B: [D-05](DECISIONS.md#d-05).
+Modelo de precios pendiente de test A/B: [D-05](../docs/DECISIONS.md#d-05).
 
 <a id="regulacion"></a>
 ## 5. Marco regulatorio (España/UE, oct-2026)
@@ -119,7 +119,7 @@ Modelo de precios pendiente de test A/B: [D-05](DECISIONS.md#d-05).
 - Cripto (MiCA).
 - Coalición multi-comercio: revisar la exclusión de **red limitada** (obliga a notificar al Banco de España si se superan 1 M€ en 12 meses) [HECHO].
 
-Cómo se traduce esto en requisitos del sistema: [SPEC.md §4](SPEC.md#4-restricciones-regulatorias-convertidas-en-requisitos).
+Cómo se traduce esto en requisitos del sistema: [SPEC.md §4](../docs/SPEC.md#4-restricciones-regulatorias-convertidas-en-requisitos).
 
 **Preguntas para la opinión legal:**
 1. El flujo de fondos con el PSP de plataforma.
@@ -312,12 +312,12 @@ Prevención de cada una en ANALISIS_PROYECTO.md §22.
 6. 50 encuestas a comensales.
 7. **Conseguir facturas de TPV y comisiones reales** de 10 restaurantes.
 8. Probar como cliente a los competidores (Honei, Qamarero, Cheerfy, Last.app).
-9. Pedir ofertas a 3 PSP → [D-01](DECISIONS.md#d-01).
-10. Hablar con 2–3 fabricantes de software de caja → [D-02](DECISIONS.md#d-02).
+9. Pedir ofertas a 3 PSP → [D-01](../docs/DECISIONS.md#d-01).
+10. Hablar con 2–3 fabricantes de software de caja → [D-02](../docs/DECISIONS.md#d-02).
 11. Encargar la opinión legal (preguntas en §5).
 12. Constituir la S.L., registrar la marca (OEPM/EUIPO) y los dominios; solicitar la certificación de ENISA.
-13. **PoC local** ([ROADMAP §2](ROADMAP.md#poc), semanas 1–4) en paralelo con las acciones 3–11. Sustituye al prototipo de Figma como herramienta de demo: se prueba con 10 comensales y 5 dueños desde sus propios móviles. (Figma solo para explorar pantallas antes de programarlas.)
-14. MVP muy básico (hitos M0–M1 del [ROADMAP](ROADMAP.md)), construido sobre el código de la PoC.
+13. **PoC local** ([ROADMAP §2](../docs/ROADMAP.md#poc), semanas 1–4) en paralelo con las acciones 3–11. Sustituye al prototipo de Figma como herramienta de demo: se prueba con 10 comensales y 5 dueños desde sus propios móviles. (Figma solo para explorar pantallas antes de programarlas.)
+14. MVP muy básico (hitos M0–M1 del [ROADMAP](../docs/ROADMAP.md)), construido sobre el código de la PoC.
 15. 10 cartas de intención y 3–5 socios de diseño.
 16. Placas QR antimanipulación y kit de mesa, con test A/B del texto.
 17. Términos, política de privacidad, consentimientos, contrato con el comercio y DPIA preliminar.

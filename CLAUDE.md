@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Monorepo pnpm + Turborepo con la **PoC local** en curso: PoC completa: hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Guion de demo en `docs/DEMO.md`. Siguiente: demos con hosteleros (criterio 6) y M0. Comentarios, documentación y textos de UI en español.
+Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. Siguiente: hito M0 del MVP. Comentarios, documentación y textos de UI en español.
 
 ## Comandos
 
@@ -39,15 +39,15 @@ ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con serv
 | `docs/SPEC.md` | Requisitos con IDs estables: `REG-xx` (regulatorios), `FR-<ÁREA>-xx` (funcionales), `NFR-xx`; recorridos de usuario y máquinas de estado (§7) |
 | `docs/ARCHITECTURE.md` | Stack, estructura del monorepo, módulos del backend, interfaces de proveedores, flujo de pago, diseño de QR, modelo de datos (§10), API |
 | `docs/DECISIONS.md` | ADRs aceptados (`ADR-xxx`) y decisiones abiertas (`D-xx`) con su criterio de desbloqueo |
-| `docs/ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho", KPIs de salida |
-| `docs/CONTEXT.md` | Negocio, mercado y regulación (resumen) |
-| `docs/ANALISIS_PROYECTO.md` | Fuente detallada de la que derivan los demás, con cifras y fuentes |
+| `docs/ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho" y criterios técnicos de salida |
+| `docs/DEMO.md` | Recorrido manual de la PoC paso a paso y resolución de problemas |
 
 Convenciones de la documentación:
 - Etiquetas `[HECHO]`, `[HIPÓTESIS]`, `[INCIERTO]` en afirmaciones y cifras; mantenlas al editar.
 - Los documentos se enlazan entre sí por ID (`ADR-003`, `FR-PAY-05`, `D-01`) y anclas `<a id="adr-001">`. Si cambias un ID o una decisión, actualiza las referencias cruzadas en todos los documentos.
 - Las decisiones nuevas se añaden como ADR con contexto, decisión, alternativas descartadas, consecuencias y estado. Una decisión que cambia otra se marca `Sustituida por ADR-XXX`, no se borra.
-- Toda función nueva debe justificar su impacto en un KPI de salida de la fase en curso (ADR-001).
+- `docs/` es solo documentación técnica. El análisis de negocio está en `negocio/` y no se enlaza desde `docs/`.
+- Toda función nueva entra por un hito del ROADMAP, con sus requisitos en SPEC (ADR-001).
 
 ## Arquitectura prevista
 

@@ -1,6 +1,6 @@
 # ARCHITECTURE: arquitectura técnica de ComerceChat (MVP)
 
-> **Estado:** borrador v0.2 (17-oct-2026). Añade la arquitectura de la PoC local ([§16](#poc-local)).
+> **Estado:** v0.3 (19-oct-2026). Incluye la arquitectura de la PoC local ([§16](#poc-local)).
 > **Documentos relacionados:**
 > - Requisitos en [SPEC.md](SPEC.md).
 > - Razones de cada elección en [DECISIONS.md](DECISIONS.md).
@@ -89,8 +89,9 @@ comercechat/
 │  └─ config/              # eslint, tsconfig, prettier (de momento en la raíz)
 ├─ infra/
 │  └─ terraform/           # VPC, RDS, ElastiCache, ECS, SQS, S3, KMS, IAM, Secrets
-├─ docs/                   # (opcional) diagramas, runbooks
-└─ SPEC.md · ARCHITECTURE.md · DECISIONS.md · ROADMAP.md · CONTEXT.md
+├─ e2e/                    # Playwright: recorrido completo en navegador (pnpm e2e)
+├─ scripts/                # poc:up, poc:keys, poc:tunnel, poc:stop
+└─ docs/                   # SPEC · ARCHITECTURE · DECISIONS · ROADMAP · DEMO
 ```
 
 **Herramientas del monorepo:** pnpm workspaces + Turborepo.
@@ -223,7 +224,7 @@ web-qr                     api                          PSP                     
 
 - La clave de firma se rota (`kid` en la cabecera del JWS) y las claves privadas se custodian en KMS.
 - Revocación: `status = REVOKED` + invalidación de la cache en Redis. Efectiva en < 60 s (FR-QR-05).
-- Medidas físicas (placas antimanipulación) en [CONTEXT.md](CONTEXT.md).
+- Medidas físicas complementarias: placas de metacrilato o etiquetas que se rompen al despegarlas, y foto de referencia de cada placa en el panel para que el personal las revise.
 
 ## 9. Seguridad y fraude: controles técnicos
 

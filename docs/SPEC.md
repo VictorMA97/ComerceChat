@@ -1,13 +1,10 @@
 # SPEC: especificación funcional del MVP de ComerceChat
 
-> **Estado:** borrador v0.2 (17-oct-2026). Añade el alcance de la PoC local ([§3.3](#poc)).
+> **Estado:** v0.3 (19-oct-2026). Solo contenido técnico; incluye el alcance de la PoC local ([§3.3](#poc)).
 > **Documentos relacionados:**
 > - [ARCHITECTURE.md](ARCHITECTURE.md): cómo se construye.
 > - [DECISIONS.md](DECISIONS.md): por qué.
 > - [ROADMAP.md](ROADMAP.md): cuándo.
-> - [CONTEXT.md](CONTEXT.md): negocio, regulación y mercado.
->
-> **Fuente detallada:** [ANALISIS_PROYECTO.md](ANALISIS_PROYECTO.md).
 >
 > **Etiquetas:** [HIPÓTESIS] indica un valor por validar en el piloto; [INCIERTO] indica que depende de un proveedor o de una decisión abierta.
 
@@ -17,9 +14,7 @@
 
 ComerceChat es una plataforma de **"pedir, pagar y volver"** para restaurantes con servicio en mesa:
 - **El comensal** escanea el QR de la mesa y, **sin instalar nada**, ve la cuenta y la carta, pide, divide la cuenta, paga (tarjeta, Apple Pay, Google Pay, Bizum) y deja propina. Al terminar, se le invita a guardar sus puntos.
-- **El restaurante** obtiene un cobro más rápido, más propinas, una base de clientes propia con consentimiento, y herramientas sencillas de fidelización y campañas.
-
-**Mercado inicial:** restaurantes independientes y grupos pequeños (1–5 locales) con ticket medio de 25–60 €, en 2 barrios de Madrid.
+- **El restaurante** recibe el pago registrado en su software de caja, ve sus mesas en tiempo real, y dispone de clientes identificados (con consentimiento), fidelización y campañas.
 
 **Fuera de la visión del MVP:** la "superapp" (monedero, envíos entre usuarios, delivery, mini-apps). Ver [DECISIONS.md › ADR-001](DECISIONS.md#adr-001).
 
@@ -100,13 +95,13 @@ ComerceChat es una plataforma de **"pedir, pagar y volver"** para restaurantes c
 
 La **prueba de concepto (PoC) local** es una versión del MVP que funciona entera en un portátil, con los proveedores externos simulados (ver [DECISIONS.md › ADR-017/018](DECISIONS.md#adr-017)).
 
-**Objetivo:** demostrar el recorrido completo "escanear → ver cuenta → dividir → propina → pagar → puntos → cupón → el comercio lo ve en su panel" a hosteleros e inversores. Además, validar técnicamente las partes de mayor riesgo:
+**Objetivo:** ejecutar en local el recorrido completo "escanear → ver cuenta → dividir → propina → pagar → puntos → cupón → el comercio lo ve en su panel" y validar técnicamente las partes de mayor riesgo:
 - concurrencia al dividir la cuenta;
 - idempotencia de los webhooks;
 - canje atómico de cupones;
 - tiempo real.
 
-**Duración objetivo:** 3–4 semanas con 1–2 desarrolladores ([ROADMAP.md › PoC](ROADMAP.md#poc)).
+Planificación en [ROADMAP.md › PoC](ROADMAP.md#poc).
 
 **Requisitos incluidos en la PoC** (el resto del MVP queda fuera):
 
@@ -135,13 +130,12 @@ La **prueba de concepto (PoC) local** es una versión del MVP que funciona enter
 3. Reenviar 10 veces el mismo webhook produce 1 solo pago y 1 sola entrada de puntos.
 4. 100 peticiones paralelas sobre el mismo cupón producen exactamente 1 canje.
 5. El panel del camarero ve "Mesa pagada" en < 3 s.
-6. Al menos 5 hosteleros ven la demo y se recoge su feedback.
 
 ## 4. Restricciones regulatorias convertidas en requisitos
 
 > En la PoC no se mueve dinero real. Aun así, el código debe respetar estas reglas desde el principio para que el MVP herede un diseño conforme.
 
-Estas reglas son **requisitos del sistema**; romperlas cambia el estatus regulatorio de la empresa. Ver [CONTEXT.md › Regulación](CONTEXT.md#regulacion).
+Estas reglas son **requisitos del sistema**: derivan de la normativa de servicios de pago, dinero electrónico, protección de datos y facturación, y romperlas cambia las obligaciones regulatorias del sistema.
 
 | ID | Requisito |
 |---|---|
@@ -433,7 +427,7 @@ PointsLedgerEntry (EARN):
 
 ## 9. Métricas que el sistema debe poder calcular
 
-Todas se calculan a partir de eventos de producto y de la base de datos. Definiciones en [CONTEXT.md › KPIs](CONTEXT.md#kpis).
+Todas se calculan a partir de eventos de producto y de la base de datos.
 
 - Comercios activos (≥ 50 pagos en 30 días).
 - Usuarios activos al mes (MAU).
