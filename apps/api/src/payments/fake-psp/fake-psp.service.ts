@@ -146,9 +146,9 @@ export class FakePspService {
         'deliver',
         { body } satisfies DeliveryJob,
         {
-          delay: chaos ? randomInt(0, 10_000) : 0,
+          delayMs: chaos ? randomInt(0, 10_000) : 0,
           attempts: 8,
-          backoff: { type: 'exponential', delay: 1_000 },
+          backoffMs: 1_000,
         },
       );
     }

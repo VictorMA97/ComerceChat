@@ -34,7 +34,15 @@ const envSchema = z.object({
   PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
   POS_CONNECTOR: z.enum(['fake', 'manual']).default('fake'),
   OTP_SENDER: z.enum(['console']).default('console'),
-  QUEUE_DRIVER: z.enum(['bullmq']).default('bullmq'),
+  /** Colas de trabajo: BullMQ sobre Redis (PoC) o SQS (MVP). Las tareas periódicas siguen en BullMQ. */
+  QUEUE_DRIVER: z.enum(['bullmq', 'sqs']).default('bullmq'),
+  AWS_REGION: z.string().min(1).default('eu-south-2'),
+  /** Endpoint de SQS compatible en local (ElasticMQ: http://localhost:9324). Vacío = AWS. */
+  SQS_ENDPOINT: z.string().url().optional(),
+  /** Crea las colas y sus DLQ si faltan. Solo local: en AWS las crea Terraform. */
+  SQS_CREATE_QUEUES: z.enum(['on', 'off']).default('off'),
+  /** Espera máxima de cada ReceiveMessage (long polling, 0–20 s). */
+  SQS_WAIT_SECONDS: z.coerce.number().int().min(0).max(20).default(20),
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   AUTH_PROVIDER: z.enum(['local']).default('local'),
   TELEMETRY: z.enum(['on', 'off']).default('off'),
@@ -87,6 +95,32 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** Reglas que solo aplican en producción. Devuelve un mensaje por cada una que se incumple. */
+export function productionViolations(
+  env: Pick<
+    Env,
+    (typeof PROVIDER_SELECTORS)[number] | 'RATE_LIMITS' | 'QUEUE_DRIVER' | 'SQS_CREATE_QUEUES'
+  >,
+): string[] {
+  const out: string[] = [];
+  const simulated = PROVIDER_SELECTORS.filter((key) => SIMULATED_VALUES.has(env[key]));
+  if (simulated.length > 0) {
+    out.push(
+      `Proveedores simulados no permitidos en producción: ${simulated
+        .map((k) => `${k}=${env[k]}`)
+        .join(', ')} (ADR-018)`,
+    );
+  }
+  if (env.RATE_LIMITS === 'off') out.push('RATE_LIMITS=off no está permitido en producción');
+  if (env.QUEUE_DRIVER !== 'sqs') {
+    out.push('En producción las colas van en SQS (QUEUE_DRIVER=sqs, ADR-026)');
+  }
+  if (env.SQS_CREATE_QUEUES === 'on') {
+    out.push('SQS_CREATE_QUEUES=on no está permitido en producción: las colas las crea Terraform');
+  }
+  return out;
+}
+
 /** Valida el entorno. Lanza un error si falta algo o si hay simuladores activos en producción. */
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
   const result = envSchema.safeParse(source);
@@ -98,17 +132,8 @@ export function parseEnv(source: NodeJS.ProcessEnv): Env {
   }
   const env = result.data;
   if (env.NODE_ENV === 'production') {
-    if (env.RATE_LIMITS === 'off') {
-      throw new Error('RATE_LIMITS=off no está permitido en producción');
-    }
-    const simulated = PROVIDER_SELECTORS.filter((key) => SIMULATED_VALUES.has(env[key]));
-    if (simulated.length > 0) {
-      throw new Error(
-        `Proveedores simulados no permitidos en producción: ${simulated
-          .map((k) => `${k}=${env[k]}`)
-          .join(', ')} (ADR-018)`,
-      );
-    }
+    const violations = productionViolations(env);
+    if (violations.length > 0) throw new Error(violations.join('\n'));
   }
   return env;
 }

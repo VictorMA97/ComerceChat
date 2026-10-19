@@ -103,6 +103,7 @@ export class QrService {
         {
           actorType: 'MERCHANT_USER',
           actorId: principal.merchantUserId,
+          merchantId: principal.merchantId,
           action: 'qr.regenerated',
           entity: 'table',
           entityId: tableId,

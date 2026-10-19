@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. **M0 en curso** (ROADMAP §3): hecho el registro de comercios con doble factor TOTP obligatorio para OWNER/MANAGER y el alta de locales y mesas (ADR-025); falta la parte de AWS/observabilidad. Comentarios, documentación y textos de UI en español.
+Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. **M0 en curso** (ROADMAP §3): hechos el registro de comercios con doble factor TOTP (ADR-025), colas en SQS (ADR-026), trazas OpenTelemetry (ADR-027), auditoría de solo inserción con registro de actividad (ADR-028) y el STRIDE del pago; falta lo que requiere cuentas (AWS/Terraform, Sentry) y la prueba de D-03. Comentarios, documentación y textos de UI en español.
 
 ## Comandos
 
@@ -12,7 +12,7 @@ Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.
 - `pnpm dev` · `pnpm lint` · `pnpm typecheck` · `pnpm build` · `pnpm test` (Turborepo, todo el monorepo).
 - Tests: `pnpm test:unit` (sin Docker, cacheado; lo ejecuta el hook `pre-push` junto a `lint` y `typecheck`) y `pnpm test:integration` (Postgres/Redis). El `pre-commit` pasa ESLint + Prettier con lint-staged.
 - Un solo test: `pnpm --filter @comercechat/api exec vitest run src/qr/qr-signature.spec.ts` (o `-t "nombre del test"`).
-- Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres y Redis reales de `.env.local`; crean sus propios datos con emails únicos.
+- Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres, Redis y ElasticMQ (SQS) reales de docker compose; crean sus propios datos con emails únicos.
 - Migraciones: edita `apps/api/src/db/schema/*`, ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
 - `pnpm db:seed` borra y recrea los datos de prueba.
 - `pnpm e2e`: recorrido completo en navegador (Playwright, `e2e/`); recarga los datos y fija `WEB_QR_BASE_URL` a localhost durante la prueba.
@@ -26,7 +26,9 @@ Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.
 - TypeScript fijado a `~5.9` (el CLI de Nest no soporta TS 7).
 - Variables de entorno: un único `.env.local` en la raíz (generado por `pnpm poc:keys`), validado con zod en `apps/api/src/config/env.ts`. Las apps Next lo cargan en `next.config.ts`.
 - Errores de la API: lanza `AppError(code, status, title)`; `ProblemFilter` lo convierte en RFC 9457.
-- Asíncrono: `QueueService` (BullMQ) registra workers que solo arrancan si `PROCESS_ROLE` ≠ `http`. Los eventos de dominio se escriben con `OutboxService.enqueue(tx, …)` dentro de la transacción y se consumen con `OutboxRelayService.on(tipo, handler)`; los handlers deben ser idempotentes.
+- Asíncrono: `QueueService` es una fachada (ADR-026): `add`/`addBulk` con `{ jobId, attempts, backoffMs, delayMs }`, `registerWorker` y `schedule` para tareas periódicas. `QUEUE_DRIVER=bullmq|sqs` elige el transporte de las colas de trabajo; las de `SCHEDULED_QUEUES` van siempre en BullMQ. No uses BullMQ directamente. Los workers solo arrancan si `PROCESS_ROLE` ≠ `http`. Los eventos de dominio se escriben con `OutboxService.enqueue(tx, …)` dentro de la transacción y se consumen con `OutboxRelayService.on(tipo, handler)`; los handlers deben ser idempotentes (con SQS no hay deduplicación por `jobId`).
+- Auditoría: `AuditService.record({ …, merchantId }, tx)`; pasa siempre `merchantId` si la acción es de un comercio, para que aparezca en su registro de actividad. `audit_logs` y `user_consents` rechazan UPDATE/DELETE en la base de datos (ADR-028).
+- Telemetría: `main.ts` arranca OpenTelemetry y luego importa `server.ts` de forma dinámica; no añadas imports estáticos de la app en `main.ts` o dejarán de instrumentarse. Nada de tokens ni datos personales en atributos de spans (ADR-027).
 - El navegador del comensal nunca llama a la API: `apps/web-qr` la consulta desde el servidor (ADR-021).
 - Dividir la cuenta: toda reserva de una parte pasa por `order_allocations` con el pedido bloqueado (`TableBillService.lockOrderMirror` + `computeState` en la misma transacción). No calcules lo disponible fuera de esa transacción para decidir un cobro (ADR-022).
 - Tiempo real: tras un cambio relevante llama a `RealtimeService.publishTable(...)` / `publish(...)` después del commit. Los navegadores escuchan con `LiveRefresh` (SSE con caída a sondeo).
@@ -42,6 +44,7 @@ ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con serv
 | `docs/DECISIONS.md` | ADRs aceptados (`ADR-xxx`) y decisiones abiertas (`D-xx`) con su criterio de desbloqueo |
 | `docs/ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho" y criterios técnicos de salida |
 | `docs/DEMO.md` | Recorrido manual de la PoC paso a paso y resolución de problemas |
+| `docs/STRIDE.md` | Modelo de amenazas del flujo de pago: mitigaciones con su test y riesgos abiertos por hito |
 
 Convenciones de la documentación:
 - Etiquetas `[HECHO]`, `[HIPÓTESIS]`, `[INCIERTO]` en afirmaciones y cifras; mantenlas al editar.

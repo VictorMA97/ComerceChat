@@ -62,6 +62,7 @@ export class MerchantsService {
           {
             actorType: 'MERCHANT_USER',
             actorId: owner!.id,
+            merchantId: merchant!.id,
             action: 'merchant.registered',
             entity: 'merchant',
             entityId: merchant!.id,
@@ -104,6 +105,7 @@ export class MerchantsService {
         {
           actorType: 'MERCHANT_USER',
           actorId: principal.merchantUserId,
+          merchantId: principal.merchantId,
           action: 'merchant.psp_onboarding_simulated',
           entity: 'merchant',
           entityId: principal.merchantId,

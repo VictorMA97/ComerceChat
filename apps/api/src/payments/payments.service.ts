@@ -90,17 +90,8 @@ export class PaymentsService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap(): Promise<void> {
     if (!this.queues.runsWorkers) return;
-    const q = this.queues.queue(QueueName.MAINTENANCE);
-    await q.upsertJobScheduler(
-      'expire-payment-sessions',
-      { every: 30_000 },
-      { name: 'expire-payment-sessions' },
-    );
-    await q.upsertJobScheduler(
-      'purge-idempotency-keys',
-      { every: 60 * 60_000 },
-      { name: 'purge-idempotency-keys' },
-    );
+    await this.queues.schedule(QueueName.MAINTENANCE, 'expire-payment-sessions', 30_000);
+    await this.queues.schedule(QueueName.MAINTENANCE, 'purge-idempotency-keys', 60 * 60_000);
   }
 
   /** Crea una sesión de pago: con el QR de la mesa (y reparto) o con el QR de cobro de la caja. */

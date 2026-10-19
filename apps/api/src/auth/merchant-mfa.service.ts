@@ -26,6 +26,8 @@ const RECOVERY_CODES = 10;
 
 export type MfaStage = 'verify' | 'setup';
 
+type MfaUser = { id: string; merchantId: string };
+
 interface MfaChallengePayload {
   sub: string;
   typ: 'merchant_mfa';
@@ -112,7 +114,7 @@ export class MerchantMfaService {
       );
     }
     const secret = decryptPii(pending, this.env.PII_ENCRYPTION_KEY);
-    await this.checkCode(user.id, secret, code, ip);
+    await this.checkCode(user, secret, code, ip);
 
     const recoveryCodes = Array.from({ length: RECOVERY_CODES }, newRecoveryCode);
     await this.db.transaction(async (tx) => {
@@ -140,6 +142,7 @@ export class MerchantMfaService {
         {
           actorType: 'MERCHANT_USER',
           actorId: user.id,
+          merchantId: user.merchantId,
           action: 'merchant_user.mfa_enabled',
           entity: 'merchant_user',
           entityId: user.id,
@@ -175,10 +178,11 @@ export class MerchantMfaService {
           ),
         )
         .returning({ id: merchantUserRecoveryCodes.id });
-      if (!used) await this.fail(user.id, ip);
+      if (!used) await this.fail(user, ip);
       await this.audit.record({
         actorType: 'MERCHANT_USER',
         actorId: user.id,
+        merchantId: user.merchantId,
         action: 'merchant_user.mfa_recovery_code_used',
         entity: 'merchant_user',
         entityId: user.id,
@@ -186,7 +190,7 @@ export class MerchantMfaService {
       });
     } else {
       const secret = decryptPii(user.mfaSecretEnc, this.env.PII_ENCRYPTION_KEY);
-      await this.checkCode(user.id, secret, input.code ?? '', ip);
+      await this.checkCode(user, secret, input.code ?? '', ip);
     }
     await this.redis.del(this.failuresKey(user.id));
     // El token intermedio es de un solo uso.
@@ -215,13 +219,13 @@ export class MerchantMfaService {
   }
 
   /** Valida un TOTP: cuenta fallos por usuario e impide reutilizar el mismo código. */
-  private async checkCode(userId: string, secret: string, code: string, ip?: string) {
-    await this.assertNotLocked(userId);
+  private async checkCode(user: MfaUser, secret: string, code: string, ip?: string) {
+    await this.assertNotLocked(user.id);
     const step = verifyTotp(secret, code.trim());
-    if (step === null) return this.fail(userId, ip);
+    if (step === null) return this.fail(user, ip);
     // Un código capturado (por encima del hombro, phishing en tiempo real) no vale una segunda vez.
-    const fresh = await this.redis.set(`mfa:used:${userId}:${step}`, '1', 'EX', 120, 'NX');
-    if (fresh !== 'OK') return this.fail(userId, ip);
+    const fresh = await this.redis.set(`mfa:used:${user.id}:${step}`, '1', 'EX', 120, 'NX');
+    if (fresh !== 'OK') return this.fail(user, ip);
   }
 
   private async assertNotLocked(userId: string) {
@@ -235,15 +239,16 @@ export class MerchantMfaService {
     }
   }
 
-  private async fail(userId: string, ip?: string): Promise<never> {
-    const key = this.failuresKey(userId);
+  private async fail(user: MfaUser, ip?: string): Promise<never> {
+    const key = this.failuresKey(user.id);
     await this.redis.multi().incr(key).expire(key, MFA_LOCK_SECONDS).exec();
     await this.audit.record({
       actorType: 'MERCHANT_USER',
-      actorId: userId,
+      actorId: user.id,
+      merchantId: user.merchantId,
       action: 'merchant_user.mfa_failed',
       entity: 'merchant_user',
-      entityId: userId,
+      entityId: user.id,
       ip,
     });
     throw new AppError('MFA_CODE_INVALID', HttpStatus.UNAUTHORIZED, 'Código incorrecto');

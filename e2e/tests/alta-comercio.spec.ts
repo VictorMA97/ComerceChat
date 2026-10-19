@@ -6,7 +6,7 @@ const PANEL = 'http://localhost:3001';
 test.beforeAll(async ({ request }) => {
   test.setTimeout(240_000);
   // Compila las páginas antes de usarlas (ver recorrido-completo.spec.ts).
-  for (const path of ['/registro', '/activar-2fa', '/login', '/'])
+  for (const path of ['/registro', '/activar-2fa', '/login', '/', '/actividad'])
     await request
       .get(`${PANEL}${path}`, { timeout: 120_000, maxRedirects: 0 })
       .catch(() => undefined);
@@ -62,4 +62,11 @@ test('alta de comercio: registro, doble factor, local con mesas y QR que acepta 
   await expect(diner.getByText('Mesa 6')).toBeVisible();
   // El simulador de caja tiene la mesa enlazada, aún sin cuenta abierta.
   await expect(diner.getByText('No hay ninguna cuenta abierta')).toBeVisible();
+
+  // El OWNER ve su registro de actividad (ADR-028).
+  await page.getByRole('link', { name: 'Actividad' }).click();
+  await expect(page.getByRole('cell', { name: 'Doble factor activado' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Registro del comercio' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'Mesas creadas' }).first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/actividad.png', fullPage: true });
 });

@@ -88,6 +88,7 @@ export class PromotionsService {
         {
           actorType: 'MERCHANT_USER',
           actorId: m.merchantUserId,
+          merchantId: m.merchantId,
           action: 'promotion.created',
           entity: 'promotion',
           entityId: p!.id,

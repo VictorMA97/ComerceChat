@@ -55,6 +55,10 @@ jobs:
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 3s --health-retries 30
+      # SQS compatible para los tests de QUEUE_DRIVER=sqs (ADR-026).
+      sqs:
+        image: softwaremill/elasticmq-native:1.6.14
+        ports: ['9324:9324']
     env:
       TURBO_TELEMETRY_DISABLED: 1
     steps:

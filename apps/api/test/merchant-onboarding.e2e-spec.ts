@@ -242,4 +242,79 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('VALIDATION_FAILED');
   });
+
+  it('registro de actividad: solo el OWNER lo ve, paginado y de solo inserción (ADR-028)', async () => {
+    const auth = { authorization: `Bearer ${session}` };
+    const all: { action: string; actor: { email: string | null }; id: string }[] = [];
+    let cursor: string | null = null;
+    do {
+      const res: request.Response = await http()
+        .get(`/v1/merchant/audit?limit=5${cursor ? `&before=${cursor}` : ''}`)
+        .set(auth);
+      expect(res.status).toBe(200);
+      expect(res.body.items.length).toBeLessThanOrEqual(5);
+      all.push(...res.body.items);
+      cursor = res.body.nextCursor;
+    } while (cursor);
+    const actions = all.map((e) => e.action);
+    for (const a of [
+      'merchant.registered',
+      'merchant_user.mfa_enabled',
+      'merchant_user.mfa_failed',
+      'merchant_user.mfa_recovery_code_used',
+      'merchant_user.login',
+      'location.created',
+      'tables.created',
+      'merchant.psp_onboarding_simulated',
+    ]) {
+      expect(actions).toContain(a);
+    }
+    // De la más reciente a la más antigua, sin repetidos entre páginas.
+    expect(new Set(all.map((e) => e.id)).size).toBe(all.length);
+    expect([...all.map((e) => e.id)].sort().reverse()).toEqual(all.map((e) => e.id));
+    expect(all.find((e) => e.action === 'merchant.registered')!.actor.email).toBe(email);
+
+    // Otros comercios no aparecen.
+    const foreign = await db
+      .select()
+      .from(s.auditLogs)
+      .where(eq(s.auditLogs.action, 'merchant_user.login'));
+    const mine = new Set(all.map((e) => e.id));
+    expect(foreign.some((r) => !mine.has(r.id))).toBe(true);
+
+    // La base de datos impide corregir o borrar entradas.
+    await expect(
+      db.update(s.auditLogs).set({ action: 'x' }).where(eq(s.auditLogs.id, all[0]!.id)),
+    ).rejects.toThrow();
+    await expect(db.delete(s.auditLogs).where(eq(s.auditLogs.id, all[0]!.id))).rejects.toThrow();
+  });
+
+  it('un MANAGER no ve el registro de actividad', async () => {
+    const merchant = await db.query.merchantUsers.findFirst({
+      where: eq(s.merchantUsers.email, email),
+    });
+    const [manager] = await db
+      .insert(s.merchantUsers)
+      .values({
+        merchantId: merchant!.merchantId,
+        email: `manager-${suffix}@e2e.test`,
+        passwordHash: await hashPassword(password),
+        role: 'MANAGER',
+      })
+      .returning();
+    // Sesión emitida directamente: aquí se prueba el rol, no el login.
+    await db
+      .update(s.merchantUsers)
+      .set({ mfaEnabled: true })
+      .where(eq(s.merchantUsers.id, manager!.id));
+    const { accessToken } = await app.get(AuthService).issueSession({
+      merchantUserId: manager!.id,
+      merchantId: manager!.merchantId,
+      role: 'MANAGER',
+    });
+    const res = await http()
+      .get('/v1/merchant/audit')
+      .set('authorization', `Bearer ${accessToken}`);
+    expect(res.body.code).toBe('FORBIDDEN_ROLE');
+  });
 });

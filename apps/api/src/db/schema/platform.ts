@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from './columns.js';
 
 /** Registro de auditoría de solo-inserción. */
@@ -15,9 +15,14 @@ export const auditLogs = pgTable(
     before: jsonb('before'),
     after: jsonb('after'),
     ip: text('ip'),
+    /** Comercio al que pertenece la entrada (para su registro de actividad). Sin FK: es histórico. */
+    merchantId: uuid('merchant_id'),
     createdAt: createdAt(),
   },
-  (t) => [index('audit_logs_entity_idx').on(t.entity, t.entityId)],
+  (t) => [
+    index('audit_logs_entity_idx').on(t.entity, t.entityId),
+    index('audit_logs_merchant_idx').on(t.merchantId, t.id),
+  ],
 );
 
 /** Patrón outbox: los eventos de dominio se escriben en la misma transacción (ARCHITECTURE §5). */

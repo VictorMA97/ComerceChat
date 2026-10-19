@@ -24,6 +24,7 @@ test.beforeAll(async ({ request }) => {
     `${PANEL}/analitica`,
     `${PANEL}/promociones`,
     `${PANEL}/pos-simulator`,
+    `${PANEL}/actividad`,
     `${WEB_QR}/`,
     `${WEB_QR}/cuenta`,
     `${WEB_QR}/t/calentamiento`,

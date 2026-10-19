@@ -113,8 +113,11 @@ export class AuthController {
   @Post('logout')
   @HttpCode(204)
   @ApiOperation({ summary: 'Cierra la sesión: el token deja de valer aunque no haya caducado' })
-  async logout(@Headers('authorization') authorization: string | undefined): Promise<void> {
+  async logout(
+    @Headers('authorization') authorization: string | undefined,
+    @ClientIp() ip: string,
+  ): Promise<void> {
     const token = bearerToken(authorization);
-    if (token) await this.auth.revokeMerchantToken(token);
+    if (token) await this.auth.revokeMerchantToken(token, ip);
   }
 }

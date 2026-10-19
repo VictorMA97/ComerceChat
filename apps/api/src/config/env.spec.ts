@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseEnv } from './env.js';
+import { parseEnv, productionViolations } from './env.js';
 
 const base = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/db',
@@ -31,6 +31,29 @@ describe('parseEnv', () => {
       /RATE_LIMITS=off no está permitido en producción/,
     );
     expect(parseEnv({ ...base, NODE_ENV: 'test', RATE_LIMITS: 'off' }).RATE_LIMITS).toBe('off');
+  });
+
+  it('en producción exige SQS y no deja crear colas desde la app (ADR-026)', () => {
+    const real = {
+      PAYMENT_PROVIDER: 'stripe',
+      POS_CONNECTOR: 'manual',
+      OTP_SENDER: 'console',
+      STORAGE_DRIVER: 'local',
+      AUTH_PROVIDER: 'local',
+      RATE_LIMITS: 'on',
+    } as const;
+    const queueRules = (v: string[]) => v.filter((m) => !m.startsWith('Proveedores simulados'));
+    expect(
+      queueRules(productionViolations({ ...real, QUEUE_DRIVER: 'sqs', SQS_CREATE_QUEUES: 'off' })),
+    ).toEqual([]);
+    expect(
+      queueRules(
+        productionViolations({ ...real, QUEUE_DRIVER: 'bullmq', SQS_CREATE_QUEUES: 'off' }),
+      ),
+    ).toEqual([expect.stringMatching(/QUEUE_DRIVER=sqs/)]);
+    expect(
+      queueRules(productionViolations({ ...real, QUEUE_DRIVER: 'sqs', SQS_CREATE_QUEUES: 'on' })),
+    ).toEqual([expect.stringMatching(/SQS_CREATE_QUEUES=on/)]);
   });
 
   it('exige secretos de al menos 32 caracteres', () => {

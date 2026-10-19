@@ -117,7 +117,7 @@ comercechat/
 | `pos-integrations` | `PosConnector` + adaptadores por software de caja, emparejamiento de mesas, modo degradado | FR-POS-* |
 | `realtime` | Canal por mesa (SSE/WS) sobre pub/sub de Redis | FR-ORD-01, FR-MER-08 |
 | `risk` | Reglas, puntuación de riesgo, límites, cola de revisión | §9 |
-| `audit` | `AuditLog` de solo-inserción | NFR, FR-ADM-05 |
+| `audit` | `AuditLog` de solo-inserción (forzada con triggers), ligado al comercio; registro de actividad del OWNER (ADR-028) | NFR, FR-ADM-05 |
 | `admin` | Backoffice | FR-ADM-* |
 
 **Reglas entre módulos:**
@@ -308,7 +308,8 @@ notifications(id, recipient_type[USER|MERCHANT_USER], recipient_id, channel[PUSH
               template, payload JSONB, campaign_id?, status, sent_at?, opened_at?)
 reservations(...)                                                        -- fase 2, no crear en el MVP
 
-audit_logs(id, actor_type, actor_id, action, entity, entity_id, before JSONB, after JSONB, ip, created_at)  -- solo inserción
+audit_logs(id, actor_type, actor_id, action, entity, entity_id, before JSONB, after JSONB, ip, merchant_id?, created_at)
+           -- solo inserción: un trigger rechaza UPDATE/DELETE (ADR-028)
 risk_events(id, entity_type, entity_id, rule, score, action[ALLOW|REVIEW|BLOCK], resolved_by?, created_at)
 outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, published_at?)
 ```
@@ -338,6 +339,7 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
   - `GET /qr/{code}` · `POST /payment-sessions` · `GET /payments/{id}` · `POST /auth/otp/start|verify` · `POST /guest/claim-points`
   - `GET /me/loyalty` · `GET /me/coupons` · `GET /merchants/nearby?lat&lng`
   - Panel: `/merchant/locations` · `/tables` · `/qr` · `/promotions` · `/customers` · `/analytics/*` · `/payments` · `/refunds`
+  - Comercio (M0): `POST /merchant/auth/register` · `POST /merchant/auth/mfa/setup|activate|verify` · `POST /merchant/locations` · `POST /merchant/locations/{id}/tables` · `GET /merchant/audit` (ADR-025, ADR-028)
 
 ## 12. Tiempo real
 
@@ -363,7 +365,7 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 ## 14. Entornos, despliegue y operación
 
 - **Entornos:**
-  - `local`: docker-compose con Postgres+PostGIS, Redis, LocalStack (SQS/S3) y el modo de pruebas del PSP.
+  - `local`: docker-compose con Postgres+PostGIS, Redis, ElasticMQ (SQS, ADR-026), Mailpit y, opcional, Jaeger (ADR-027). S3 se simulará cuando haga falta.
   - `staging`: PSP en modo pruebas y un software de caja de pruebas.
   - `prod`.
 - **Infraestructura como código:** Terraform con estado remoto en S3 y bloqueo en DynamoDB, y un workspace por entorno.
@@ -421,12 +423,12 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Software de caja real (D-02) | `FakePosConnector` + `ManualPosConnector` | `POS_CONNECTOR=fake\|manual` |
 | SMS / WhatsApp OTP (D-04) | `ConsoleOtpSender` (log + Mailpit) | `OTP_SENDER=console` |
 | Email (Postmark/SES) | SMTP hacia Mailpit | `SMTP_URL=smtp://localhost:1025` |
-| SQS | BullMQ sobre Redis | `QUEUE_DRIVER=bullmq` |
+| SQS | BullMQ sobre Redis por defecto; SQS real contra ElasticMQ con `QUEUE_DRIVER=sqs` (ADR-026). Las tareas periódicas van siempre en BullMQ | `QUEUE_DRIVER=bullmq\|sqs` |
 | S3 | Sistema de ficheros local (`./.data/uploads`) | `STORAGE_DRIVER=local` |
 | KMS (firma de QR y tokens) | Claves Ed25519/HMAC en `.env.local` (generadas por `pnpm poc:keys`, que también añade las que falten a un `.env.local` existente). Cada clave tiene un solo uso | `QR_SIGNING_KEY`, `QR_HMAC_SECRET`, `PAYMENT_STATUS_SECRET` |
 | Autenticación gestionada (D-03) | JWT propio + OTP por consola, detrás de la misma interfaz `AuthProvider` | `AUTH_PROVIDER=local` |
 | Cloudflare / WAF | Límites de peticiones en la aplicación (`@nestjs/throttler` sobre Redis, por IP del cliente). Las apps Next reenvían la IP del navegador con un secreto compartido, porque son ellas quienes llaman a la API (ADR-021) | `RATE_LIMITS=on` (`off` solo en los tests; prohibido en producción), `INTERNAL_PROXY_SECRET` |
-| Sentry / OpenTelemetry / PostHog | Desactivados por defecto; logs estructurados (pino) en la consola | `TELEMETRY=off` |
+| Sentry / OpenTelemetry / PostHog | Desactivados por defecto. Con `TELEMETRY=on`, trazas OpenTelemetry a Jaeger local (ADR-027); Sentry y PostHog pendientes | `TELEMETRY=off\|on` |
 | Proceso worker separado | Workers BullMQ y relé del outbox dentro del proceso de la API | `PROCESS_ROLE=all\|http\|worker` |
 | Colas aisladas por entorno | Prefijo de colas en Redis (los tests usan uno propio) | `QUEUE_PREFIX` |
 | Terraform / AWS / ECS | No aplica | — |

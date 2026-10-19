@@ -58,13 +58,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
 
   async onApplicationBootstrap(): Promise<void> {
     if (!this.queues.runsWorkers) return;
-    await this.queues
-      .queue(QueueName.LOYALTY)
-      .upsertJobScheduler(
-        'release-pending-points',
-        { every: 5 * 60_000 },
-        { name: 'release-pending-points' },
-      );
+    await this.queues.schedule(QueueName.LOYALTY, 'release-pending-points', 5 * 60_000);
   }
 
   async programFor(

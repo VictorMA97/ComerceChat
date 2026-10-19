@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/promociones', label: 'Promociones' },
   { href: '/', label: 'Mesas y QR' },
   { href: '/pos-simulator', label: 'Simulador de caja' },
+  { href: '/actividad', label: 'Actividad' },
 ] as const;
 
 export function Nav({ current }: { current: (typeof LINKS)[number]['href'] }) {

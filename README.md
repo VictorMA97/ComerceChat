@@ -27,6 +27,8 @@ pnpm poc:up
 | Web QR | http://localhost:3000/t/{código} | Escanea un QR del panel |
 | API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
+| ElasticMQ (SQS) | http://localhost:9325 | Colas SQS en local; se usan con `QUEUE_DRIVER=sqs` (ADR-026) |
+| Jaeger (opcional) | http://localhost:16686 | Trazas con `TELEMETRY=on` y `docker compose --profile observability up -d` (ADR-027) |
 
 ### Probar un pago (P2)
 

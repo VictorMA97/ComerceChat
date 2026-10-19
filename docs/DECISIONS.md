@@ -430,6 +430,68 @@
   - La resolución del QR se cachea 30 s, así que un QR consultado mientras el comercio estaba en `ONBOARDING` puede tardar hasta 30 s en aceptar pagos.
   - Falta recuperar la cuenta sin códigos (reinicio del doble factor por soporte, FR-ADM) y gestionar los usuarios del comercio (FR-MER-05).
 
+<a id="adr-026"></a>
+## ADR-026: colas de trabajo en SQS detrás de `QueueService`; tareas periódicas en BullMQ (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** ARCHITECTURE prevé outbox → worker → SQS en el MVP; la PoC usaba BullMQ para todo ([ADR-018](#adr-018)). Hacía falta pasar a SQS sin tocar el dominio ni perder la PoC local.
+- **Decisión:**
+  - `QueueService` es una fachada con dos transportes (`queue/bullmq.transport.ts`, `queue/sqs.transport.ts`). `QUEUE_DRIVER=bullmq|sqs` elige el de las **colas de trabajo**: eventos del PSP, eventos de dominio del outbox y entrega del PSP simulado.
+  - Las **tareas periódicas** (caducidad de sesiones, purga de claves, liberación de puntos) van siempre en BullMQ (`SCHEDULED_QUEUES`): SQS no programa tareas, y Redis ya está en la arquitectura.
+  - **SQS:**
+    - Colas estándar `<QUEUE_PREFIX>-<cola>` con su `-dlq`. Entrega «al menos una vez» y sin orden, cubierto por la regla de que todo procesador es idempotente.
+    - El `jobId` de BullMQ no tiene equivalente: con SQS la deduplicación la garantizan los propios procesadores (`psp_event_id`, índices únicos).
+    - Reintentos: el mensaje fallido se aplaza `backoffMs · 2^(n−1)` cambiando su visibilidad. Al agotar los intentos del trabajo se copia a la DLQ con el motivo y se borra.
+    - La redrive policy de la cola (25 recepciones) es la red de seguridad si el proceso muere antes de moverlo.
+    - Long polling (`SQS_WAIT_SECONDS`, 20 s por defecto). Los consumidores se cortan con `AbortController` al apagar.
+  - **Local:** ElasticMQ (servicio `sqs` de docker compose, también en CI) y `SQS_CREATE_QUEUES=on` para crear colas y DLQ al arrancar.
+  - **Producción:** se exige `QUEUE_DRIVER=sqs`, y `SQS_CREATE_QUEUES=on` está prohibido: las colas las crea Terraform. Ver `productionViolations` en `config/env.ts`.
+- **Alternativas descartadas:**
+  - **LocalStack:** más pesado, y su imagen gratuita ha cambiado de condiciones. ElasticMQ solo hace SQS y es suficiente.
+  - **Colas FIFO:** deduplicarían, pero limitan el rendimiento y no hacen falta con procesadores idempotentes.
+  - **EventBridge Scheduler para las tareas periódicas:** otra pieza más sin beneficio mientras haya Redis.
+- **Consecuencias:**
+  - Test de integración `queue-sqs.e2e-spec`: reintentos, DLQ y un cobro completo pasando por las tres colas de trabajo.
+  - `pnpm poc:up` sigue con BullMQ por defecto.
+  - El contexto de traza no viaja aún en los mensajes: cada trabajo es una traza propia ([ADR-027](#adr-027)).
+
+<a id="adr-027"></a>
+## ADR-027: trazas con OpenTelemetry, redactadas y solo con padre (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Decisión:**
+  - **SDK y arranque:** OpenTelemetry Node SDK con `TELEMETRY=on`, exportando OTLP/HTTP (variables estándar `OTEL_*`). `main.ts` arranca la telemetría y **después** importa la app (`server.ts`), porque los hooks de ESM solo instrumentan lo que se importa tras registrarlos.
+  - **Instrumentación:** HTTP, Express, Postgres e ioredis. La de `nestjs-core` no se usa porque no cubre Nest 12; las rutas ya salen de Express.
+  - **Cada trabajo de cola abre su span** (`process <cola> <trabajo>`, `QueueService`), así que las consultas de los workers se ven aunque no vengan de una petición.
+  - **Sin ruido:** Postgres, Redis y las peticiones HTTP salientes solo generan spans dentro de otro span. Así, el sondeo del outbox (cada 300 ms) y el long polling de SQS no crean trazas sueltas.
+  - **Privacidad:** las trazas salen del sistema, así que:
+    - se redacta la query de las URL (el token de estado del pago va en `?t=`);
+    - Postgres sin parámetros (`enhancedDatabaseReporting: false`);
+    - Redis solo con el nombre del comando, porque sus argumentos incluyen claves con hashes y valores como el secreto TOTP pendiente cifrado.
+  - **Local:** Jaeger opcional (`docker compose --profile observability up -d`, http://localhost:16686).
+- **Verificado:** un cobro completo genera 7 trazas (3 peticiones, 3 trabajos de cola y la tarea de mantenimiento), sin trazas sueltas y sin el token en ningún atributo.
+- **Pendiente:**
+  - **Sentry:** requiere cuenta; se conectará al mismo SDK.
+  - **Propagar el contexto de traza en los mensajes de cola**, para unir petición y trabajo en una sola traza.
+  - **Métricas y logs estructurados.**
+
+<a id="adr-028"></a>
+## ADR-028: auditoría de solo inserción forzada en la base de datos y ligada al comercio (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** `audit_logs` y `user_consents` eran de solo inserción por convención del código. El comercio no podía ver quién había entrado en su cuenta ni qué había cambiado, que es lo primero que se mira ante un acceso sospechoso, ahora que hay doble factor.
+- **Decisión:**
+  - **Solo inserción en la base de datos:** triggers `BEFORE UPDATE OR DELETE` que lanzan un error en `audit_logs` y `user_consents` (migración `0005`, añadido a mano como en [ADR-019](#adr-019)).
+    - `TRUNCATE` no dispara triggers de fila; solo lo usa el seed local.
+    - En producción el rol de la aplicación no tendrá permiso de `TRUNCATE`.
+    - `points_ledger_entries` no entra aún, porque la liberación `PENDING → AVAILABLE` actualiza el estado; se revisará con FR-LOY en M3.
+  - **Ligada al comercio:** `audit_logs.merchant_id`, sin clave foránea porque es histórico, con índice `(merchant_id, id)`. Todas las acciones del panel, del doble factor y los avisos de pago lo rellenan. El login fallido no, porque no se sabe de qué comercio es.
+  - **Nuevo evento:** se audita también el cierre de sesión.
+  - **Registro de actividad:**
+    - `GET /merchant/audit`, solo para el OWNER, con paginación por cursor sobre el id (UUIDv7) y la IP recortada (`a.b.c.x`).
+    - En el panel, página **Actividad**, con los fallos de doble factor y las anomalías de pago resaltados.
+- **Consecuencias:** el visor completo del backoffice interno (FR-ADM-05) sigue en M5. La retención de 6 años (NFR-09) se aplicará con la política de copias en AWS.
+
 ---
 
 ## Decisiones abiertas

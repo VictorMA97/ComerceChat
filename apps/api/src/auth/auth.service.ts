@@ -113,6 +113,7 @@ export class AuthService {
     await this.audit.record({
       actorType: 'MERCHANT_USER',
       actorId: principal.merchantUserId,
+      merchantId: principal.merchantId,
       action: 'merchant_user.login',
       entity: 'merchant_user',
       entityId: principal.merchantUserId,
@@ -138,9 +139,19 @@ export class AuthService {
   }
 
   /** Cierre de sesión: el token deja de valer aunque no haya caducado. */
-  async revokeMerchantToken(token: string): Promise<void> {
+  async revokeMerchantToken(token: string, ip?: string): Promise<void> {
     const p = await this.decode(token);
-    if (p) await this.revocations.revoke(p.jti, p.exp);
+    if (!p) return;
+    await this.revocations.revoke(p.jti, p.exp);
+    await this.audit.record({
+      actorType: 'MERCHANT_USER',
+      actorId: p.sub,
+      merchantId: p.mid,
+      action: 'merchant_user.logout',
+      entity: 'merchant_user',
+      entityId: p.sub,
+      ip,
+    });
   }
 
   private async decode(token: string): Promise<MerchantJwtPayload | null> {

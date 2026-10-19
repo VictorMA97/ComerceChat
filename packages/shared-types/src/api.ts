@@ -394,3 +394,21 @@ export interface AnalyticsView {
   /** Pagos por día del periodo actual. */
   daily: { date: string; volumeCents: number; payments: number }[];
 }
+
+/** Entrada del registro de actividad del comercio (GET /merchant/audit, ADR-028). */
+export interface AuditEntryView {
+  id: string;
+  at: string;
+  action: string;
+  actor: { type: 'MERCHANT_USER' | 'USER' | 'ADMIN' | 'SYSTEM'; email: string | null };
+  entity: string;
+  entityId: string | null;
+  /** IP recortada: suficiente para reconocer un acceso extraño sin guardar la dirección exacta. */
+  ip: string | null;
+}
+
+export interface AuditPage {
+  items: AuditEntryView[];
+  /** Pasar como `before` para la página siguiente; `null` si no hay más. */
+  nextCursor: string | null;
+}

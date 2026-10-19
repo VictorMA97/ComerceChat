@@ -96,6 +96,7 @@ export class DynamicQrService {
         {
           actorType: 'MERCHANT_USER',
           actorId: p.merchantUserId,
+          merchantId: p.merchantId,
           action: 'qr.payment_qr_created',
           entity: 'qr_code',
           entityId: id,

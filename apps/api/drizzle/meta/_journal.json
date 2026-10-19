@@ -36,6 +36,13 @@
       "when": 1792430455022,
       "tag": "0004_merchant_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792431992629,
+      "tag": "0005_audit_append_only",
+      "breakpoints": true
     }
   ]
 }

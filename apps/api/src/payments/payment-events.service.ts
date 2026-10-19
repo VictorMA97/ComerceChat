@@ -93,7 +93,7 @@ export class PaymentEventsService {
         {
           jobId: row.id,
           attempts: 10,
-          backoff: { type: 'exponential', delay: 1_000 },
+          backoffMs: 1_000,
         },
       );
     }
@@ -147,6 +147,7 @@ export class PaymentEventsService {
           await this.audit.record(
             {
               actorType: 'SYSTEM',
+              merchantId: payment.merchantId,
               action: 'payment.discount_without_coupon',
               entity: 'payment',
               entityId: payment.id,
@@ -207,6 +208,7 @@ export class PaymentEventsService {
           await this.audit.record(
             {
               actorType: 'SYSTEM',
+              merchantId: payment.merchantId,
               action: 'payment.captured_after_cancel',
               entity: 'payment',
               entityId: payment.id,

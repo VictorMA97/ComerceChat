@@ -73,7 +73,8 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
           .limit(BATCH)
           .for('update', { skipLocked: true });
         if (pending.length === 0) return 0;
-        await this.queues.queue(QueueName.DOMAIN_EVENTS).addBulk(
+        await this.queues.addBulk(
+          QueueName.DOMAIN_EVENTS,
           pending.map((e) => ({
             name: e.type,
             data: {
@@ -83,7 +84,7 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
               aggregateId: e.aggregateId,
               payload: e.payload as Record<string, unknown>,
             } satisfies DomainEventJob,
-            opts: { jobId: e.id, attempts: 10, backoff: { type: 'exponential', delay: 2_000 } },
+            opts: { jobId: e.id, attempts: 10, backoffMs: 2_000 },
           })),
         );
         await tx

@@ -75,6 +75,7 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 
 Cada hito termina con una demostración en staging y una lista de requisitos de SPEC cubiertos. **Parten del código de la PoC**: los simuladores se mantienen como dobles de prueba.
 
+<a id="m0"></a>
 ### M0: de la PoC a staging (semanas 1–2 tras la PoC)
 - Terraform para staging en AWS, CI completa (Semgrep, gitleaks, Dependabot), despliegue en ECS.
 - Doble factor para comercios, módulo `audit` completo, outbox → SQS.
@@ -85,7 +86,11 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 - **Progreso (19-oct-2026):**
   - ✅ Registro del comercio, doble factor TOTP obligatorio para OWNER y MANAGER con códigos de recuperación, y alta de locales y mesas con QR desde el panel ([ADR-025](DECISIONS.md#adr-025)). La condición de «hecho» se cumple **en local**: test E2E de la API (`merchant-onboarding`) y recorrido en navegador (`e2e/tests/alta-comercio.spec.ts`).
   - ✅ CI: Gitleaks y Semgrep en el workflow; Dependabot (`.github/dependabot.yml`).
-  - ⏳ Pendiente: Terraform y despliegue en ECS (requiere cuenta de AWS), outbox → SQS, Sentry + OpenTelemetry, módulo `audit` completo (visor, FR-ADM-05), prueba técnica de D-03 y modelado STRIDE.
+  - ✅ Outbox → SQS: colas de trabajo con `QUEUE_DRIVER=sqs`, reintentos con espera creciente y DLQ; probado contra ElasticMQ en local y en CI ([ADR-026](DECISIONS.md#adr-026)).
+  - ✅ OpenTelemetry: trazas de HTTP, Postgres, Redis y cada trabajo de cola, con redacción de tokens; Jaeger opcional en local ([ADR-027](DECISIONS.md#adr-027)).
+  - ✅ Auditoría: solo inserción forzada en la base de datos (también `user_consents`), entradas ligadas al comercio y registro de actividad para el OWNER ([ADR-028](DECISIONS.md#adr-028)). El visor del backoffice (FR-ADM-05) sigue en M5.
+  - ✅ Modelado de amenazas STRIDE del flujo de pago ([STRIDE.md](STRIDE.md)).
+  - ⏳ Pendiente: Terraform y despliegue en ECS (requiere cuenta de AWS), Sentry (requiere cuenta; se conectará a las trazas de OpenTelemetry) y prueba técnica de D-03.
 
 ### M1: QR y pago con importe manual (semanas 3–7)
 - **Requiere D-01 (PSP) cerrada.** Parte de lo que la PoC ya tiene (QR, web QR, webhooks, propina, justificante); el trabajo principal es el adaptador real del PSP y su alta de comercios.

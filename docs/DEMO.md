@@ -29,7 +29,7 @@
 | 8 | **Simulador de caja** → **Cobrar con QR** en la Mesa 3 → pagarlo con el móvil | La tarjeta de la mesa pasa a «Cobrado con QR» y la cuenta se cierra | QR dinámico firmado (ADR-023) |
 | 9 | **Simulador de caja** → **Simular caída** | La web QR muestra «No podemos consultar la cuenta» | `PosUnavailableError` (FR-POS-06) |
 | 10 | Panel → **Analítica** y **Promociones** | Volumen, pagos, propinas, descuentos y clientes identificados; cupones emitidos y canjeados | `GET /merchant/analytics`, `GET /merchant/promotions` |
-| 11 | En otra ventana privada, panel → **Registra tu comercio** → escanear el QR con una app de autenticación (o meter la clave a mano) → código → guardar los códigos de recuperación → **Nuevo local** con 4 mesas → **Completar alta (PSP simulado)** → abrir el QR de una mesa | Panel del comercio nuevo con sus mesas y QR; la web QR muestra la mesa con «No hay ninguna cuenta abierta» | Registro (FR-MER-01), doble factor TOTP, alta de locales y mesas (FR-MER-03/04), KYB simulado (ADR-025) |
+| 11 | En otra ventana privada, panel → **Registra tu comercio** → escanear el QR con una app de autenticación (o meter la clave a mano) → código → guardar los códigos de recuperación → **Nuevo local** con 4 mesas → **Completar alta (PSP simulado)** → abrir el QR de una mesa → **Actividad** | Panel del comercio nuevo con sus mesas y QR; la web QR muestra la mesa con «No hay ninguna cuenta abierta»; **Actividad** lista registro, doble factor, local y mesas | Registro (FR-MER-01), doble factor TOTP, alta de locales y mesas (FR-MER-03/04), KYB simulado (ADR-025), registro de actividad (ADR-028) |
 
 ## 3. Resolución de problemas
 

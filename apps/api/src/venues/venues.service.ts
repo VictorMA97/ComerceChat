@@ -47,6 +47,7 @@ export class VenuesService {
         {
           actorType: 'MERCHANT_USER',
           actorId: principal.merchantUserId,
+          merchantId: principal.merchantId,
           action: 'location.created',
           entity: 'merchant_location',
           entityId: location!.id,
@@ -132,6 +133,7 @@ export class VenuesService {
       {
         actorType: 'MERCHANT_USER',
         actorId: principal.merchantUserId,
+        merchantId: principal.merchantId,
         action: 'tables.created',
         entity: 'merchant_location',
         entityId: locationId,

@@ -764,3 +764,41 @@ code.secret {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+
+/* Registro de actividad (ADR-028) */
+table.activity {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+table.activity th,
+table.activity td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+table.activity th {
+  background: var(--bg);
+  font-weight: 600;
+}
+tr.activity-warn td {
+  background: #fff4f2;
+}
+tr.activity-warn td:nth-child(2) {
+  color: var(--danger);
+  font-weight: 600;
+}
+.activity-nav {
+  display: flex;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  table.activity th:nth-child(4),
+  table.activity td:nth-child(4) {
+    display: none;
+  }
+}
