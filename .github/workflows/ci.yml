@@ -10,6 +10,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security-sast:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks revisa el historial de commits, no solo el último.
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Semgrep Security Scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/typescript
+            p/nestjs
+            p/react
+            p/nextjs
+
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
