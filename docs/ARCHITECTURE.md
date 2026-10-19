@@ -84,7 +84,7 @@ comercechat/
 │  └─ mobile/              # Expo React Native
 ├─ packages/
 │  ├─ shared-types/        # DTOs, enums, esquemas zod compartidos
-│  ├─ api-client/          # cliente generado desde OpenAPI (pendiente, ADR-020)
+│  ├─ api-client/          # cliente HTTP de las apps Next (errores RFC 9457, timeout); cliente generado desde OpenAPI pendiente (ADR-020)
 │  ├─ ui/                  # componentes compartidos web (pendiente)
 │  └─ config/              # eslint, tsconfig, prettier (de momento en la raíz)
 ├─ infra/

@@ -10,7 +10,7 @@ const envFile = join(repoRoot, '.env.local');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@comercechat/shared-types'],
+  transpilePackages: ['@comercechat/shared-types', '@comercechat/api-client'],
   turbopack: { root: repoRoot },
 };
 

@@ -1,0 +1,2 @@
+# Comprobación rápida sin Docker: los resultados sin cambios salen de la caché de Turbo.
+pnpm turbo run lint typecheck test:unit

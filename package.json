@@ -11,7 +11,11 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky",
     "db:generate": "pnpm --filter @comercechat/api db:generate",
     "db:migrate": "pnpm --filter @comercechat/api db:migrate",
     "db:seed": "pnpm --filter @comercechat/api db:seed",
@@ -25,9 +29,18 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "turbo": "^2.11.8",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.71.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mts,cts,js,mjs,cjs}": [
+      "eslint --fix --max-warnings=0 --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,jsonc,yml,yaml,css}": "prettier --write"
   }
 }

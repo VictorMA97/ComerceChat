@@ -11,6 +11,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@comercechat/api-client": "workspace:*",
     "@comercechat/shared-types": "workspace:*",
     "next": "^16.4.2",
     "react": "^19.3.1",

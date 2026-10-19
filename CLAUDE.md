@@ -10,6 +10,7 @@ Monorepo pnpm + Turborepo con la **PoC local** en curso: PoC completa: hitos P1�
 
 - Todo: `pnpm poc:up` (Docker + `.env.local` + migraciones + seed + dev). Requiere Docker.
 - `pnpm dev` · `pnpm lint` · `pnpm typecheck` · `pnpm build` · `pnpm test` (Turborepo, todo el monorepo).
+- Tests: `pnpm test:unit` (sin Docker, cacheado; lo ejecuta el hook `pre-push` junto a `lint` y `typecheck`) y `pnpm test:integration` (Postgres/Redis). El `pre-commit` pasa ESLint + Prettier con lint-staged.
 - Un solo test: `pnpm --filter @comercechat/api exec vitest run src/qr/qr-signature.spec.ts` (o `-t "nombre del test"`).
 - Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres y Redis reales de `.env.local`; crean sus propios datos con emails únicos.
 - Migraciones: edita `apps/api/src/db/schema/*`, ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
@@ -54,7 +55,7 @@ TypeScript de punta a punta en un monorepo pnpm + Turborepo (ADR-008):
 - `apps/api`: NestJS, **monolito modular** (ADR-009). El mismo código corre como proceso HTTP o como worker según una variable de entorno.
 - `apps/web-qr` (Next.js, `pay.<dominio>`): el producto principal; presupuesto estricto de rendimiento (NFR-01: < 1,5 s en 4G, JS inicial < 150 KB).
 - `apps/merchant-panel` (Next.js; incluye el backoffice en `/admin`), `apps/mobile` (Expo, secundaria).
-- `packages/shared-types` (enums y contratos de la API). Previstos: `packages/api-client` (generado desde el OpenAPI de NestJS), `packages/ui`, `packages/config`.
+- `packages/shared-types` (enums y contratos de la API) y `packages/api-client` (cliente HTTP de servidor de las apps Next: todo fallo llega como `ApiError` con un problem RFC 9457 válido, con timeout; usa `lib/api.ts` de cada app, no `fetch` directo). Previstos: cliente generado desde el OpenAPI de NestJS en `api-client`, `packages/ui`, `packages/config`.
 - PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. AWS eu-south-2, Terraform, ECS Fargate.
 
 Reglas entre módulos del backend: un módulo solo accede a datos de otro a través de su servicio público (nada de joins entre tablas de módulos distintos, salvo vistas de `analytics` sobre la réplica). Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).

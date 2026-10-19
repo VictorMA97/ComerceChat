@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
     '*.trycloudflare.com',
     ...(publicHost && publicHost !== 'localhost' ? [publicHost] : []),
   ],
-  transpilePackages: ['@comercechat/shared-types'],
+  transpilePackages: ['@comercechat/shared-types', '@comercechat/api-client'],
   turbopack: { root: repoRoot },
 };
 

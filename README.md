@@ -70,7 +70,11 @@ Arranca un túnel HTTPS de Cloudflare (contenedor `tunnel` de `docker-compose.ym
 |---|---|
 | `pnpm dev` | Arranca API (:4000), web QR (:3000) y panel (:3001) en modo desarrollo |
 | `pnpm lint` · `pnpm typecheck` · `pnpm build` | Calidad y build de todo el monorepo (Turborepo) |
-| `pnpm test` | Tests de la API (Vitest). Los E2E necesitan Postgres y Redis arrancados |
+| `pnpm test` | Todos los tests (Vitest): unitarios + integración. La integración necesita Postgres y Redis arrancados |
+| `pnpm test:unit` · `pnpm test:integration` | Solo unitarios (sin Docker, cacheados por Turbo) · solo integración de la API |
+| `pnpm format` · `pnpm format:check` | Formatea con Prettier · comprueba el formato sin escribir |
+
+Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y Prettier sobre los ficheros preparados (lint-staged) y el `pre-push` ejecuta `lint`, `typecheck` y `test:unit`. Si el hook no encuentra `pnpm` (p. ej. al hacer commit desde un IDE), añade tu `PATH` en `~/.config/husky/init.sh`.
 | `pnpm db:generate` | Genera una migración SQL a partir de cambios en `apps/api/src/db/schema` |
 | `pnpm db:migrate` | Aplica las migraciones |
 | `pnpm db:seed` | **Borra** y recrea los datos de prueba |
