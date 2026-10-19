@@ -1,5 +1,5 @@
 import type { DynamicQrView } from '@comercechat/shared-types';
-import QRCode from 'qrcode';
+import { qrDataUrl } from '@/lib/qr';
 import { revokePaymentQr } from './actions';
 import { PaymentQrButton } from './payment-qr-button';
 
@@ -30,18 +30,12 @@ export async function PaymentQr({
     );
   }
   if (qr?.status === 'ACTIVE') {
-    const svg = await QRCode.toString(qr.url, {
-      type: 'svg',
-      errorCorrectionLevel: 'M',
-      margin: 1,
-    });
     return (
       <div className="pos-qr" aria-live="polite">
-        <div
+        <img
           className="pos-qr-code"
-          role="img"
-          aria-label={`QR de cobro de ${money(qr.amountCents)}`}
-          dangerouslySetInnerHTML={{ __html: svg }}
+          src={await qrDataUrl(qr.url)}
+          alt={`QR de cobro de ${money(qr.amountCents)}`}
         />
         <p className="pos-qr-amount">{money(qr.amountCents)}</p>
         <p className="muted small">

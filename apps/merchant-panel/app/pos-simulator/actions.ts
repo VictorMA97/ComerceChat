@@ -6,7 +6,7 @@ import { api, ApiError } from '@/lib/api';
 const refresh = () => revalidatePath('/pos-simulator');
 
 export async function addItem(tableId: string, form: FormData): Promise<void> {
-  await api(`/merchant/fake-pos/tables/${tableId}/items`, {
+  await api(`/merchant/fake-pos/tables/${encodeURIComponent(tableId)}/items`, {
     method: 'POST',
     body: JSON.stringify({ menuItemId: form.get('menuItemId'), qty: Number(form.get('qty') || 1) }),
   });
@@ -14,17 +14,17 @@ export async function addItem(tableId: string, form: FormData): Promise<void> {
 }
 
 export async function removeItem(itemId: string): Promise<void> {
-  await api(`/merchant/fake-pos/items/${itemId}`, { method: 'DELETE' });
+  await api(`/merchant/fake-pos/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
   refresh();
 }
 
 export async function closeBill(tableId: string): Promise<void> {
-  await api(`/merchant/fake-pos/tables/${tableId}/close`, { method: 'POST' });
+  await api(`/merchant/fake-pos/tables/${encodeURIComponent(tableId)}/close`, { method: 'POST' });
   refresh();
 }
 
 export async function setHealth(locationId: string, healthy: boolean): Promise<void> {
-  await api(`/merchant/fake-pos/locations/${locationId}/health`, {
+  await api(`/merchant/fake-pos/locations/${encodeURIComponent(locationId)}/health`, {
     method: 'POST',
     body: JSON.stringify({ healthy }),
   });
@@ -41,7 +41,7 @@ export async function createPaymentQr(
   _prev: PaymentQrState,
 ): Promise<PaymentQrState> {
   try {
-    await api(`/merchant/tables/${tableId}/payment-qr`, { method: 'POST' });
+    await api(`/merchant/tables/${encodeURIComponent(tableId)}/payment-qr`, { method: 'POST' });
   } catch (err) {
     if (err instanceof ApiError) return { error: err.problem.title };
     throw err;
@@ -51,6 +51,6 @@ export async function createPaymentQr(
 }
 
 export async function revokePaymentQr(qrId: string): Promise<void> {
-  await api(`/merchant/dynamic-qr/${qrId}/revoke`, { method: 'POST' });
+  await api(`/merchant/dynamic-qr/${encodeURIComponent(qrId)}/revoke`, { method: 'POST' });
   refresh();
 }

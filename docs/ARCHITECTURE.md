@@ -401,7 +401,7 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
  │ pnpm dev (Turborepo)                                      │◄──────┘ http://<IP-LAN>:3000/t/{code}
  │  ├─ apps/web-qr          :3000  (+ /fake-psp/checkout)    │         (o https://<túnel> si se usa
  │  ├─ apps/merchant-panel  :3001  (+ /pos-simulator)        │          Stripe en modo de pruebas)
- │  ├─ apps/api (HTTP)      :4000  (/v1, /docs Swagger)      │
+ │  ├─ apps/api (HTTP)      :4000  (/v1, /docs fuera de prod)│
  │  └─ apps/api (worker)           (BullMQ)                  │
  │                                                           │
  │ docker compose                                            │
@@ -421,9 +421,9 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Email (Postmark/SES) | SMTP hacia Mailpit | `SMTP_URL=smtp://localhost:1025` |
 | SQS | BullMQ sobre Redis | `QUEUE_DRIVER=bullmq` |
 | S3 | Sistema de ficheros local (`./.data/uploads`) | `STORAGE_DRIVER=local` |
-| KMS (firma de QR) | Claves Ed25519/HMAC en `.env.local` (generadas por `pnpm poc:keys`) | `QR_SIGNING_KEY`, `QR_HMAC_SECRET` |
+| KMS (firma de QR y tokens) | Claves Ed25519/HMAC en `.env.local` (generadas por `pnpm poc:keys`, que también añade las que falten a un `.env.local` existente). Cada clave tiene un solo uso | `QR_SIGNING_KEY`, `QR_HMAC_SECRET`, `PAYMENT_STATUS_SECRET` |
 | Autenticación gestionada (D-03) | JWT propio + OTP por consola, detrás de la misma interfaz `AuthProvider` | `AUTH_PROVIDER=local` |
-| Cloudflare / WAF | Límites de peticiones en la aplicación (Redis) | — |
+| Cloudflare / WAF | Límites de peticiones en la aplicación (`@nestjs/throttler` sobre Redis, por IP del cliente). Las apps Next reenvían la IP del navegador con un secreto compartido, porque son ellas quienes llaman a la API (ADR-021) | `RATE_LIMITS=on` (`off` solo en los tests; prohibido en producción), `INTERNAL_PROXY_SECRET` |
 | Sentry / OpenTelemetry / PostHog | Desactivados por defecto; logs estructurados (pino) en la consola | `TELEMETRY=off` |
 | Proceso worker separado | Workers BullMQ y relé del outbox dentro del proceso de la API | `PROCESS_ROLE=all\|http\|worker` |
 | Colas aisladas por entorno | Prefijo de colas en Redis (los tests usan uno propio) | `QUEUE_PREFIX` |

@@ -6,6 +6,7 @@ import { AuthService } from './auth.service.js';
 import { MERCHANT_AUTH_PROVIDER } from './auth.types.js';
 import { LocalMerchantAuthProvider } from './local-merchant-auth.provider.js';
 import { MerchantAuthGuard } from './merchant-auth.guard.js';
+import { TokenRevocationService } from './token-revocation.service.js';
 
 @Global()
 @Module({
@@ -19,9 +20,10 @@ import { MerchantAuthGuard } from './merchant-auth.guard.js';
   providers: [
     AuthService,
     MerchantAuthGuard,
+    TokenRevocationService,
     // AUTH_PROVIDER=local es el único valor en la PoC (D-03).
     { provide: MERCHANT_AUTH_PROVIDER, useClass: LocalMerchantAuthProvider },
   ],
-  exports: [AuthService, MerchantAuthGuard, JwtModule],
+  exports: [AuthService, MerchantAuthGuard, TokenRevocationService, JwtModule],
 })
 export class AuthModule {}

@@ -145,7 +145,7 @@ button:disabled {
   margin: 0;
   font-size: 1.05rem;
 }
-.qr svg {
+img.qr {
   width: 160px;
   height: 160px;
   display: block;
@@ -188,7 +188,7 @@ button:disabled {
     break-inside: avoid;
     padding: 8mm;
   }
-  .qr svg {
+  img.qr {
     width: 55mm;
     height: 55mm;
   }
@@ -477,7 +477,7 @@ a.button.primary {
   background: #f4fbf9;
   text-align: center;
 }
-.pos-qr-code svg {
+img.pos-qr-code {
   width: 200px;
   height: 200px;
   display: block;

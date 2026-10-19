@@ -21,9 +21,9 @@ export async function PointsBox({
     const [loyalty, coupons] = loggedIn
       ? await Promise.all([
           apiAsUser<LoyaltyView[]>('/me/loyalty').catch(() => [] as LoyaltyView[]),
-          apiAsUser<CouponView[]>(`/me/coupons?merchantId=${p.merchantId}`).catch(
-            () => [] as CouponView[],
-          ),
+          apiAsUser<CouponView[]>(
+            `/me/coupons?merchantId=${encodeURIComponent(p.merchantId)}`,
+          ).catch(() => [] as CouponView[]),
         ])
       : [[], []];
     const balance = loyalty.find((l) => l.merchant.id === p.merchantId)?.balance;

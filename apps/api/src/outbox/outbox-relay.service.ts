@@ -6,6 +6,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { asc, inArray, isNull } from 'drizzle-orm';
+import { safeErrorForLog } from '../common/safe-error.js';
 import { DB, type Database } from '../db/client.js';
 import { outboxEvents } from '../db/schema/index.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
@@ -97,7 +98,7 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
         return pending.length;
       });
     } catch (err) {
-      this.logger.error(`Error publicando el outbox: ${String(err)}`);
+      this.logger.error(`Error publicando el outbox: ${safeErrorForLog(err)}`);
       return 0;
     } finally {
       this.running = false;

@@ -123,6 +123,15 @@ export class PaymentEventsService {
           payment.status,
         )
       ) {
+        // El PSP debe cobrar exactamente lo que le pedimos. Si no, no se da por pagada la cuenta: el
+        // evento se reintenta y queda en el log para revisarlo (posible fallo del adaptador).
+        const expectedCents = payment.amountCents - payment.discountCents + payment.tipCents;
+        if (ev.amountCents !== expectedCents) {
+          this.logger.error(
+            `Importe capturado distinto en el pago ${payment.id}: esperado ${expectedCents}, PSP ${ev.amountCents}`,
+          );
+          throw new Error(`Importe capturado distinto en el pago ${payment.id}`);
+        }
         const capturedAfterCancel = payment.status === 'FAILED';
         // Su parte de la cuenta queda pagada (también si se había liberado: el PSP manda).
         await tx
@@ -130,7 +139,22 @@ export class PaymentEventsService {
           .set({ status: 'PAID' })
           .where(eq(orderAllocations.paymentId, payment.id));
         // Cupón usado en el pago: canje definitivo (FR-CPN-06).
-        await CouponsService.redeem(tx, payment.id, payment.discountCents);
+        const redeemed = await CouponsService.redeem(tx, payment.id, payment.discountCents);
+        if (payment.discountCents > 0 && redeemed === 0) {
+          // Descuento cobrado sin cupón reservado: no debería pasar (FR-CPN-06). Se cobra lo que dijo
+          // el PSP, pero se deja constancia para revisarlo y corregirlo.
+          this.logger.error(`Pago ${payment.id} con descuento sin cupón reservado`);
+          await this.audit.record(
+            {
+              actorType: 'SYSTEM',
+              action: 'payment.discount_without_coupon',
+              entity: 'payment',
+              entityId: payment.id,
+              after: { discountCents: payment.discountCents },
+            },
+            tx,
+          );
+        }
         if (payment.qrCodeId) {
           // QR dinámico de un solo uso: queda consumido (FR-QR-03).
           await tx

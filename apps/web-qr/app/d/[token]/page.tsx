@@ -32,7 +32,9 @@ export default async function PosQrPage({ params }: PageProps<'/d/[token]'>) {
   }
   const host = (await headers()).get('host');
   const coupons = (await userToken())
-    ? await apiAsUser<CouponView[]>(`/me/coupons?merchantId=${qr.merchant.id}`).catch(() => [])
+    ? await apiAsUser<CouponView[]>(
+        `/me/coupons?merchantId=${encodeURIComponent(qr.merchant.id)}`,
+      ).catch(() => [])
     : [];
   return (
     <main>

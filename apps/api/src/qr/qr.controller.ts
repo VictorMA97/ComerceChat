@@ -1,4 +1,5 @@
-import { Controller, Get, Ip, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { ClientIp } from '../common/client-ip.js';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { QrResolution, TableQr } from '@comercechat/shared-types';
 import type { MerchantPrincipal } from '../auth/auth.types.js';
@@ -30,7 +31,7 @@ export class MerchantQrController {
   regenerate(
     @CurrentMerchant() principal: MerchantPrincipal,
     @Param('tableId', new ParseUUIDPipe()) tableId: string,
-    @Ip() ip: string,
+    @ClientIp() ip: string,
   ): Promise<TableQr> {
     return this.qr.regenerateTableQr(principal, tableId, ip);
   }

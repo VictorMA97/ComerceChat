@@ -39,7 +39,9 @@ export default async function TablePage({ params }: PageProps<'/t/[code]'>) {
   const { bill } = data;
   // Cupones del comensal identificado en este comercio; si falla, se paga sin cupón.
   const coupons = (await userToken())
-    ? await apiAsUser<CouponView[]>(`/me/coupons?merchantId=${data.qr.merchant.id}`).catch(() => [])
+    ? await apiAsUser<CouponView[]>(
+        `/me/coupons?merchantId=${encodeURIComponent(data.qr.merchant.id)}`,
+      ).catch(() => [])
     : [];
   return (
     <main>

@@ -34,6 +34,6 @@ export async function createPromotion(
 }
 
 export async function endPromotion(id: string): Promise<void> {
-  await api(`/merchant/promotions/${id}/end`, { method: 'POST' });
+  await api(`/merchant/promotions/${encodeURIComponent(id)}/end`, { method: 'POST' });
   revalidatePath('/promociones');
 }

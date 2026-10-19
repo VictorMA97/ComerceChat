@@ -1,3 +1,5 @@
+import { forwardedClientHeaders } from '@comercechat/api-client';
+
 // Pasarela SSE: el navegador del comensal nunca habla con la API (ADR-021), así que la web QR
 // reenvía el flujo de eventos de la mesa.
 export const dynamic = 'force-dynamic';
@@ -6,7 +8,14 @@ export async function GET(request: Request, { params }: RouteContext<'/t/[code]/
   const { code } = await params;
   const upstream = await fetch(
     `${process.env.API_BASE_URL ?? 'http://localhost:4000'}/v1/qr/${encodeURIComponent(code)}/events`,
-    { signal: request.signal, cache: 'no-store', headers: { accept: 'text/event-stream' } },
+    {
+      signal: request.signal,
+      cache: 'no-store',
+      headers: {
+        accept: 'text/event-stream',
+        ...forwardedClientHeaders(request.headers, process.env.INTERNAL_PROXY_SECRET),
+      },
+    },
   ).catch(() => null);
   if (!upstream?.ok || !upstream.body) return new Response(null, { status: 502 });
   return new Response(upstream.body, {

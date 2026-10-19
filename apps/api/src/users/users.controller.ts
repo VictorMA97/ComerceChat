@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -33,12 +34,16 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  isUUID,
   Length,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { eq } from 'drizzle-orm';
 import { Inject } from '@nestjs/common';
 import { AppError } from '../common/app-error.js';
+import { bearerToken } from '../common/bearer.js';
 import { hashPii } from '../common/pii.js';
 import { ENV, type Env } from '../config/env.js';
 import { DB, type Database } from '../db/client.js';
@@ -49,19 +54,30 @@ import { OtpService } from './otp.service.js';
 import { normalizePhone } from './phone.js';
 import { CurrentUserId, UserAuthGuard, UserTokens } from './user-auth.js';
 import { UsersService } from './users.service.js';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMITS } from '../common/throttling.js';
 
 class OtpStartDto {
   @ApiProperty({ example: '+34600000000' }) @IsString() @Length(6, 20) phone: string;
+}
+
+/** Consentimientos del alta (REG-07). Se validan aquí: se guardan tal cual en `user_consents`. */
+class SignupConsentsDto implements ConsentsInput {
+  @ApiProperty() @IsBoolean() terms: boolean;
+  @ApiProperty() @IsBoolean() marketing: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() shareWithMerchantId?: string;
 }
 
 class OtpVerifyDto {
   @ApiProperty({ example: '+34600000000' }) @IsString() @Length(6, 20) phone: string;
   @ApiProperty({ example: '000000' }) @Matches(/^\d{6}$/) code: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 60) name?: string;
-  @ApiPropertyOptional({ description: '{ terms, marketing, shareWithMerchantId? } (REG-07)' })
+  @ApiPropertyOptional({ type: SignupConsentsDto })
   @IsOptional()
   @IsObject()
-  consents?: ConsentsInput;
+  @ValidateNested()
+  @Type(() => SignupConsentsDto)
+  consents?: SignupConsentsDto;
 }
 
 class ConsentsDto {
@@ -92,6 +108,7 @@ export class UsersController {
   ) {}
 
   @Post('auth/otp/start')
+  @Throttle({ default: RATE_LIMITS.otpStart })
   @HttpCode(200)
   @ApiOperation({
     summary: 'Envía un código de un solo uso al teléfono (en la PoC, a la consola y a Mailpit)',
@@ -103,6 +120,7 @@ export class UsersController {
   }
 
   @Post('auth/otp/verify')
+  @Throttle({ default: RATE_LIMITS.otpVerify })
   @HttpCode(200)
   @ApiOperation({ summary: 'Comprueba el código y crea la cuenta o inicia sesión (FR-USR-02)' })
   async verify(@Body() dto: OtpVerifyDto): Promise<UserSession> {
@@ -129,6 +147,13 @@ export class UsersController {
       user: await this.usersService.me(id),
       isNew,
     };
+  }
+
+  @Post('auth/logout')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Cierra la sesión del comensal (revoca el token)' })
+  async logout(@Headers('authorization') authorization: string | undefined): Promise<void> {
+    await this.tokens.revoke(bearerToken(authorization));
   }
 
   @Get('me')
@@ -169,10 +194,15 @@ export class UsersController {
     @CurrentUserId() userId: string,
     @Query('merchantId') merchantId?: string,
   ): Promise<CouponView[]> {
+    // Vacío = todos los comercios. Si viene, tiene que ser un UUID (si no, Postgres fallaría con un 500).
+    if (merchantId && !isUUID(merchantId)) {
+      throw new AppError('VALIDATION_FAILED', HttpStatus.BAD_REQUEST, 'merchantId no es válido');
+    }
     return this.coupons.listForUser(this.db, userId, merchantId || undefined);
   }
 
   @Post('me/rewards/:id/redeem')
+  @Throttle({ default: RATE_LIMITS.redeem })
   @UseGuards(UserAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
@@ -186,6 +216,7 @@ export class UsersController {
   }
 
   @Post('me/claim')
+  @Throttle({ default: RATE_LIMITS.redeem })
   @UseGuards(UserAuthGuard)
   @ApiBearerAuth()
   @HttpCode(200)

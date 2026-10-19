@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import type { Redis } from 'ioredis';
 import { AppError } from '../common/app-error.js';
 import { hashPii } from '../common/pii.js';
@@ -15,6 +15,32 @@ const MAX_SENDS_PER_HOUR = 5;
 const DEMO_PHONE = '+34600000000';
 
 const sha = (v: string) => createHash('sha256').update(v).digest('hex');
+
+const VALID = 1;
+const BLOCKED = -1;
+
+/**
+ * Verificación atómica (Redis ejecuta el script sin intercalar otros comandos). El intento se cuenta
+ * antes de comparar y el código se borra al acertar o al bloquear.
+ * KEYS: código, intentos, bloqueo · ARGV: hash del código, máx. intentos, TTL intentos, TTL bloqueo.
+ * Devuelve 1 (válido), 0 (no válido) o -1 (bloqueado).
+ */
+const VERIFY_SCRIPT = `
+if redis.call('EXISTS', KEYS[3]) == 1 then return -1 end
+local n = redis.call('INCR', KEYS[2])
+if n == 1 then redis.call('EXPIRE', KEYS[2], ARGV[3]) end
+local stored = redis.call('GET', KEYS[1])
+if stored and ARGV[1] ~= '' and stored == ARGV[1] then
+  redis.call('DEL', KEYS[1], KEYS[2])
+  return 1
+end
+if n >= tonumber(ARGV[2]) then
+  redis.call('SET', KEYS[3], '1', 'EX', ARGV[4])
+  redis.call('DEL', KEYS[1], KEYS[2])
+  return -1
+end
+return 0
+`;
 
 /** Códigos de un solo uso por teléfono (FR-USR-02). Se guarda solo el hash del código, en Redis. */
 @Injectable()
@@ -45,29 +71,33 @@ export class OtpService {
     return { expiresInSeconds: TTL_SECONDS };
   }
 
-  /** Comprueba el código. Tras 3 fallos bloquea el número 15 min. El código solo vale una vez. */
+  /**
+   * Comprueba el código. Tras 3 fallos bloquea el número 15 min. El código solo vale una vez.
+   * Todo ocurre en un único script de Redis (`VERIFY_SCRIPT`): con peticiones en paralelo no hay más
+   * de 3 comparaciones fallidas por código ni dos inicios de sesión con el mismo código.
+   */
   async verify(phone: string, code: string): Promise<void> {
     const key = this.key(phone);
-    if (await this.redis.exists(`${key}:blocked`)) throw this.blocked();
-    const stored = await this.redis.get(key);
-    const ok =
-      stored !== null &&
-      /^\d{6}$/.test(code) &&
-      timingSafeEqual(Buffer.from(stored, 'hex'), Buffer.from(sha(code), 'hex'));
-    if (!ok) {
-      const attempts = await this.redis.incr(`${key}:attempts`);
-      await this.redis.expire(`${key}:attempts`, TTL_SECONDS);
-      if (attempts >= MAX_ATTEMPTS) {
-        await this.redis.multi().set(`${key}:blocked`, '1', 'EX', BLOCK_SECONDS).del(key).exec();
-        throw this.blocked();
-      }
+    const result = (await this.redis.eval(
+      VERIFY_SCRIPT,
+      3,
+      key,
+      `${key}:attempts`,
+      `${key}:blocked`,
+      // Un formato inválido cuenta como intento fallido, igual que un código erróneo.
+      /^\d{6}$/.test(code) ? sha(code) : '',
+      MAX_ATTEMPTS,
+      TTL_SECONDS,
+      BLOCK_SECONDS,
+    )) as number;
+    if (result === BLOCKED) throw this.blocked();
+    if (result !== VALID) {
       throw new AppError(
         'OTP_INVALID',
         HttpStatus.UNAUTHORIZED,
         'El código no es correcto o ha caducado',
       );
     }
-    await this.redis.del(key, `${key}:attempts`);
   }
 
   private key(phone: string): string {

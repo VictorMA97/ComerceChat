@@ -1,13 +1,10 @@
 import type { LocationView, MerchantMe } from '@comercechat/shared-types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import QRCode from 'qrcode';
 import { PrintButton, RegenerateQrButton } from '@/components/table-actions';
 import { Nav } from '@/components/nav';
 import { api, isUnauthenticated, SESSION_COOKIE } from '@/lib/api';
-
-const qrSvg = (url: string) =>
-  QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 1 });
+import { qrDataUrl } from '@/lib/qr';
 
 export default async function TablesPage() {
   if (!(await cookies()).get(SESSION_COOKIE)) redirect('/login');
@@ -28,10 +25,10 @@ export default async function TablesPage() {
   // La API es la fuente de verdad de la URL pública (cambia con `pnpm poc:tunnel`).
   const firstQrUrl = locations.flatMap((l) => l.tables).find((t) => t.qr)?.qr?.url;
   const qrOrigin = firstQrUrl ? new URL(firstQrUrl).origin : '(sin QR)';
-  const svgs = new Map(
+  const qrImages = new Map(
     await Promise.all(
       locations.flatMap((l) =>
-        l.tables.filter((t) => t.qr).map(async (t) => [t.id, await qrSvg(t.qr!.url)] as const),
+        l.tables.filter((t) => t.qr).map(async (t) => [t.id, await qrDataUrl(t.qr!.url)] as const),
       ),
     ),
   );
@@ -66,12 +63,7 @@ export default async function TablesPage() {
                 <h3>{t.label}</h3>
                 {t.qr ? (
                   <>
-                    <div
-                      className="qr"
-                      role="img"
-                      aria-label={`Código QR de ${t.label}`}
-                      dangerouslySetInnerHTML={{ __html: svgs.get(t.id)! }}
-                    />
+                    <img className="qr" src={qrImages.get(t.id)!} alt={`Código QR de ${t.label}`} />
                     <p className="qr-cta">Paga sin esperar · divide la cuenta en 10 s</p>
                     <a className="qr-url no-print" href={t.qr.url} target="_blank" rel="noreferrer">
                       {t.qr.url}

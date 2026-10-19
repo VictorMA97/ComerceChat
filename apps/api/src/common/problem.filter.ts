@@ -10,6 +10,7 @@ import {
 import type { ProblemDetails } from '@comercechat/shared-types';
 import type { Request, Response } from 'express';
 import { AppError } from './app-error.js';
+import { safeErrorForLog } from './safe-error.js';
 
 const DEFAULT_CODES: Record<number, string> = {
   400: 'BAD_REQUEST',
@@ -44,7 +45,7 @@ export class ProblemFilter implements ExceptionFilter {
       const status = exception.getStatus();
       problem = this.base(status, DEFAULT_CODES[status] ?? `HTTP_${status}`, exception.message);
     } else {
-      this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+      this.logger.error(safeErrorForLog(exception));
       problem = this.base(500, 'INTERNAL_ERROR', 'Error interno');
     }
 

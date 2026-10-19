@@ -6,6 +6,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { type ConnectionOptions, type JobsOptions, type Processor, Queue, Worker } from 'bullmq';
+import { safeErrorForLog } from '../common/safe-error.js';
 import { ENV, type Env } from '../config/env.js';
 
 export const QueueName = {
@@ -85,7 +86,7 @@ export class QueueService implements OnApplicationBootstrap, OnApplicationShutdo
         concurrency: r.concurrency,
       });
       worker.on('failed', (job, err) =>
-        this.logger.warn(`Job ${r.name}/${job?.name} (${job?.id}) falló: ${err.message}`),
+        this.logger.warn(`Job ${r.name}/${job?.name} (${job?.id}) falló: ${safeErrorForLog(err)}`),
       );
       this.workers.push(worker);
     }

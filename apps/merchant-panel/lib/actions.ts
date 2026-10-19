@@ -34,11 +34,13 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
 }
 
 export async function logout(): Promise<void> {
+  // Se revoca el token en la API: borrar la cookie no basta si alguien se ha llevado una copia.
+  await api('/merchant/auth/logout', { method: 'POST' }).catch(() => undefined);
   (await cookies()).delete(SESSION_COOKIE);
   redirect('/login');
 }
 
 export async function regenerateQr(tableId: string): Promise<void> {
-  await api(`/merchant/tables/${tableId}/qr/regenerate`, { method: 'POST' });
+  await api(`/merchant/tables/${encodeURIComponent(tableId)}/qr/regenerate`, { method: 'POST' });
   revalidatePath('/');
 }

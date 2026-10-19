@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ThrottlingModule } from './common/throttling.js';
 import { ConfigModule } from './config/config.module.js';
 import { DbModule } from './db/db.module.js';
 import { HealthController } from './health/health.controller.js';
@@ -22,6 +23,7 @@ import { VenuesModule } from './venues/venues.module.js';
     ConfigModule,
     DbModule,
     RedisModule,
+    ThrottlingModule,
     QueueModule,
     RealtimeModule,
     AuditModule,

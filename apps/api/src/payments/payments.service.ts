@@ -16,6 +16,7 @@ import {
 import { and, eq, gt, lt } from 'drizzle-orm';
 import { AppError } from '../common/app-error.js';
 import { newId } from '../common/ids.js';
+import { safeErrorForLog } from '../common/safe-error.js';
 import { ENV, type Env, webQrBaseUrl } from '../config/env.js';
 import { DB, type Database, type Tx } from '../db/client.js';
 import {
@@ -574,17 +575,17 @@ export class PaymentsService implements OnApplicationBootstrap {
         .map((r) =>
           this.provider
             .cancelPaymentSession(r.pspPaymentId!)
-            .catch((e: unknown) => this.logger.warn(String(e))),
+            .catch((e: unknown) => this.logger.warn(safeErrorForLog(e))),
         ),
     );
   }
 
   private statusToken(paymentId: string): string {
-    return paymentStatusToken(this.env.JWT_SECRET, paymentId);
+    return paymentStatusToken(this.env.PAYMENT_STATUS_SECRET, paymentId);
   }
 
   private assertToken(paymentId: string, token: string | undefined): void {
-    if (!isValidPaymentStatusToken(this.env.JWT_SECRET, paymentId, token)) {
+    if (!isValidPaymentStatusToken(this.env.PAYMENT_STATUS_SECRET, paymentId, token)) {
       throw new AppError('PAYMENT_NOT_FOUND', HttpStatus.NOT_FOUND, 'Pago no encontrado');
     }
   }

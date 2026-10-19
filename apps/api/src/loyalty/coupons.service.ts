@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { CouponView } from '@comercechat/shared-types';
-import { and, eq, gt, inArray, lt, lte, or } from 'drizzle-orm';
+import { and, eq, gt, inArray, lte } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { AppError } from '../common/app-error.js';
 import { formatEur } from '../common/money.js';
@@ -14,12 +14,13 @@ const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode = () =>
   `CC-${Array.from({ length: 8 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('')}`;
 
-/** Un cupón está disponible si está ACTIVE o si su reserva ha caducado sin pagarse. */
-const available = () =>
-  or(
-    eq(coupons.status, 'ACTIVE'),
-    and(eq(coupons.status, 'RESERVED'), lt(coupons.reservedUntil, new Date())),
-  );
+/**
+ * Un cupón solo está disponible si está ACTIVE. Un cupón RESERVED vuelve a ACTIVE únicamente cuando
+ * su pago termina sin cobrarse (`release`, desde `TableBillService.releaseAllocations`): que la
+ * reserva haya caducado no basta, porque el PSP aún puede capturar ese pago y el descuento se
+ * aplicaría dos veces.
+ */
+const available = () => eq(coupons.status, 'ACTIVE');
 
 /** Cupones de un solo uso, financiados por el comercio (FR-CPN-04…06, REG-04). */
 @Injectable()
@@ -143,8 +144,11 @@ export class CouponsService {
       .where(and(inArray(coupons.reservedPaymentId, paymentIds), eq(coupons.status, 'RESERVED')));
   }
 
-  /** Canje definitivo al capturarse el pago. La unicidad de coupon_id impide canjearlo dos veces. */
-  static async redeem(tx: Tx, paymentId: string, discountCents: number): Promise<void> {
+  /**
+   * Canje definitivo al capturarse el pago. La unicidad de coupon_id impide canjearlo dos veces.
+   * Devuelve cuántos cupones ha canjeado: 0 en un pago con descuento es una anomalía.
+   */
+  static async redeem(tx: Tx, paymentId: string, discountCents: number): Promise<number> {
     const reserved = await tx
       .update(coupons)
       .set({ status: 'REDEEMED' })
@@ -161,11 +165,10 @@ export class CouponsService {
         .values({ couponId: c.id, paymentId, discountCents })
         .onConflictDoNothing();
     }
+    return reserved.length;
   }
 
   toView(c: CouponRow, brandName: string): CouponView {
-    const expiredReservation =
-      c.status === 'RESERVED' && c.reservedUntil !== null && c.reservedUntil.getTime() < Date.now();
     return {
       id: c.id,
       code: c.code,
@@ -173,7 +176,7 @@ export class CouponsService {
       discountCents: c.discountCents,
       minSpendCents: c.minSpendCents,
       validTo: c.validTo.toISOString(),
-      status: expiredReservation ? 'ACTIVE' : c.status,
+      status: c.status,
       merchant: { id: c.merchantId, brandName },
     };
   }

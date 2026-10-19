@@ -38,6 +38,8 @@ const envSchema = z.object({
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   AUTH_PROVIDER: z.enum(['local']).default('local'),
   TELEMETRY: z.enum(['on', 'off']).default('off'),
+  /** Límites de peticiones por IP. `off` solo para los tests E2E; prohibido en producción. */
+  RATE_LIMITS: z.enum(['on', 'off']).default('on'),
   JWT_SECRET: secret,
   /** Sesión del comensal en la web QR (PoC: 30 días, sin token de renovación). */
   JWT_USER_TTL_SECONDS: z.coerce
@@ -55,6 +57,13 @@ const envSchema = z.object({
   QR_SIGNING_KEY: z.string().min(40, 'falta QR_SIGNING_KEY (ejecuta pnpm poc:keys)'),
   PII_ENCRYPTION_KEY: secret,
   FAKE_PSP_WEBHOOK_SECRET: secret,
+  /** HMAC del token de estado de un pago (ADR-021). Distinto de JWT_SECRET: una clave, un uso. */
+  PAYMENT_STATUS_SECRET: secret,
+  /**
+   * Lo envían las apps Next (que son quienes llaman a la API, ADR-021) junto con la IP del cliente:
+   * sin él, la API solo vería la IP del servidor de Next y los límites por IP no servirían.
+   */
+  INTERNAL_PROXY_SECRET: secret,
   /** Modo caos del PSP simulado: webhooks retrasados, duplicados y desordenados (ARCHITECTURE §16.3). */
   FAKE_PSP_CHAOS: z.enum(['on', 'off']).default('off'),
   // Comisión de plataforma (FR-PAY-10). Valores provisionales hasta cerrar D-05.
@@ -89,6 +98,9 @@ export function parseEnv(source: NodeJS.ProcessEnv): Env {
   }
   const env = result.data;
   if (env.NODE_ENV === 'production') {
+    if (env.RATE_LIMITS === 'off') {
+      throw new Error('RATE_LIMITS=off no está permitido en producción');
+    }
     const simulated = PROVIDER_SELECTORS.filter((key) => SIMULATED_VALUES.has(env[key]));
     if (simulated.length > 0) {
       throw new Error(

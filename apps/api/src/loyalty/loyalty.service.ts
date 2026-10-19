@@ -136,7 +136,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     paymentId: string,
     statusToken: string,
   ): Promise<ClaimPointsResponse> {
-    if (!isValidPaymentStatusToken(this.env.JWT_SECRET, paymentId, statusToken)) {
+    if (!isValidPaymentStatusToken(this.env.PAYMENT_STATUS_SECRET, paymentId, statusToken)) {
       throw new AppError('PAYMENT_NOT_FOUND', HttpStatus.NOT_FOUND, 'Pago no encontrado');
     }
     return this.db.transaction(async (tx) => {

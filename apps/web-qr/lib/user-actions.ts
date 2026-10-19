@@ -119,9 +119,12 @@ export interface RedeemState {
 /** Canjea puntos por una recompensa: emite un cupón (FR-LOY-03). */
 export async function redeemReward(rewardId: string, _prev: RedeemState): Promise<RedeemState> {
   try {
-    const coupon = await apiAsUser<CouponView>(`/me/rewards/${rewardId}/redeem`, {
-      method: 'POST',
-    });
+    const coupon = await apiAsUser<CouponView>(
+      `/me/rewards/${encodeURIComponent(rewardId)}/redeem`,
+      {
+        method: 'POST',
+      },
+    );
     revalidatePath('/cuenta');
     return { coupon };
   } catch (err) {
@@ -145,6 +148,8 @@ export async function setConsent(form: FormData): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  // Se revoca el token en la API: borrar la cookie no basta si alguien se ha llevado una copia.
+  await apiAsUser('/auth/logout', { method: 'POST' }).catch(() => undefined);
   (await cookies()).delete(USER_COOKIE);
   redirect('/cuenta');
 }

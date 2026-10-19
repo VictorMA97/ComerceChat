@@ -10,6 +10,8 @@ const base = {
   QR_HMAC_SECRET: 'y'.repeat(32),
   PII_ENCRYPTION_KEY: 'z'.repeat(32),
   FAKE_PSP_WEBHOOK_SECRET: 'w'.repeat(32),
+  PAYMENT_STATUS_SECRET: 'v'.repeat(32),
+  INTERNAL_PROXY_SECRET: 'u'.repeat(32),
   QR_SIGNING_KEY: 'k'.repeat(48),
 };
 
@@ -22,6 +24,13 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, NODE_ENV: 'production' })).toThrow(
       /Proveedores simulados no permitidos en producción: PAYMENT_PROVIDER=fake/,
     );
+  });
+
+  it('impide desactivar los límites de peticiones en producción', () => {
+    expect(() => parseEnv({ ...base, NODE_ENV: 'production', RATE_LIMITS: 'off' })).toThrow(
+      /RATE_LIMITS=off no está permitido en producción/,
+    );
+    expect(parseEnv({ ...base, NODE_ENV: 'test', RATE_LIMITS: 'off' }).RATE_LIMITS).toBe('off');
   });
 
   it('exige secretos de al menos 32 caracteres', () => {
