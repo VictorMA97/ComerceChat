@@ -2,7 +2,7 @@
 
 *Pedir, pagar y volver* para restaurantes con servicio en mesa: web QR sin instalación, puntos y cupones del propio comercio y panel con CRM. Esta rama contiene la **PoC local** ([SPEC §3.3](docs/SPEC.md#poc), [ARCHITECTURE §16](docs/ARCHITECTURE.md#poc-local)).
 
-**Estado:** hitos **P1, P2 y P3** de la PoC completados ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta leída de una caja simulada, pago con un PSP simulado (webhooks firmados, idempotencia, worker), dividir la cuenta entre varios comensales, cobro con QR desde la caja, vista de sala y tiempo real. Siguiente: usuarios, puntos y cupones (P4).
+**Estado:** **PoC completa** (hitos P1–P4) ([ROADMAP §2](docs/ROADMAP.md#poc)): mesas y QR firmados, cuenta leída de una caja simulada, pago con un PSP simulado (webhooks firmados, idempotencia, worker), dividir la cuenta entre varios comensales, cobro con QR desde la caja, vista de sala, tiempo real, alta del comensal con código, puntos, recompensas, cupones, promoción «Vuelve y te invitamos» y analítica. Guion de demo: [docs/DEMO.md](docs/DEMO.md).
 
 ## Requisitos
 
@@ -35,6 +35,13 @@ pnpm poc:up
 3. En la página del **PSP simulado** elige: pagar, pagar con 3DS, o simular una tarjeta rechazada.
 4. Llegas al justificante. En el simulador de caja la mesa aparece **Cerrada** con el pago de ComerceChat.
 5. Desde el simulador puedes **simular una caída del TPV**: la web QR pedirá avisar al personal.
+
+### Puntos, cupones y analítica (P4)
+
+1. Paga una mesa y, en el justificante, **guarda tus puntos** con el número de demo **600 000 000** y el código **000000** (cualquier otro número recibe el código en la consola de la API y en Mailpit).
+2. Recibes el cupón **«Vuelve y te invitamos»**: aplícalo al pagar otra mesa (con 20 € o más).
+3. En **Mis puntos y cupones** canjea puntos por recompensas.
+4. En el panel: **Analítica** (hoy, 7 o 30 días) y **Promociones**.
 
 ### Dividir la cuenta y cobrar con QR desde la caja (P3)
 
@@ -69,6 +76,8 @@ Arranca un túnel HTTPS de Cloudflare (contenedor `tunnel` de `docker-compose.ym
 | `pnpm db:seed` | **Borra** y recrea los datos de prueba |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
+| `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4000 |
+| `pnpm e2e` | Recorrido completo en navegador (Playwright). **Recarga los datos de prueba.** La primera vez: `pnpm --filter @comercechat/e2e e2e:install` |
 
 ## Estructura
 

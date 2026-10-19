@@ -60,16 +60,14 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
         .insert(s.fakePosBills)
         .values({ locationId, externalTableId: label })
         .returning();
-      await tx
-        .insert(s.fakePosBillItems)
-        .values(
-          items.map(([name, qty, unitPriceCents]) => ({
-            billId: bill!.id,
-            name,
-            qty,
-            unitPriceCents,
-          })),
-        );
+      await tx.insert(s.fakePosBillItems).values(
+        items.map(([name, qty, unitPriceCents]) => ({
+          billId: bill!.id,
+          name,
+          qty,
+          unitPriceCents,
+        })),
+      );
       return { code, billId: bill!.id };
     });
   }
@@ -131,14 +129,12 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       .insert(s.loyaltyPrograms)
       .values({ merchantId: m!.id, earnRule: { pointsPerEuro: 1 }, holdHours: 0 })
       .returning();
-    await db
-      .insert(s.loyaltyRewards)
-      .values({
-        programId: program!.id,
-        name: 'Postre gratis',
-        costPoints: 20,
-        discountCents: 600,
-      });
+    await db.insert(s.loyaltyRewards).values({
+      programId: program!.id,
+      name: 'Postre gratis',
+      costPoints: 20,
+      discountCents: 600,
+    });
     await db.insert(s.merchantUsers).values({
       merchantId: m!.id,
       email: `puntos-${suffix}@e2e.test`,

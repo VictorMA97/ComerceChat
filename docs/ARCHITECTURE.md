@@ -446,18 +446,20 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 - La página `/pos-simulator` del panel permite abrir una cuenta en una mesa, añadir y quitar productos de la carta de prueba, ver los pagos registrados (`registerPayment`) y cerrar la mesa. Cuando un pago cubre la cuenta, el TPV simulado la cierra; el simulador la sigue mostrando 30 min como «Cerrada» con sus pagos.
 - `health()` se puede forzar a `down` desde el simulador para probar el modo degradado (FR-POS-06).
 
-**`ConsoleOtpSender`:** escribe `OTP para +34600000001: 123456` en la consola de la API y lo envía a Mailpit. Hay un número mágico (`+34600000000` → `000000`) para las demos.
+**`ConsoleOtpSender`:** escribe `OTP para +34600000001: 123456` en la consola de la API y lo envía a Mailpit. Hay un número mágico (`+34600000000` → `000000`) para las demos, sin límite de envíos y nunca en producción ([ADR-024](DECISIONS.md#adr-024)).
 
 ### 16.4 Datos de prueba (`pnpm db:seed`)
 
 - 2 comercios: "Casa Pepe" (Malasaña) y "La Tasca de Ana" (Chamberí), con coordenadas reales del barrio.
-- 8 mesas por local, con sus QR estáticos, enlazadas con la caja simulada (`M1`…`M8`).
-- Carta de 20 productos en la caja simulada y cuentas abiertas en las mesas 1, 2 y 3 de cada local (P2). Los alérgenos llegan con la carta propia (FR-ORD-02).
-- *(P4)* Programa de puntos (1 punto/€, recompensa "Postre gratis = 50 puntos", `hold_hours = 0`) y una promoción "Vuelve y te invitamos".
-- Usuarios del comercio: `owner@casapepe.test` y `staff@casapepe.test` (contraseña `poc1234`).
-- 3 usuarios comensales con historial, para que la analítica no aparezca vacía.
+- 8 mesas por local con sus QR, enlazadas con la caja simulada (`M1`…`M8`); carta de 20 productos y cuentas abiertas en las mesas 1–3.
+- Fidelización: 1 punto/€ sin retención, recompensas «Caña gratis» (25 pts) y «Postre gratis» (50 pts), y la promoción «Vuelve y te invitamos» (5 € a partir de 20 €, 30 días).
+- Usuarios del comercio: `owner@casapepe.test`, `staff@casapepe.test`, `owner@tascadeana.test` (contraseña `poc1234`).
+- 3 comensales; Lucía (`+34600000001`) comparte datos con Casa Pepe y tiene 60 puntos y un cupón. El número de demo `+34600000000` queda libre para el alta.
+- 14 pagos de los últimos 7 días por comercio, para que la analítica no aparezca vacía.
 
-### 16.5 Puesta en marcha (objetivo)
+### 16.5 Puesta en marcha
+
+Otros comandos: `pnpm poc:stop` (libera los puertos 3000/3001/4000 si quedó algo en marcha) y `pnpm e2e` (recorrido completo en navegador; **recarga los datos de prueba**).
 
 ```bash
 pnpm install
@@ -482,10 +484,10 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 
 | Prueba | Herramienta | Cubre el criterio de SPEC §3.3 |
 |---|---|---|
-| Recorrido completo escaneo → pago → puntos → panel | Playwright (2 contextos de navegador: comensal + panel) | 1, 5 |
+| Recorrido completo escaneo → pago → puntos → cupón → panel | `pnpm e2e` (`e2e/tests/recorrido-completo.spec.ts`, Playwright: comensal + panel) ✅ P4 | 1, 5 |
 | 4 pagadores simultáneos en la misma mesa | `apps/api/test/split-realtime.e2e-spec.ts` (✅ P3) + navegador con 4 móviles por el túnel | 2 |
 | Webhook duplicado ×10 y desordenado | `apps/api/test/payments.e2e-spec.ts` (✅ P2) y `split-realtime.e2e-spec.ts` con `FAKE_PSP_CHAOS=on` (✅ P3) | 3 |
-| 100 canjes paralelos del mismo cupón | Test de integración | 4 |
+| 100 canjes paralelos del mismo cupón | `apps/api/test/loyalty-coupons.e2e-spec.ts` ✅ P4 | 4 |
 | Firma de QR manipulada o caducada | Test unitario | — |
 
 ### 16.7 Del PoC al MVP

@@ -527,7 +527,9 @@ export class PaymentsService implements OnApplicationBootstrap {
     return {
       merchantId: p.merchantId,
       points: earned?.points ?? pointsFor(program, chargedCents(p)),
-      claimed: Boolean(earned),
+      // Pago de un usuario identificado: el apunte llega por el outbox un instante después, pero está
+      // garantizado (handler idempotente), así que ya se muestra como guardado.
+      claimed: Boolean(earned) || (p.status === 'CAPTURED' && Boolean(p.userId)),
       claimable: p.status === 'CAPTURED' && !p.userId && claimWindowOpen,
     };
   }

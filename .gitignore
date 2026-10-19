@@ -11,3 +11,7 @@ next-env.d.ts
 .env.local
 .env.*.local
 .data/
+
+# Resultados de Playwright
+e2e/test-results/
+e2e/playwright-report/

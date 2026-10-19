@@ -368,6 +368,39 @@
   - En la PoC no hay cobro sin mesa. FR-QR-02 (QR estático de mostrador) sigue fuera del alcance de la PoC.
   - **Pendiente:** el QR lleva el token firmado entero en la URL (~300 caracteres) y sale denso. Si cuesta escanearlo desde una pantalla, se puede usar un código corto en la URL y dejar la firma en la BD, como en los QR de mesa.
 
+<a id="adr-024"></a>
+## ADR-024: usuarios, puntos y cupones en la PoC (P4)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Decisión:**
+  - **Acceso del comensal:** teléfono + código de un solo uso (6 cifras, 5 min). En Redis solo se guarda el hash del código.
+    - 3 fallos bloquean el número 15 min; máximo 5 envíos por hora.
+    - En la PoC el código va a la consola y a Mailpit (`ConsoleOtpSender`, D-04).
+    - El número de demo `+34600000000` → `000000`, sin límite de envíos y nunca en producción.
+  - **Sesión del comensal:** JWT de 30 días (`JWT_USER_TTL_SECONDS`) en una cookie httpOnly de la web QR, sin token de renovación (simplificación de la PoC frente a ARCHITECTURE §11). Va separado de los tokens del comercio por `typ`.
+  - **Alta:** para crear la cuenta hay que aceptar las condiciones. Se comprueba **antes** de gastar el código. Marketing y «compartir datos con este comercio» son casillas aparte y sin marcar (REG-07, ADR-016).
+  - **Puntos (FR-LOY-02):**
+    - `floor(€ pagados sin propina ni cupón × puntos por euro)`.
+    - Pagos de usuarios identificados: se acreditan por el outbox al capturarse. El justificante ya los muestra como guardados.
+    - Pagos sin cuenta: se reclaman en 24 h con el token de estado del pago (`POST /me/claim`).
+    - El índice único parcial `(payment_id) WHERE type='EARN'` garantiza una sola entrada aunque el webhook o la reclamación se repitan (criterio 3).
+    - La retención (`hold_hours`) es 0 en los datos de prueba.
+  - **Recompensas (FR-LOY-03):** se canjean con la cuenta de puntos bloqueada (`FOR UPDATE`). Generan un apunte `REDEEM` y un cupón de un solo uso.
+  - **«Vuelve y te invitamos» (FR-CPN-01):** cupón emitido al primer apunte `EARN` del usuario en el comercio; uno por usuario y promoción (índice único). Solo una promoción activa de esta plantilla por comercio.
+  - **Cupón en el pago:**
+    - El cupón **cubre** parte de la cuenta: la asignación y el registro en el TPV llevan el importe completo, con `discount_cents` aparte.
+    - El PSP cobra importe − descuento + propina.
+    - La propina, la comisión de plataforma y los puntos se calculan sobre lo que paga el comensal.
+    - El cupón se reserva de forma atómica en la misma transacción que el pago (`UPDATE … WHERE status disponible RETURNING`), se libera con las asignaciones si el pago no se completa y se canjea al capturarse (`UNIQUE(coupon_redemptions.coupon_id)`).
+    - Para usar cupones hace falta sesión.
+  - **Analítica (FR-ANA-01 reducido):** consultas directas a `payments`, con días en hora de Madrid y comparación con el periodo anterior de igual duración.
+  - **Mejora progresiva en toda la web QR:** formularios nativos con *server actions* (propina, reparto, cupón, PSP simulado, alta). Un toque antes de que cargue el JavaScript no se pierde.
+  - **E2E en navegador (`pnpm e2e`, Playwright):**
+    - Durante la prueba fija `WEB_QR_BASE_URL` a localhost, para que todo el recorrido ocurra en el mismo dominio y la cookie valga; al terminar restaura el valor.
+    - Calienta las páginas antes de empezar, porque Next en modo desarrollo compila en el primer acceso.
+    - Recarga los datos de prueba.
+- **Consecuencias:** el opcional de `StripeConnectProvider` queda para después de la PoC.
+
 ---
 
 ## Decisiones abiertas

@@ -76,15 +76,13 @@ export class UsersService {
   }
 
   async setMarketing(userId: string, granted: boolean): Promise<void> {
-    await this.db
-      .insert(userConsents)
-      .values({
-        userId,
-        type: 'MKT_PLATFORM',
-        granted,
-        version: CONSENT_VERSION,
-        source: 'profile',
-      });
+    await this.db.insert(userConsents).values({
+      userId,
+      type: 'MKT_PLATFORM',
+      granted,
+      version: CONSENT_VERSION,
+      source: 'profile',
+    });
   }
 
   async hasAcceptedTerms(userId: string): Promise<boolean> {

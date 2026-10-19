@@ -10,7 +10,10 @@ export const metadata = { title: 'PSP simulado · ComerceChat' };
  * Página de pago del PSP simulado (ARCHITECTURE §16.3). En el MVP la sustituye la del PSP real.
  * Cada botón es un formulario nativo: funciona aunque el JavaScript no haya cargado.
  */
-export default async function FakeCheckoutPage({ params, searchParams }: PageProps<'/fake-psp/checkout/[id]'>) {
+export default async function FakeCheckoutPage({
+  params,
+  searchParams,
+}: PageProps<'/fake-psp/checkout/[id]'>) {
   const { id } = await params;
   const { step, error } = await searchParams;
   let session: FakeCheckoutSession;
@@ -24,7 +27,8 @@ export default async function FakeCheckoutPage({ params, searchParams }: PagePro
       </main>
     );
   }
-  const finish = (outcome: 'succeed' | 'decline' | 'fail_3ds') => completeCheckout.bind(null, session.id, outcome);
+  const finish = (outcome: 'succeed' | 'decline' | 'fail_3ds') =>
+    completeCheckout.bind(null, session.id, outcome);
 
   return (
     <main className="psp">
@@ -65,7 +69,10 @@ export default async function FakeCheckoutPage({ params, searchParams }: PagePro
                 Pagar
               </button>
             </form>
-            <Link className="psp-secondary as-button" href={`/fake-psp/checkout/${session.id}?step=3ds`}>
+            <Link
+              className="psp-secondary as-button"
+              href={`/fake-psp/checkout/${session.id}?step=3ds`}
+            >
               Pagar con verificación 3DS
             </Link>
             <form action={finish('decline')}>

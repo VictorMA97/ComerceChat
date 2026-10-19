@@ -53,7 +53,7 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 - **Hecho cuando:** 4 móviles pagan la misma mesa a la vez sin pagar dos veces ninguna parte, y el panel se actualiza en < 3 s.
 - **Resultado:** verificado a través del túnel con 4 iPhones simulados sobre la Mesa 2 (65,60 €): dos piden el mismo plato a la vez y solo uno lo consigue; los otros pagan a partes iguales y por importe; un 5.º móvil y la **Sala** del panel se actualizan solos. La caja recibió exactamente 65,60 € en 4 pagos sin duplicados y la Sala mostró «Pagada» **0,6 s** después del último pago. Cobro con QR desde la caja («Cobrar con QR» en cada mesa del simulador, [ADR-023](DECISIONS.md#adr-023)): «Cobrado» en 0,8 s y la cuenta de la mesa cerrada. Tests E2E con el modo caos (webhooks retrasados y duplicados) estables en ejecuciones repetidas. Decisiones en [ADR-022](DECISIONS.md#adr-022).
 
-### P4: usuarios, puntos, cupones y panel (semana 4)
+### P4: usuarios, puntos, cupones y panel (semana 4) · ✅ completado el 19-oct-2026
 - Registro tras el pago con OTP por consola y consentimientos.
 - Registro de puntos, recompensa → cupón, una plantilla de promoción, canje atómico.
 - Panel de analítica básico (FR-ANA-01 reducido).
@@ -61,6 +61,15 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 - Guion de demo de 5 minutos.
 - (Opcional) `StripeConnectProvider` en modo de pruebas con túnel.
 - **Hecho cuando:** se cumplen los criterios 1–5 de SPEC §3.3. El criterio 6 (feedback de ≥ 5 hosteleros) se completa en las 2 semanas siguientes.
+- **Resultado:** criterios 1–5 cumplidos.
+  - **Criterio 1:** 0,9–2,7 s del escaneo al pago (`pnpm e2e`, Playwright).
+  - **Criterio 2:** P3.
+  - **Criterio 3:** webhook ×10 → 1 cobro y 1 sola entrada de puntos (`loyalty-coupons.e2e-spec.ts`).
+  - **Criterio 4:** 100 peticiones paralelas sobre el mismo cupón → 1 canje.
+  - **Criterio 5:** 0,3–1,8 s hasta «Pagada» en la sala.
+  - **Guion de demo:** [DEMO.md](DEMO.md).
+  - **Pendiente:** el opcional de Stripe en modo de pruebas y el criterio 6 (demos con hosteleros).
+  - Decisiones de implementación en [ADR-024](DECISIONS.md#adr-024).
 
 ## 3. Hitos técnicos del MVP (meses 0–6)
 

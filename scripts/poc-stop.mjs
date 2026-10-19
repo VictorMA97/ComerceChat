@@ -44,4 +44,6 @@ for (const pid of targets) {
     /* ya terminado */
   }
 }
-console.log(targets.length ? `Procesos parados: ${targets.join(', ')}` : 'No había nada en marcha.');
+console.log(
+  targets.length ? `Procesos parados: ${targets.join(', ')}` : 'No había nada en marcha.',
+);

@@ -21,7 +21,9 @@ export async function PointsBox({
     const [loyalty, coupons] = loggedIn
       ? await Promise.all([
           apiAsUser<LoyaltyView[]>('/me/loyalty').catch(() => [] as LoyaltyView[]),
-          apiAsUser<CouponView[]>(`/me/coupons?merchantId=${p.merchantId}`).catch(() => [] as CouponView[]),
+          apiAsUser<CouponView[]>(`/me/coupons?merchantId=${p.merchantId}`).catch(
+            () => [] as CouponView[],
+          ),
         ])
       : [[], []];
     const balance = loyalty.find((l) => l.merchant.id === p.merchantId)?.balance;
@@ -40,8 +42,8 @@ export async function PointsBox({
                 <strong>🎁 {c.title}</strong>
                 <span className="muted small">
                   {formatCents(c.discountCents)} de descuento
-                  {c.minSpendCents > 0 && ` · a partir de ${formatCents(c.minSpendCents)}`}. Se aplica al pagar con tu
-                  móvil.
+                  {c.minSpendCents > 0 && ` · a partir de ${formatCents(c.minSpendCents)}`}. Se
+                  aplica al pagar con tu móvil.
                 </span>
               </div>
             ))}
