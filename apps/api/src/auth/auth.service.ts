@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { LoginResponse } from '@comercechat/shared-types';
+import type { LoginResponse, MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { AuditService } from '../audit/audit.service.js';
@@ -16,6 +16,7 @@ import {
   type MerchantAuthProvider,
   type MerchantPrincipal,
 } from './auth.types.js';
+import { MerchantMfaService, MFA_CHALLENGE_TTL_SECONDS } from './merchant-mfa.service.js';
 import {
   JWT_ISSUER,
   MERCHANT_AUDIENCE,
@@ -45,9 +46,10 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly revocations: TokenRevocationService,
+    private readonly mfa: MerchantMfaService,
   ) {}
 
-  async loginMerchant(email: string, password: string, ip?: string): Promise<LoginResponse> {
+  async loginMerchant(email: string, password: string, ip?: string): Promise<MerchantLoginResult> {
     // El email no se guarda en claro ni en Redis ni en la auditoría.
     const emailHash = hashPii(email, this.env.PII_ENCRYPTION_KEY);
     const failuresKey = `login:failures:${emailHash}`;
@@ -77,6 +79,24 @@ export class AuthService {
       );
     }
     await this.redis.del(failuresKey);
+
+    // Segundo factor (ADR-025): la contraseña sola no abre sesión para OWNER y MANAGER.
+    const user = await this.db.query.merchantUsers.findFirst({
+      where: eq(merchantUsers.id, principal.merchantUserId),
+    });
+    if (user && MerchantMfaService.required(user)) {
+      const stage = user.mfaEnabled ? 'verify' : 'setup';
+      return {
+        step: stage === 'verify' ? 'MFA_REQUIRED' : 'MFA_SETUP_REQUIRED',
+        mfaToken: await this.mfa.challenge(user.id, stage),
+        expiresIn: MFA_CHALLENGE_TTL_SECONDS,
+      };
+    }
+    return { step: 'DONE', ...(await this.issueSession(principal, ip)) };
+  }
+
+  /** Crea la sesión del panel. Solo tras la contraseña y, si hace falta, el segundo factor. */
+  async issueSession(principal: MerchantPrincipal, ip?: string): Promise<LoginResponse> {
     const payload: Omit<MerchantJwtPayload, 'jti' | 'exp'> = {
       sub: principal.merchantUserId,
       mid: principal.merchantId,
@@ -112,6 +132,8 @@ export class AuthService {
       where: eq(merchantUsers.id, p.sub),
     });
     if (!user || user.status !== 'ACTIVE' || user.merchantId !== p.mid) return null;
+    // Sesiones anteriores a la exigencia del doble factor (o con él desactivado): no valen.
+    if (MerchantMfaService.required(user) && !user.mfaEnabled) return null;
     return { merchantUserId: user.id, merchantId: user.merchantId, role: user.role };
   }
 

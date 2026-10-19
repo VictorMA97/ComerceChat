@@ -9,7 +9,7 @@ export interface MerchantPrincipal {
 
 /**
  * Proveedor de autenticación de comercios (D-03). En la PoC: `LocalMerchantAuthProvider`
- * (email + contraseña, sin doble factor). En M0 se añade el doble factor obligatorio (ADR-013).
+ * (email + contraseña). El doble factor (ADR-025) va aparte, en `MerchantMfaService`.
  */
 export interface MerchantAuthProvider {
   authenticate(email: string, password: string): Promise<MerchantPrincipal | null>;

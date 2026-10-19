@@ -187,6 +187,7 @@
   - Coste por SMS o WhatsApp.
   - Bloqueo de números VoIP y desechables.
   - Menor riesgo de robo de cuentas.
+- **Implementación del doble factor de comercios:** [ADR-025](#adr-025) (TOTP propio, independiente de D-03).
 
 <a id="adr-014"></a>
 ## ADR-014: Alipay+/WeChat Pay y carta multiidioma solo en fase 2 y solo vía PSP
@@ -387,6 +388,47 @@
     - Calienta las páginas antes de empezar, porque Next en modo desarrollo compila en el primer acceso.
     - Recarga los datos de prueba.
 - **Consecuencias:** el opcional de `StripeConnectProvider` queda para después de la PoC.
+
+<a id="adr-025"></a>
+## ADR-025: doble factor de los comercios con TOTP propio y alta de comercio, locales y mesas (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** [ADR-013](#adr-013) exige doble factor a OWNER y MANAGER, y la condición de «hecho» de M0 es que un comercio se registre con doble factor y cree un local con mesas. El proveedor de autenticación sigue abierto ([D-03](#d-03)): la prueba técnica de los gestionados no debe bloquear el alta.
+- **Decisión:**
+  - **Factor:** TOTP (RFC 6238: SHA-1, 6 dígitos, pasos de 30 s) con cualquier app de autenticación, implementado en la API (`auth/totp.ts`, probado con los vectores del RFC). Sin SMS: es más barato y no depende de D-04. Las passkeys para comercios se evalúan con D-03.
+  - **Quién:** obligatorio para OWNER y MANAGER; STAFF solo si lo activa. Una sesión de OWNER o MANAGER sin doble factor se rechaza aunque el JWT sea válido, así que los tokens emitidos antes de M0 dejan de valer.
+  - **Login en dos pasos:**
+    - La contraseña correcta devuelve `MFA_REQUIRED` o `MFA_SETUP_REQUIRED` con un `mfaToken`, en lugar de la sesión.
+    - El `mfaToken` es un JWT de 5 minutos con audiencia `merchant-mfa`. No vale como sesión y es de un solo uso: se revoca su `jti`.
+    - El panel lo guarda en una cookie httpOnly (`cc_mfa`), nunca en el HTML.
+  - **Alta del factor:**
+    - El secreto, de 160 bits, se guarda cifrado con AES-256-GCM (`merchant_users.mfa_secret_enc`).
+    - Mientras no se confirma con un código, queda pendiente en Redis 10 minutos.
+    - Al activarlo se emiten **10 códigos de recuperación** de un solo uso. Solo se guarda su HMAC (`merchant_user_recovery_codes`) y se marcan como usados de forma atómica (`UPDATE … WHERE used_at IS NULL RETURNING`).
+  - **Protección del segundo paso:**
+    - Se admite ±1 paso de desfase de reloj.
+    - Un mismo código no vale dos veces: `SET NX` por usuario y paso.
+    - 5 fallos bloquean la cuenta 15 minutos.
+    - Hay límite por IP (`merchantMfa`).
+    - Activaciones, fallos y usos de códigos de recuperación quedan en auditoría.
+  - **Registro (FR-MER-01):**
+    - `POST /merchant/auth/register` crea el comercio en `ONBOARDING` y su OWNER (contraseña ≥ 10 caracteres). No abre sesión hasta activar el doble factor.
+    - Un comercio en `ONBOARDING` no acepta pagos por QR.
+    - En la PoC, el OWNER completa un **alta simulada ante el PSP** (`POST /merchant/psp/onboarding/simulate`, solo con `PAYMENT_PROVIDER=fake`), que lo pasa a `ACTIVE`. Con un PSP real lo hará el webhook de verificación (FR-MER-02, M1).
+  - **Locales y mesas (FR-MER-03/04):**
+    - OWNER y MANAGER dan de alta locales y mesas en bloque.
+    - Las mesas se numeran a continuación de las existentes («Mesa N»), con el local bloqueado (`FOR UPDATE`), y cada una nace con su QR estático firmado.
+    - `PosConnector.linkNewTables` (opcional) enlaza las mesas nuevas con la caja. El simulador crea su propia mesa y carga la carta por defecto. Con una caja real el emparejamiento es manual (FR-POS-05, M2).
+  - **Cuentas de prueba:** los OWNER del seed tienen el doble factor activado con un secreto público y conocido (`JBSWY3DPEHPK3PXP`). `pnpm poc:totp` imprime el código del momento.
+- **Alternativas descartadas:**
+  - **OTP por SMS o email para comercios:** depende de D-04 y es vulnerable al SIM swapping.
+  - **Esperar a D-03 para el doble factor:** bloquearía M0. El TOTP es estándar y portable a cualquier proveedor.
+  - **Librería externa de TOTP:** son unas 60 líneas con `node:crypto`, verificables con los vectores del RFC.
+  - **Saltarse el doble factor en local:** escondería errores de flujo y no probaría la condición de «hecho».
+- **Consecuencias:**
+  - Los E2E entran con el secreto de prueba: helper `test/merchant-session.ts` en la API y paso del código en Playwright.
+  - La resolución del QR se cachea 30 s, así que un QR consultado mientras el comercio estaba en `ONBOARDING` puede tardar hasta 30 s en aceptar pagos.
+  - Falta recuperar la cuenta sin códigos (reinicio del doble factor por soporte, FR-ADM) y gestionar los usuarios del comercio (FR-MER-05).
 
 ---
 

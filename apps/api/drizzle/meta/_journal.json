@@ -29,6 +29,13 @@
       "when": 1792343792464,
       "tag": "0003_loyalty_coupons",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792430455022,
+      "tag": "0004_merchant_mfa",
+      "breakpoints": true
     }
   ]
 }

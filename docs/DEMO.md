@@ -10,7 +10,7 @@
    ```
 2. Para partir de datos limpios, ejecuta `pnpm db:seed`. Los códigos de los QR cambian.
 3. En el portátil, abre:
-   - el panel en http://localhost:3001 (`owner@casapepe.test` / `poc1234`), con la **Sala** en una pestaña y el **Simulador de caja** en otra;
+   - el panel en http://localhost:3001 (`owner@casapepe.test` / `poc1234`; el código del doble factor lo da `pnpm poc:totp`, ADR-025), con la **Sala** en una pestaña y el **Simulador de caja** en otra;
    - Mailpit en http://localhost:8025, para ver los códigos de un solo uso de números que no sean el de demo.
 4. Para usar un móvil real, la web QR tiene que ser accesible a través del túnel (`WEB_QR_BASE_URL`). Por el túnel, la web QR se actualiza por sondeo cada ~3 s, porque el túnel rápido de Cloudflare no admite SSE (ADR-022).
 5. Número de demo: `+34600000000`, con código `000000`, sin límite de envíos y solo fuera de producción (ADR-024).
@@ -29,6 +29,7 @@
 | 8 | **Simulador de caja** → **Cobrar con QR** en la Mesa 3 → pagarlo con el móvil | La tarjeta de la mesa pasa a «Cobrado con QR» y la cuenta se cierra | QR dinámico firmado (ADR-023) |
 | 9 | **Simulador de caja** → **Simular caída** | La web QR muestra «No podemos consultar la cuenta» | `PosUnavailableError` (FR-POS-06) |
 | 10 | Panel → **Analítica** y **Promociones** | Volumen, pagos, propinas, descuentos y clientes identificados; cupones emitidos y canjeados | `GET /merchant/analytics`, `GET /merchant/promotions` |
+| 11 | En otra ventana privada, panel → **Registra tu comercio** → escanear el QR con una app de autenticación (o meter la clave a mano) → código → guardar los códigos de recuperación → **Nuevo local** con 4 mesas → **Completar alta (PSP simulado)** → abrir el QR de una mesa | Panel del comercio nuevo con sus mesas y QR; la web QR muestra la mesa con «No hay ninguna cuenta abierta» | Registro (FR-MER-01), doble factor TOTP, alta de locales y mesas (FR-MER-03/04), KYB simulado (ADR-025) |
 
 ## 3. Resolución de problemas
 
@@ -36,6 +37,8 @@
 |---|---|---|
 | El QR no abre en el móvil | La URL del túnel ha cambiado o el túnel no ha registrado la conexión | `pnpm poc:tunnel`; si sigue sin resolver, reinicia el contenedor `tunnel` y repite |
 | «No hay ninguna cuenta abierta» | La mesa no tiene cuenta en el TPV simulado | Añade platos desde el **Simulador de caja** |
+| «Código incorrecto» al entrar al panel | El código ya se usó (no vale dos veces) o el reloj del equipo va desfasado | Espera al siguiente código (`pnpm poc:totp`) y comprueba la hora del sistema |
+| «Este comercio no acepta pagos por QR ahora» | Comercio recién registrado, aún en `ONBOARDING` | **Completar alta (PSP simulado)** en **Mesas y QR**; el QR puede tardar hasta 30 s en responder |
 | El número de demo ya existe | Se dio de alta en una prueba anterior | `pnpm db:seed` o usa otro número (código en Mailpit) |
 | Puertos 3000/3001/4000 ocupados | Procesos huérfanos de un `pnpm dev` anterior | `pnpm poc:stop` |
 | Postgres o Redis rechazan la conexión | Otro servicio ocupa el puerto 5432/6379 y el contenedor arrancó sin publicarlo | Libera el puerto y ejecuta `docker compose up -d --force-recreate postgres redis` |

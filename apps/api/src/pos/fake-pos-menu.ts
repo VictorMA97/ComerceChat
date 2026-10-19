@@ -1,0 +1,23 @@
+/** Carta por defecto del TPV simulado (céntimos): la usan el seed y los locales nuevos en la PoC. */
+export const FAKE_POS_MENU: { category: string; name: string; priceCents: number }[] = [
+  { category: 'Bebidas', name: 'Caña', priceCents: 250 },
+  { category: 'Bebidas', name: 'Copa de vino tinto', priceCents: 380 },
+  { category: 'Bebidas', name: 'Vermut de grifo', priceCents: 350 },
+  { category: 'Bebidas', name: 'Agua mineral', priceCents: 200 },
+  { category: 'Bebidas', name: 'Refresco', priceCents: 280 },
+  { category: 'Bebidas', name: 'Café', priceCents: 180 },
+  { category: 'Para compartir', name: 'Patatas bravas', priceCents: 650 },
+  { category: 'Para compartir', name: 'Croquetas de jamón (6 uds.)', priceCents: 900 },
+  { category: 'Para compartir', name: 'Pimientos de Padrón', priceCents: 750 },
+  { category: 'Para compartir', name: 'Tortilla de patata', priceCents: 850 },
+  { category: 'Para compartir', name: 'Ensaladilla rusa', priceCents: 800 },
+  { category: 'Para compartir', name: 'Jamón ibérico (ración)', priceCents: 1900 },
+  { category: 'Principales', name: 'Huevos rotos con jamón', priceCents: 1250 },
+  { category: 'Principales', name: 'Calamares a la romana', priceCents: 1300 },
+  { category: 'Principales', name: 'Secreto ibérico', priceCents: 1650 },
+  { category: 'Principales', name: 'Bacalao confitado', priceCents: 1750 },
+  { category: 'Principales', name: 'Hamburguesa de ternera', priceCents: 1400 },
+  { category: 'Postres', name: 'Tarta de queso', priceCents: 600 },
+  { category: 'Postres', name: 'Torrija', priceCents: 550 },
+  { category: 'Postres', name: 'Flan casero', priceCents: 450 },
+];

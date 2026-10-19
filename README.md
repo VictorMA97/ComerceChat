@@ -23,7 +23,7 @@ pnpm poc:up
 
 | App | URL | Notas |
 |---|---|---|
-| Panel del comercio | http://localhost:3001 | `owner@casapepe.test` / `poc1234` (también `staff@casapepe.test`, `owner@tascadeana.test`) |
+| Panel del comercio | http://localhost:3001 | `owner@casapepe.test` / `poc1234` + código de `pnpm poc:totp` (también `staff@casapepe.test`, sin doble factor, y `owner@tascadeana.test`). Comercios nuevos: `/registro` |
 | Web QR | http://localhost:3000/t/{código} | Escanea un QR del panel |
 | API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
@@ -81,6 +81,7 @@ Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
 | `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4000 |
+| `pnpm poc:totp` | Código actual del doble factor de los OWNER de prueba (ADR-025) |
 | `pnpm e2e` | Recorrido completo en navegador (Playwright). **Recarga los datos de prueba.** La primera vez: `pnpm --filter @comercechat/e2e e2e:install` |
 
 ## Estructura

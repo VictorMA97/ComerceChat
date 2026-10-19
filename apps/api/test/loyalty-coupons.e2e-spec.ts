@@ -19,6 +19,7 @@ import {
 import { FakePspService } from '../src/payments/fake-psp/fake-psp.service.js';
 import { QrService } from '../src/qr/qr.service.js';
 import { OTP_SENDER } from '../src/users/otp-sender.js';
+import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 const suffix = Date.now().toString(36);
 const rnd = () => String(Math.floor(1_000_000 + Math.random() * 8_999_999));
@@ -140,12 +141,9 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       email: `puntos-${suffix}@e2e.test`,
       passwordHash: await hashPassword('secreto123'),
       role: 'OWNER',
+      ...testMfaColumns(env),
     });
-    merchantToken = (
-      await http()
-        .post('/v1/merchant/auth/login')
-        .send({ email: `puntos-${suffix}@e2e.test`, password: 'secreto123' })
-    ).body.accessToken;
+    merchantToken = await merchantLogin((path) => http().post(path), `puntos-${suffix}@e2e.test`);
     const promo = await http()
       .post('/v1/merchant/promotions')
       .set('authorization', `Bearer ${merchantToken}`)

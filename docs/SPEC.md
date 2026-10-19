@@ -113,7 +113,7 @@ Planificación en [ROADMAP.md › PoC](ROADMAP.md#poc).
 | Usuarios | FR-USR-01, FR-USR-02, FR-USR-04 | OTP mostrado en la consola o en Mailpit; no se envían SMS. Sin passkeys ni Apple/Google |
 | Fidelización | FR-LOY-01, FR-LOY-02, FR-LOY-03 | `hold_hours = 0` configurable para que los puntos aparezcan al momento en la demo |
 | Cupones | FR-CPN-04, FR-CPN-05, FR-CPN-06 + una plantilla ("Vuelve y te invitamos") | Sin vista previa de alcance ni informes |
-| Comercio | FR-MER-04, FR-MER-06, FR-MER-08 | Comercios y usuarios del comercio creados con el script de datos de prueba; inicio de sesión con email y contraseña sin doble factor; sin KYB |
+| Comercio | FR-MER-01, FR-MER-03, FR-MER-04, FR-MER-06, FR-MER-08 | Comercios de prueba creados con el script de datos o registrados desde el panel con doble factor (desde M0, ADR-025); alta de locales y mesas; KYB simulado |
 | Analítica | FR-ANA-01 (volumen, nº de pagos, ticket medio, propinas, clientes identificados) | Consultas directas a la base de datos, sin vistas materializadas |
 | Tiempo real | Actualización de la mesa vía SSE | — |
 
@@ -242,7 +242,8 @@ Formato: `ID: descripción`, seguido de los **criterios de aceptación (CA)**.
 
 ### 5.7 Comercio: alta y configuración (`FR-MER`)
 
-- **FR-MER-01: registro del comercio.** Email, contraseña y doble factor obligatorio para el OWNER.
+- **FR-MER-01: registro del comercio.** Email, contraseña y doble factor obligatorio para OWNER y MANAGER (TOTP con app de autenticación y códigos de recuperación, ADR-025).
+  - CA: sin el segundo factor no hay sesión; el comercio nace en `ONBOARDING` y no acepta pagos hasta completar FR-MER-02.
 - **FR-MER-02: alta ante el PSP.** Redirección al flujo alojado de verificación del PSP.
   - CA: el estado KYB se sincroniza por webhook. Sin verificación aprobada no se pueden activar los QR de pago.
 - **FR-MER-03: locales** con dirección, coordenadas, horario, categoría, fotos y software de caja asociado.

@@ -82,6 +82,10 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 - Prueba técnica para cerrar **D-03** (autenticación definitiva).
 - Modelado de amenazas STRIDE del flujo de pago.
 - **Hecho cuando:** un comercio de pruebas se registra con doble factor y crea un local con mesas en staging.
+- **Progreso (19-oct-2026):**
+  - ✅ Registro del comercio, doble factor TOTP obligatorio para OWNER y MANAGER con códigos de recuperación, y alta de locales y mesas con QR desde el panel ([ADR-025](DECISIONS.md#adr-025)). La condición de «hecho» se cumple **en local**: test E2E de la API (`merchant-onboarding`) y recorrido en navegador (`e2e/tests/alta-comercio.spec.ts`).
+  - ✅ CI: Gitleaks y Semgrep en el workflow; Dependabot (`.github/dependabot.yml`).
+  - ⏳ Pendiente: Terraform y despliegue en ECS (requiere cuenta de AWS), outbox → SQS, Sentry + OpenTelemetry, módulo `audit` completo (visor, FR-ADM-05), prueba técnica de D-03 y modelado STRIDE.
 
 ### M1: QR y pago con importe manual (semanas 3–7)
 - **Requiere D-01 (PSP) cerrada.** Parte de lo que la PoC ya tiene (QR, web QR, webhooks, propina, justificante); el trabajo principal es el adaptador real del PSP y su alta de comercios.

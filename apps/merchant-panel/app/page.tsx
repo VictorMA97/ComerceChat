@@ -1,8 +1,10 @@
 import type { LocationView, MerchantMe } from '@comercechat/shared-types';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { AddTablesForm, NewLocationForm } from '@/components/location-forms';
 import { PrintButton, RegenerateQrButton } from '@/components/table-actions';
 import { Nav } from '@/components/nav';
+import { simulatePspOnboarding } from '@/lib/actions';
 import { api, isUnauthenticated, SESSION_COOKIE } from '@/lib/api';
 import { qrDataUrl } from '@/lib/qr';
 
@@ -21,7 +23,7 @@ export default async function TablesPage() {
     throw err;
   }
 
-  const canRegenerate = me.role === 'OWNER' || me.role === 'MANAGER';
+  const canManage = me.role === 'OWNER' || me.role === 'MANAGER';
   // La API es la fuente de verdad de la URL pública (cambia con `pnpm poc:tunnel`).
   const firstQrUrl = locations.flatMap((l) => l.tables).find((t) => t.qr)?.qr?.url;
   const qrOrigin = firstQrUrl ? new URL(firstQrUrl).origin : '(sin QR)';
@@ -39,6 +41,21 @@ export default async function TablesPage() {
       <p className="poc-banner">
         PoC local: sin pagos reales. Los QR apuntan a <code>{qrOrigin}</code>.
       </p>
+      {me.merchant.status === 'ONBOARDING' && (
+        <div className="onboarding-banner no-print" role="status">
+          <p>
+            <b>Falta el alta ante el proveedor de pagos.</b> Hasta completarla, los QR de tus mesas
+            no aceptan pagos.
+          </p>
+          {me.role === 'OWNER' && (
+            <form action={simulatePspOnboarding}>
+              <button className="primary" type="submit">
+                Completar alta (PSP simulado)
+              </button>
+            </form>
+          )}
+        </div>
+      )}
       <header className="topbar no-print">
         <div>
           <h1>{me.merchant.brandName}</h1>
@@ -51,12 +68,18 @@ export default async function TablesPage() {
         </div>
       </header>
 
+      {canManage && <NewLocationForm open={locations.length === 0} />}
+      {locations.length === 0 && !canManage && (
+        <p className="muted">Este comercio aún no tiene locales.</p>
+      )}
+
       {locations.map((l) => (
         <section key={l.id} className="location" aria-labelledby={`loc-${l.id}`}>
           <h2 id={`loc-${l.id}`}>{l.name}</h2>
           <p className="muted no-print">
             {l.address} · {l.tables.length} mesas
           </p>
+          {canManage && <AddTablesForm locationId={l.id} />}
           <div className="tables">
             {l.tables.map((t) => (
               <article key={t.id} className="card table-card">
@@ -72,7 +95,7 @@ export default async function TablesPage() {
                 ) : (
                   <p className="muted">Sin QR activo</p>
                 )}
-                {canRegenerate && (
+                {canManage && (
                   <div className="no-print">
                     <RegenerateQrButton tableId={t.id} label={t.label} />
                   </div>

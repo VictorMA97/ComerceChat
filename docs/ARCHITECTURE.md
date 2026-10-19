@@ -260,7 +260,9 @@ devices(id, user_id→users, push_token, platform, fingerprint_hash, last_seen_a
 
 merchants(id, legal_name, tax_id, brand_name, status[ONBOARDING|ACTIVE|SUSPENDED|REJECTED],
           psp, psp_account_id UNIQUE, psp_kyb_status, plan_id, created_at)
-merchant_users(id, merchant_id→merchants, email UNIQUE, role[OWNER|MANAGER|STAFF], mfa_enabled, status)
+merchant_users(id, merchant_id→merchants, email UNIQUE, role[OWNER|MANAGER|STAFF], mfa_enabled,
+               mfa_secret_enc?, mfa_enabled_at?, status)       -- secreto TOTP cifrado (ADR-025)
+merchant_user_recovery_codes(id, merchant_user_id→merchant_users, code_hash, used_at?)  -- HMAC, un solo uso
 merchant_locations(id, merchant_id→merchants, name, address, geo GEOGRAPHY(Point), timezone,
                    opening_hours JSONB, category, pos_integration_id?→pos_integrations, tip_config JSONB)
 tables(id, location_id→merchant_locations, label, capacity, external_table_id?, active)
@@ -329,7 +331,7 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 - **Autenticación:**
   - Usuarios: JWT de acceso de 15 min + token de renovación rotativo.
   - Invitados: `guest_session` firmada, ligada al QR y con caducidad.
-  - Comercios: sesión con cookie httpOnly + doble factor.
+  - Comercios: sesión con cookie httpOnly + doble factor TOTP en dos pasos: el login devuelve un `mfaToken` de 5 min que solo sirve para `POST /merchant/auth/mfa/setup|activate|verify` ([ADR-025](DECISIONS.md#adr-025)).
 - **Paginación** por cursor.
 - **Webhooks entrantes:** `POST /v1/webhooks/psp/{provider}` y `POST /v1/webhooks/pos/{provider}`, con la firma verificada sobre el cuerpo en bruto.
 - **Endpoints principales del MVP (ilustrativo):**
@@ -454,7 +456,7 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 - 2 comercios: "Casa Pepe" (Malasaña) y "La Tasca de Ana" (Chamberí), con coordenadas reales del barrio.
 - 8 mesas por local con sus QR, enlazadas con la caja simulada (`M1`…`M8`); carta de 20 productos y cuentas abiertas en las mesas 1–3.
 - Fidelización: 1 punto/€ sin retención, recompensas «Caña gratis» (25 pts) y «Postre gratis» (50 pts), y la promoción «Vuelve y te invitamos» (5 € a partir de 20 €, 30 días).
-- Usuarios del comercio: `owner@casapepe.test`, `staff@casapepe.test`, `owner@tascadeana.test` (contraseña `poc1234`).
+- Usuarios del comercio: `owner@casapepe.test`, `staff@casapepe.test`, `owner@tascadeana.test` (contraseña `poc1234`). Los OWNER tienen el doble factor activado con el secreto de prueba `JBSWY3DPEHPK3PXP`: `pnpm poc:totp` da el código del momento (ADR-025).
 - 3 comensales; Lucía (`+34600000001`) comparte datos con Casa Pepe y tiene 60 puntos y un cupón. El número de demo `+34600000000` queda libre para el alta.
 - 14 pagos de los últimos 7 días por comercio, para que la analítica no aparezca vacía.
 
@@ -497,5 +499,5 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 |---|---|
 | D-01 cerrada | Implementar el adaptador real del PSP. `FakePaymentProvider` se queda para tests |
 | D-02 cerrada | Implementar el adaptador real del software de caja. `FakePosConnector` se queda para tests y demos |
-| Hito M0 del ROADMAP | Añadir Terraform, staging en AWS, CI completa, doble factor de comercio, Sentry y OpenTelemetry |
+| Hito M0 del ROADMAP | Añadir Terraform, staging en AWS, Sentry y OpenTelemetry. Ya hechos: doble factor de comercio y alta de comercio, locales y mesas (ADR-025), Gitleaks, Semgrep y Dependabot |
 | Esquema de BD | Las tablas `fake_*` se mantienen solo en entornos que no son producción (migración condicionada o esquema `dev`) |

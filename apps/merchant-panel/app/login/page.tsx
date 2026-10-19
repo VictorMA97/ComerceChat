@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LoginForm } from '@/components/login-form';
 
 export default function LoginPage() {
@@ -6,8 +7,12 @@ export default function LoginPage() {
       <h1>ComerceChat</h1>
       <p className="muted">Panel del comercio</p>
       <LoginForm />
-      <p className="muted" style={{ fontSize: '.85rem' }}>
-        PoC: <code>owner@casapepe.test</code> / <code>poc1234</code>
+      <p className="muted small">
+        ¿Aún no tienes cuenta? <Link href="/registro">Registra tu comercio</Link>
+      </p>
+      <p className="muted small">
+        PoC: <code>owner@casapepe.test</code> / <code>poc1234</code>. Código del doble factor:{' '}
+        <code>pnpm poc:totp</code>.
       </p>
     </main>
   );

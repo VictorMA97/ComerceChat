@@ -10,6 +10,8 @@ import { cookies, headers } from 'next/headers';
 export { ApiError };
 
 export const SESSION_COOKIE = 'cc_session';
+/** Token intermedio entre la contraseña y el doble factor (5 min, httpOnly; ADR-025). */
+export const MFA_COOKIE = 'cc_mfa';
 
 const apiBase = () => process.env.API_BASE_URL ?? 'http://localhost:4000';
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. Siguiente: hito M0 del MVP. Comentarios, documentación y textos de UI en español.
+Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. **M0 en curso** (ROADMAP §3): hecho el registro de comercios con doble factor TOTP obligatorio para OWNER/MANAGER y el alta de locales y mesas (ADR-025); falta la parte de AWS/observabilidad. Comentarios, documentación y textos de UI en español.
 
 ## Comandos
 
@@ -17,6 +17,7 @@ Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.
 - `pnpm db:seed` borra y recrea los datos de prueba.
 - `pnpm e2e`: recorrido completo en navegador (Playwright, `e2e/`); recarga los datos y fija `WEB_QR_BASE_URL` a localhost durante la prueba.
 - `pnpm poc:stop`: libera los puertos 3000/3001/4000 si `pnpm dev` dejó procesos huérfanos. No uses `pkill -f` con patrones que aparezcan en tu propio comando.
+- `pnpm poc:totp`: código actual del doble factor de los OWNER del seed (secreto de prueba `JBSWY3DPEHPK3PXP`). En los E2E de la API, entra al panel con `merchantLogin` de `apps/api/test/merchant-session.ts` (el mismo código TOTP no vale dos veces: un login por usuario y test).
 
 ## Particularidades del stack (ADR-020)
 
