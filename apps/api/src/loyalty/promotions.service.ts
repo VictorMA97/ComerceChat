@@ -5,8 +5,7 @@ import { AuditService } from '../audit/public/audit.js';
 import type { MerchantPrincipal } from '../identity/public/session.js';
 import { AppError } from '../common/app-error.js';
 import { DB, type Database } from '../db/client.js';
-import { coupons } from '../table-payments/schema/coupons.js';
-import { promotions } from './schema/loyalty.js';
+import { couponIssuances, promotions } from './schema/loyalty.js';
 
 /** Promociones del comercio. En la PoC, la plantilla «Vuelve y te invitamos» (FR-CPN-01). */
 @Injectable()
@@ -20,11 +19,11 @@ export class PromotionsService {
     const rows = await this.db
       .select({
         p: promotions,
-        issued: sql<number>`count(${coupons.id})::int`,
-        redeemed: sql<number>`count(${coupons.id}) filter (where ${coupons.status} = 'REDEEMED')::int`,
+        issued: sql<number>`count(${couponIssuances.id})::int`,
+        redeemed: sql<number>`count(${couponIssuances.redeemedAt})::int`,
       })
       .from(promotions)
-      .leftJoin(coupons, eq(coupons.promotionId, promotions.id))
+      .leftJoin(couponIssuances, eq(couponIssuances.promotionId, promotions.id))
       .where(eq(promotions.merchantId, merchantId))
       .groupBy(promotions.id)
       .orderBy(desc(promotions.createdAt));

@@ -17,8 +17,6 @@ import {
   type PspEvent,
 } from './payment-provider.js';
 
-export const PAYMENT_CAPTURED = 'PaymentCaptured';
-
 /**
  * Webhooks del PSP (ADR-015): se verifica la firma, se guardan deduplicados por psp_event_id, se
  * responde 200 y se procesan en el worker. Solo aquí un pago pasa a CAPTURED.
@@ -135,7 +133,21 @@ export class PaymentEventsService {
           .where(eq(orderAllocations.paymentId, payment.id));
         // Cupón usado en el pago: canje definitivo (FR-CPN-06).
         const redeemed = await CouponsService.redeem(tx, payment.id, payment.discountCents);
-        if (payment.discountCents > 0 && redeemed === 0) {
+        for (const couponId of redeemed) {
+          await this.outbox.enqueue(tx, {
+            aggregate: 'coupon',
+            aggregateId: couponId,
+            type: 'CouponRedeemed.v1',
+            payload: {
+              couponId,
+              paymentId: payment.id,
+              merchantId: payment.merchantId,
+              discountCents: payment.discountCents,
+              redeemedAt: new Date(ev.occurredAt).toISOString(),
+            },
+          });
+        }
+        if (payment.discountCents > 0 && redeemed.length === 0) {
           // Descuento cobrado sin cupón reservado: no debería pasar (FR-CPN-06). Se cobra lo que dijo
           // el PSP, pero se deja constancia para revisarlo y corregirlo.
           this.logger.error(`Pago ${payment.id} con descuento sin cupón reservado`);
@@ -192,8 +204,20 @@ export class PaymentEventsService {
         await this.outbox.enqueue(tx, {
           aggregate: 'payment',
           aggregateId: payment.id,
-          type: PAYMENT_CAPTURED,
-          payload: { paymentId: payment.id },
+          type: 'PaymentCaptured.v1',
+          payload: {
+            paymentId: payment.id,
+            merchantId: payment.merchantId,
+            locationId: payment.locationId,
+            tableId: payment.tableId,
+            userId: payment.userId,
+            amountCents: payment.amountCents,
+            discountCents: payment.discountCents,
+            tipCents: payment.tipCents,
+            platformFeeCents: payment.platformFeeCents,
+            currency: payment.currency,
+            capturedAt: new Date(ev.occurredAt).toISOString(),
+          },
         });
         if (capturedAfterCancel) {
           // El PSP cobró una sesión que dimos por sustituida o caducada: hay que revisarla y reembolsar.

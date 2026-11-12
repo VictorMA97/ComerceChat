@@ -4,10 +4,9 @@ import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
-import { type DomainEventJob, OutboxRelayService } from '../../outbox/outbox-relay.service.js';
+import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
 import { RealtimeService } from '../../realtime/public/realtime.js';
-import { PAYMENT_CAPTURED } from './payment-events.service.js';
 
 /**
  * Registra en el software de caja los pagos capturados (FR-POS-04). Si el TPV falla, el job se
@@ -26,11 +25,12 @@ export class PosSyncService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.relay.on(PAYMENT_CAPTURED, (e) => this.registerCaptured(e));
+    this.relay.on('table-payments', 'PaymentCaptured.v1', (e) =>
+      this.registerCaptured(e.payload.paymentId),
+    );
   }
 
-  async registerCaptured(event: DomainEventJob): Promise<void> {
-    const paymentId = event.payload.paymentId as string;
+  async registerCaptured(paymentId: string): Promise<void> {
     const [p] = await this.db.select().from(payments).where(eq(payments.id, paymentId));
     if (!p || p.posRegisteredAt) return;
     const table = p.tableId ? (await this.venues.tablePlace(p.tableId))?.table : undefined;

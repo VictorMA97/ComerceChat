@@ -101,7 +101,7 @@ try {
   await db.transaction(async (tx) => {
     await tx.execute(sql`
       truncate table audit_logs, outbox_events, idempotency_keys, psp_webhook_events, transactions,
-        coupon_redemptions, coupons, promotions, points_ledger_entries, loyalty_accounts, loyalty_rewards,
+        coupon_redemptions, coupons, coupon_issuances, payment_facts, promotions, points_ledger_entries, loyalty_accounts, loyalty_rewards,
         loyalty_programs, order_allocations, payments, order_items, orders, fake_psp_sessions, fake_pos_payments, fake_pos_bill_items,
         fake_pos_bills, fake_pos_menu_items, fake_pos_locations, user_consents, users, qr_codes,
         tables, merchant_locations, merchant_user_recovery_codes, merchant_users, merchants
@@ -264,16 +264,23 @@ try {
         createdBy: 'seed',
       });
     }
-    await tx.insert(s.coupons).values({
+    // El cupón lo emite loyalty y lo materializa table-payments con el mismo id (ADR-029): el seed
+    // escribe los dos lados a la vez en lugar de esperar al evento CouponIssued.v1.
+    const luciaCoupon = {
+      id: newId(),
       merchantId: casaPepe.merchantId,
       userId: lucia,
-      promotionId: casaPepe.promotionId,
       code: 'CC-LUCIA500',
       title: 'Vuelve y te invitamos: 5 € en tu próxima visita',
       discountCents: 500,
       minSpendCents: 2_000,
+      validFrom: new Date(),
       validTo: new Date(Date.now() + 30 * 24 * 3600 * 1000),
-    });
+    };
+    await tx
+      .insert(s.couponIssuances)
+      .values({ ...luciaCoupon, promotionId: casaPepe.promotionId });
+    await tx.insert(s.coupons).values(luciaCoupon);
 
     // Historial de pagos de los últimos 7 días, para que la analítica no aparezca vacía.
     let n = 0;
@@ -294,26 +301,39 @@ try {
               totalCents: amountCents,
             })
             .returning();
-          await tx.insert(s.payments).values({
-            orderId: order!.id,
-            locationId: c.locationId,
-            merchantId: c.merchantId,
-            tableId: c.tableIds[n % c.tableIds.length],
-            userId: c === casaPepe && n % 4 === 0 ? (n % 8 === 0 ? lucia : marcos) : null,
-            psp: 'fake',
-            pspPaymentId: `fps_seed_${n}`,
-            method: 'CARD',
-            cardLast4: '4242',
-            amountCents,
-            tipCents,
-            platformFeeCents: Math.round(amountCents * 0.005),
-            status: 'CAPTURED',
-            statementDescriptor: 'COMERCECHAT*SEED',
-            splitMode: 'FULL',
-            expiresAt: capturedAt,
+          const [payment] = await tx
+            .insert(s.payments)
+            .values({
+              orderId: order!.id,
+              locationId: c.locationId,
+              merchantId: c.merchantId,
+              tableId: c.tableIds[n % c.tableIds.length],
+              userId: c === casaPepe && n % 4 === 0 ? (n % 8 === 0 ? lucia : marcos) : null,
+              psp: 'fake',
+              pspPaymentId: `fps_seed_${n}`,
+              method: 'CARD',
+              cardLast4: '4242',
+              amountCents,
+              tipCents,
+              platformFeeCents: Math.round(amountCents * 0.005),
+              status: 'CAPTURED',
+              statementDescriptor: 'COMERCECHAT*SEED',
+              splitMode: 'FULL',
+              expiresAt: capturedAt,
+              capturedAt,
+              posRegisteredAt: capturedAt,
+              createdAt: capturedAt,
+            })
+            .returning();
+          // Modelo de lectura de la analítica, que en marcha alimenta PaymentCaptured.v1 (ADR-029).
+          await tx.insert(s.paymentFacts).values({
+            paymentId: payment!.id,
+            merchantId: payment!.merchantId,
+            userId: payment!.userId,
+            amountCents: payment!.amountCents,
+            discountCents: payment!.discountCents,
+            tipCents: payment!.tipCents,
             capturedAt,
-            posRegisteredAt: capturedAt,
-            createdAt: capturedAt,
           });
         }
       }

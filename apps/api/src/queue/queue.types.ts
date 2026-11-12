@@ -1,8 +1,8 @@
+import { CONSUMERS, type Consumer, domainEventsQueue } from '../contracts/events.js';
+
 export const QueueName = {
   /** Webhooks del PSP ya guardados, pendientes de procesar. */
   PSP_EVENTS: 'psp-events',
-  /** Eventos de dominio publicados desde el outbox. */
-  DOMAIN_EVENTS: 'domain-events',
   /** Entrega de webhooks del PSP simulado (hace de sistema externo). */
   FAKE_PSP_WEBHOOKS: 'fake-psp-webhooks',
   /** Tareas periódicas (caducidad de sesiones de pago, purga de claves de idempotencia). */
@@ -10,7 +10,12 @@ export const QueueName = {
   /** Puntos PENDING → AVAILABLE. Cola propia: dos workers en la misma cola se reparten sus jobs. */
   LOYALTY: 'loyalty',
 } as const;
-export type QueueName = (typeof QueueName)[keyof typeof QueueName];
+/** Eventos de dominio publicados desde el outbox: una cola por contexto consumidor (ADR-029). */
+export type DomainEventsQueue = ReturnType<typeof domainEventsQueue>;
+export const DOMAIN_EVENT_QUEUES: readonly DomainEventsQueue[] = CONSUMERS.map(domainEventsQueue);
+export type { Consumer };
+
+export type QueueName = (typeof QueueName)[keyof typeof QueueName] | DomainEventsQueue;
 
 /**
  * Colas de tareas periódicas: van siempre en BullMQ, con cualquier `QUEUE_DRIVER`. SQS no programa

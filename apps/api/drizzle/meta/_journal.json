@@ -43,6 +43,13 @@
       "when": 1792431992629,
       "tag": "0005_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794515407263,
+      "tag": "0006_events_read_models",
+      "breakpoints": true
     }
   ]
 }

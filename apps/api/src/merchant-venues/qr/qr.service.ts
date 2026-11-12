@@ -118,7 +118,7 @@ export class QrService {
         await this.outbox.enqueue(tx, {
           aggregate: 'qr_code',
           aggregateId: revoked.id,
-          type: 'QrRevoked',
+          type: 'QrRevoked.v1',
           payload: { qrId: revoked.id, tableId, replacedBy: qr.id },
         });
       }

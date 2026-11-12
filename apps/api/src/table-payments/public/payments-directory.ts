@@ -1,9 +1,12 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { DynamicQrView } from '@comercechat/shared-types';
+import type { CouponIssuedV1 } from '../../contracts/events.js';
 import { and, eq } from 'drizzle-orm';
 import { AppError } from '../../common/app-error.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
+import { OutboxService } from '../../outbox/outbox.service.js';
+import { CouponsService } from '../coupons/coupons.service.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { isValidPaymentStatusToken } from '../payments/status-token.js';
 import { payments } from '../schema/payments.js';
@@ -37,11 +40,17 @@ export class PaymentsDirectory {
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
     private readonly dynamicQr: DynamicQrService,
+    private readonly outbox: OutboxService,
+    private readonly coupons: CouponsService,
   ) {}
 
-  async capturedPayment(paymentId: string): Promise<CapturedPayment | null> {
-    const [p] = await this.db.select().from(payments).where(eq(payments.id, paymentId));
-    return p?.status === 'CAPTURED' && p.capturedAt ? toCaptured(p) : null;
+  /**
+   * Crea ya el cupón que acaba de emitir loyalty, sin esperar a `CouponIssued.v1` (vía rápida tras su
+   * commit; con servicios separados, `POST /internal/coupons`). Idempotente por id: si después llega
+   * el evento, no hace nada. Si esta llamada falla, el evento lo entrega igualmente.
+   */
+  materializeCoupon(c: CouponIssuedV1): Promise<void> {
+    return this.coupons.materialize(c);
   }
 
   /**
@@ -86,6 +95,12 @@ export class PaymentsDirectory {
           .update(payments)
           .set({ userId })
           .where(and(eq(payments.id, p.id), eq(payments.status, 'CAPTURED')));
+        await this.outbox.enqueue(tx, {
+          aggregate: 'payment',
+          aggregateId: p.id,
+          type: 'PaymentUserAssigned.v1',
+          payload: { paymentId: p.id, merchantId: p.merchantId, userId },
+        });
       }
       return toCaptured({ ...p, userId });
     });

@@ -1,19 +1,16 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { CouponView } from '@comercechat/shared-types';
 import { and, eq, gt, inArray, lte } from 'drizzle-orm';
-import { randomInt } from 'node:crypto';
 import { AppError } from '../../common/app-error.js';
 import { formatEur } from '../../common/money.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { couponRedemptions, coupons } from '../schema/coupons.js';
+import type { CouponIssuedV1 } from '../../contracts/events.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
+import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 
 type Reader = Pick<Database, 'select'>;
 type CouponRow = typeof coupons.$inferSelect;
-
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const newCode = () =>
-  `CC-${Array.from({ length: 8 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('')}`;
 
 /**
  * Un cupón solo está disponible si está ACTIVE. Un cupón RESERVED vuelve a ACTIVE únicamente cuando
@@ -25,42 +22,36 @@ const available = () => eq(coupons.status, 'ACTIVE');
 
 /** Cupones de un solo uso, financiados por el comercio (FR-CPN-04…06, REG-04). */
 @Injectable()
-export class CouponsService {
+export class CouponsService implements OnModuleInit {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly venues: VenuesDirectory,
+    private readonly relay: OutboxRelayService,
   ) {}
 
-  async issue(
-    db: Pick<Database, 'insert'>,
-    c: {
-      merchantId: string;
-      userId: string;
-      title: string;
-      discountCents: number;
-      minSpendCents?: number;
-      validDays: number;
-      promotionId?: string;
-      rewardId?: string;
-    },
-  ): Promise<CouponRow | null> {
-    const [row] = await db
+  onModuleInit(): void {
+    this.relay.on('table-payments', 'CouponIssued.v1', (e) => this.materialize(e.payload));
+  }
+
+  /**
+   * Crea el cupón que ha emitido loyalty, con su mismo id (ADR-029). Idempotente: si el evento llega
+   * dos veces, el segundo no hace nada.
+   */
+  async materialize(c: CouponIssuedV1): Promise<void> {
+    await this.db
       .insert(coupons)
       .values({
+        id: c.couponId,
         merchantId: c.merchantId,
         userId: c.userId,
-        promotionId: c.promotionId,
-        rewardId: c.rewardId,
-        code: newCode(),
+        code: c.code,
         title: c.title,
         discountCents: c.discountCents,
-        minSpendCents: c.minSpendCents ?? 0,
-        validTo: new Date(Date.now() + c.validDays * 24 * 60 * 60 * 1000),
+        minSpendCents: c.minSpendCents,
+        validFrom: new Date(c.validFrom),
+        validTo: new Date(c.validTo),
       })
-      // Una promoción emite un solo cupón por usuario (índice único parcial).
-      .onConflictDoNothing()
-      .returning();
-    return row ?? null;
+      .onConflictDoNothing({ target: coupons.id });
   }
 
   /** Cupones que el usuario puede usar ahora (opcionalmente, en un comercio). */
@@ -152,9 +143,9 @@ export class CouponsService {
 
   /**
    * Canje definitivo al capturarse el pago. La unicidad de coupon_id impide canjearlo dos veces.
-   * Devuelve cuántos cupones ha canjeado: 0 en un pago con descuento es una anomalía.
+   * Devuelve los cupones canjeados: ninguno en un pago con descuento es una anomalía.
    */
-  static async redeem(tx: Tx, paymentId: string, discountCents: number): Promise<number> {
+  static async redeem(tx: Tx, paymentId: string, discountCents: number): Promise<string[]> {
     const reserved = await tx
       .update(coupons)
       .set({ status: 'REDEEMED' })
@@ -171,7 +162,7 @@ export class CouponsService {
         .values({ couponId: c.id, paymentId, discountCents })
         .onConflictDoNothing();
     }
-    return reserved.length;
+    return reserved.map((c) => c.id);
   }
 
   toView(c: CouponRow, brandName: string): CouponView {

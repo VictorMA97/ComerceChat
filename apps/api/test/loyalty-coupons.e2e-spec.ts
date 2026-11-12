@@ -233,10 +233,13 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
 
   it('pago identificado con cupón: descuento, puntos automáticos y un solo apunte aunque el webhook llegue 10 veces (criterio 3)', async () => {
     const t = await tableWithBill('L2', [['Cena', 1, 2_500]]);
-    const [coupon] = (await asUser('/v1/me/coupons').query({ merchantId: '' })).body as {
-      id: string;
-      title: string;
-    }[];
+    // El cupón de bienvenida lo emite loyalty y llega a table-payments por CouponIssued.v1 (ADR-029).
+    const [coupon] = (
+      await until(
+        () => asUser('/v1/me/coupons').query({ merchantId: '' }),
+        (r) => r.body.length > 0,
+      )
+    ).body as { id: string; title: string }[];
     expect(coupon!.title).toBe('Vuelve y te invitamos');
 
     const session = await pay(
@@ -351,16 +354,26 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       );
     expect(redeems).toHaveLength(1);
     // La recompensa es de un comercio creado solo para este test: cualquier segundo canje se vería aquí.
-    const rewardCoupons = await db
+    const issued = await db
       .select()
-      .from(s.coupons)
-      .where(eq(s.coupons.rewardId, reward.id));
-    expect(rewardCoupons.map((c) => c.id)).toEqual([first.body.id]);
+      .from(s.couponIssuances)
+      .where(eq(s.couponIssuances.rewardId, reward.id));
+    expect(issued.map((c) => c.id)).toEqual([first.body.id]);
+    // table-payments lo crea con el mismo id al recibir CouponIssued.v1, una sola vez.
+    await until(
+      () => db.select().from(s.coupons).where(eq(s.coupons.id, first.body.id)),
+      (rows) => rows.length === 1,
+    );
   });
 
   it('100 peticiones paralelas con el mismo cupón: exactamente un canje (criterio 4)', async () => {
     const t = await tableWithBill('L3', [['Banquete', 1, 100_000]]);
-    const [coupon] = (await asUser('/v1/me/coupons')).body as { id: string; title: string }[];
+    const [coupon] = (
+      await until(
+        () => asUser('/v1/me/coupons'),
+        (r) => r.body.length > 0,
+      )
+    ).body as { id: string; title: string }[];
     expect(coupon!.title).toBe('Postre gratis');
 
     const results = await Promise.all(
@@ -400,9 +413,14 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
   }, 60_000);
 
   it('el comercio ve ventas, descuentos, propinas, clientes identificados y su promoción', async () => {
-    const a = await http()
-      .get('/v1/merchant/analytics?period=today')
-      .set('authorization', `Bearer ${merchantToken}`);
+    // La analítica y los contadores de la promoción se alimentan por eventos (ADR-029).
+    const a = await until(
+      () =>
+        http()
+          .get('/v1/merchant/analytics?period=today')
+          .set('authorization', `Bearer ${merchantToken}`),
+      (r) => r.body.current?.payments === 3 && r.body.current?.identifiedCustomers === 1,
+    );
     expect(a.body.current).toMatchObject({
       payments: 3,
       identifiedCustomers: 1,
@@ -410,9 +428,10 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       tipsCents: 200,
     });
     expect(a.body.current.volumeCents).toBe(3_000 + 2_000 + 400);
-    const promos = await http()
-      .get('/v1/merchant/promotions')
-      .set('authorization', `Bearer ${merchantToken}`);
+    const promos = await until(
+      () => http().get('/v1/merchant/promotions').set('authorization', `Bearer ${merchantToken}`),
+      (r) => r.body[0]?.redeemed === 1,
+    );
     expect(promos.body[0]).toMatchObject({
       name: 'Vuelve y te invitamos',
       status: 'ACTIVE',

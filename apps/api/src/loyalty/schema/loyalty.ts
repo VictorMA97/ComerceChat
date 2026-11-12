@@ -112,6 +112,36 @@ export const promotions = pgTable('promotions', {
   updatedAt: updatedAt(),
 });
 
+/**
+ * Cupones emitidos por loyalty (FR-CPN-01, FR-LOY-03). El id es el del cupón en table-payments, que
+ * lo crea al recibir `CouponIssued.v1` y avisa del canje con `CouponRedeemed.v1` (ADR-029).
+ */
+export const couponIssuances = pgTable(
+  'coupon_issuances',
+  {
+    id: uuid('id').primaryKey(),
+    merchantId: uuid('merchant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    promotionId: uuid('promotion_id').references(() => promotions.id),
+    rewardId: uuid('reward_id').references(() => loyaltyRewards.id),
+    code: text('code').notNull().unique(),
+    title: text('title').notNull(),
+    discountCents: bigint('discount_cents', { mode: 'number' }).notNull(),
+    minSpendCents: bigint('min_spend_cents', { mode: 'number' }).notNull().default(0),
+    validFrom: timestamp('valid_from', { withTimezone: true }).notNull(),
+    validTo: timestamp('valid_to', { withTimezone: true }).notNull(),
+    redeemedAt: timestamp('redeemed_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('coupon_issuances_promotion_idx').on(t.promotionId),
+    // Una promoción emite como mucho un cupón por usuario.
+    uniqueIndex('coupon_issuances_promotion_user_uq')
+      .on(t.promotionId, t.userId)
+      .where(sql`${t.promotionId} is not null`),
+  ],
+);
+
 export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ many }) => ({
   rewards: many(loyaltyRewards),
 }));

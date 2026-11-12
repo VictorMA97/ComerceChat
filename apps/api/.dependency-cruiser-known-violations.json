@@ -1,17 +1,6 @@
 [
   {
     "type": "dependency",
-    "from": "src/analytics/analytics.service.ts",
-    "to": "src/table-payments/schema/payments.ts",
-    "unresolvedTo": "../table-payments/schema/payments.js",
-    "dependencyTypes": ["local", "import"],
-    "rule": {
-      "severity": "error",
-      "name": "contexto-a-interno-de-otro"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "src/fake-pos/schema/fake-pos.ts",
     "to": "src/merchant-venues/schema/merchants.ts",
     "unresolvedTo": "../../merchant-venues/schema/merchants.js",
@@ -37,39 +26,6 @@
     "from": "src/identity/schema/users.ts",
     "to": "src/merchant-venues/schema/merchants.ts",
     "unresolvedTo": "../../merchant-venues/schema/merchants.js",
-    "dependencyTypes": ["local", "import"],
-    "rule": {
-      "severity": "error",
-      "name": "contexto-a-interno-de-otro"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/loyalty/loyalty.module.ts",
-    "to": "src/table-payments/coupons/coupons.module.ts",
-    "unresolvedTo": "../table-payments/coupons/coupons.module.js",
-    "dependencyTypes": ["local", "import"],
-    "rule": {
-      "severity": "error",
-      "name": "contexto-a-interno-de-otro"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/loyalty/loyalty.service.ts",
-    "to": "src/table-payments/coupons/coupons.service.ts",
-    "unresolvedTo": "../table-payments/coupons/coupons.service.js",
-    "dependencyTypes": ["local", "import"],
-    "rule": {
-      "severity": "error",
-      "name": "contexto-a-interno-de-otro"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/loyalty/promotions.service.ts",
-    "to": "src/table-payments/schema/coupons.ts",
-    "unresolvedTo": "../table-payments/schema/coupons.js",
     "dependencyTypes": ["local", "import"],
     "rule": {
       "severity": "error",
@@ -158,17 +114,6 @@
     "from": "src/table-payments/schema/coupons.ts",
     "to": "src/identity/schema/users.ts",
     "unresolvedTo": "../../identity/schema/users.js",
-    "dependencyTypes": ["local", "import"],
-    "rule": {
-      "severity": "error",
-      "name": "contexto-a-interno-de-otro"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/table-payments/schema/coupons.ts",
-    "to": "src/loyalty/schema/loyalty.ts",
-    "unresolvedTo": "../../loyalty/schema/loyalty.js",
     "dependencyTypes": ["local", "import"],
     "rule": {
       "severity": "error",

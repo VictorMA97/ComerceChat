@@ -13,3 +13,4 @@ export * from '../../loyalty/schema/loyalty.js';
 export * from '../../audit/schema/audit.js';
 export * from '../../fake-pos/schema/fake-pos.js';
 export * from '../../fake-psp/schema/fake-psp.js';
+export * from '../../analytics/schema/analytics.js';

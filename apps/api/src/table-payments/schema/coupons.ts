@@ -1,12 +1,14 @@
-import { sql } from 'drizzle-orm';
-import { bigint, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { bigint, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
 import { users } from '../../identity/schema/users.js';
-import { loyaltyRewards, promotions } from '../../loyalty/schema/loyalty.js';
 import { merchants } from '../../merchant-venues/schema/merchants.js';
 import { payments } from './payments.js';
 
-/** Cupón de un solo uso vinculado a un usuario (FR-CPN-04). Lo financia el comercio (REG-04). */
+/**
+ * Cupón de un solo uso vinculado a un usuario (FR-CPN-04). Lo financia el comercio (REG-04). Lo emite
+ * loyalty (`coupon_issuances`) y llega por `CouponIssued.v1` con el mismo id; aquí vive su estado
+ * para reservarlo y canjearlo en la transacción del pago (ADR-029).
+ */
 export const coupons = pgTable(
   'coupons',
   {
@@ -15,8 +17,6 @@ export const coupons = pgTable(
       .notNull()
       .references(() => merchants.id),
     userId: uuid('user_id').references(() => users.id),
-    promotionId: uuid('promotion_id').references(() => promotions.id),
-    rewardId: uuid('reward_id').references(() => loyaltyRewards.id),
     code: text('code').notNull().unique(),
     title: text('title').notNull(),
     discountCents: bigint('discount_cents', { mode: 'number' }).notNull(),
@@ -32,13 +32,7 @@ export const coupons = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [
-    index('coupons_user_merchant_idx').on(t.userId, t.merchantId, t.status),
-    // Una promoción emite como mucho un cupón por usuario.
-    uniqueIndex('coupons_promotion_user_uq')
-      .on(t.promotionId, t.userId)
-      .where(sql`${t.promotionId} is not null`),
-  ],
+  (t) => [index('coupons_user_merchant_idx').on(t.userId, t.merchantId, t.status)],
 );
 
 /** Canje de un cupón. La unicidad de coupon_id impide canjearlo dos veces (FR-CPN-06). */

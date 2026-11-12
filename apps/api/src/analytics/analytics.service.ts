@@ -1,19 +1,48 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { AnalyticsPeriod, AnalyticsTotals, AnalyticsView } from '@comercechat/shared-types';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { DB, type Database } from '../db/client.js';
-import { payments } from '../table-payments/schema/payments.js';
+import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
+import { paymentFacts } from './schema/analytics.js';
 
 const DAYS: Record<AnalyticsPeriod, number> = { today: 1, week: 7, month: 30 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Panel de inicio del comercio (FR-ANA-01, versión reducida de la PoC): consultas directas a
- * `payments`, sin vistas materializadas. Los días se cuentan en hora de Madrid.
+ * Panel de inicio del comercio (FR-ANA-01, versión reducida de la PoC). Consulta su propio modelo de
+ * lectura (`payment_facts`), alimentado por eventos de table-payments (ADR-029), sin vistas
+ * materializadas. Los días se cuentan en hora de Madrid.
  */
 @Injectable()
-export class AnalyticsService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+export class AnalyticsService implements OnModuleInit {
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly relay: OutboxRelayService,
+  ) {}
+
+  onModuleInit(): void {
+    // Idempotentes: un evento repetido no duplica ni cambia nada.
+    this.relay.on('analytics', 'PaymentCaptured.v1', async ({ payload: p }) => {
+      await this.db
+        .insert(paymentFacts)
+        .values({
+          paymentId: p.paymentId,
+          merchantId: p.merchantId,
+          userId: p.userId,
+          amountCents: p.amountCents,
+          discountCents: p.discountCents,
+          tipCents: p.tipCents,
+          capturedAt: new Date(p.capturedAt),
+        })
+        .onConflictDoNothing();
+    });
+    this.relay.on('analytics', 'PaymentUserAssigned.v1', async ({ payload: p }) => {
+      await this.db
+        .update(paymentFacts)
+        .set({ userId: p.userId })
+        .where(eq(paymentFacts.paymentId, p.paymentId));
+    });
+  }
 
   async view(merchantId: string, period: AnalyticsPeriod): Promise<AnalyticsView> {
     const { rows } = await this.db.execute(
@@ -31,11 +60,11 @@ export class AnalyticsService {
       this.totals(merchantId, prevFrom, prevTo),
       this.db
         .select({
-          date: sql<string>`to_char(${payments.capturedAt} at time zone 'Europe/Madrid', 'YYYY-MM-DD')`,
-          volumeCents: sql<number>`coalesce(sum(${payments.amountCents} - ${payments.discountCents}), 0)::bigint`,
+          date: sql<string>`to_char(${paymentFacts.capturedAt} at time zone 'Europe/Madrid', 'YYYY-MM-DD')`,
+          volumeCents: sql<number>`coalesce(sum(${paymentFacts.amountCents} - ${paymentFacts.discountCents}), 0)::bigint`,
           payments: sql<number>`count(*)::int`,
         })
-        .from(payments)
+        .from(paymentFacts)
         .where(this.where(merchantId, from, to))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
@@ -56,23 +85,22 @@ export class AnalyticsService {
 
   private where(merchantId: string, from: Date, to: Date) {
     return and(
-      eq(payments.merchantId, merchantId),
-      eq(payments.status, 'CAPTURED'),
-      gte(payments.capturedAt, from),
-      lt(payments.capturedAt, to),
+      eq(paymentFacts.merchantId, merchantId),
+      gte(paymentFacts.capturedAt, from),
+      lt(paymentFacts.capturedAt, to),
     );
   }
 
   private async totals(merchantId: string, from: Date, to: Date): Promise<AnalyticsTotals> {
     const [r] = await this.db
       .select({
-        volume: sql<number>`coalesce(sum(${payments.amountCents} - ${payments.discountCents}), 0)::bigint`,
+        volume: sql<number>`coalesce(sum(${paymentFacts.amountCents} - ${paymentFacts.discountCents}), 0)::bigint`,
         count: sql<number>`count(*)::int`,
-        tips: sql<number>`coalesce(sum(${payments.tipCents}), 0)::bigint`,
-        discounts: sql<number>`coalesce(sum(${payments.discountCents}), 0)::bigint`,
-        identified: sql<number>`count(distinct ${payments.userId})::int`,
+        tips: sql<number>`coalesce(sum(${paymentFacts.tipCents}), 0)::bigint`,
+        discounts: sql<number>`coalesce(sum(${paymentFacts.discountCents}), 0)::bigint`,
+        identified: sql<number>`count(distinct ${paymentFacts.userId})::int`,
       })
-      .from(payments)
+      .from(paymentFacts)
       .where(this.where(merchantId, from, to));
     const volumeCents = Number(r?.volume ?? 0);
     const count = r?.count ?? 0;
