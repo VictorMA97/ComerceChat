@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Estado del repositorio
 
-Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. **M0 en curso** (ROADMAP §3): hechos el registro de comercios con doble factor TOTP (ADR-025), colas en SQS (ADR-026), trazas OpenTelemetry (ADR-027), auditoría de solo inserción con registro de actividad (ADR-028) y el STRIDE del pago; falta lo que requiere cuentas (AWS/Terraform, Sentry) y la prueba de D-03. Comentarios, documentación y textos de UI en español.
+Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.md` §2). Hay API (NestJS), web QR y panel (Next.js): pago simulado de una mesa entera o dividida (partes iguales, por platos, por importe), cobro con QR generado desde la caja para cada mesa (ADR-023), vista de sala, tiempo real, alta del comensal con código, puntos, cupones y analítica (ADR-024). Recorrido manual en `docs/DEMO.md`. **M0 en curso** (ROADMAP §3): hechos el registro de comercios con doble factor TOTP (ADR-025), colas en SQS (ADR-026), trazas OpenTelemetry (ADR-027), auditoría de solo inserción con registro de actividad (ADR-028) y el STRIDE del pago; falta Sentry (requiere cuenta) y la prueba de D-03. **Migración a microservicios en curso** (hito MS, ADR-029/030, `docs/MIGRACION.md`): F0 hecha; hasta F6 el backend sigue en `apps/api`. El trabajo funcional está parado hasta terminarla. Comentarios, documentación y textos de UI en español.
 
 ## Comandos
 
@@ -45,6 +45,7 @@ ComerceChat es un producto de *pedir, pagar y volver* para restaurantes con serv
 | `docs/ROADMAP.md` | Fases, hitos de la PoC (P1–P4) y del MVP (M0–M5) con su condición de "hecho" y criterios técnicos de salida |
 | `docs/DEMO.md` | Recorrido manual de la PoC paso a paso y resolución de problemas |
 | `docs/STRIDE.md` | Modelo de amenazas del flujo de pago: mitigaciones con su test y riesgos abiertos por hito |
+| `docs/MIGRACION.md` | Plan de migración a microservicios (hito MS): servicios, datos, contratos, fases F0–F7 y recomendaciones DevOps |
 
 Convenciones de la documentación:
 - Etiquetas `[HECHO]`, `[HIPÓTESIS]`, `[INCIERTO]` en afirmaciones y cifras; mantenlas al editar.
@@ -56,11 +57,11 @@ Convenciones de la documentación:
 ## Arquitectura prevista
 
 TypeScript de punta a punta en un monorepo pnpm + Turborepo (ADR-008):
-- `apps/api`: NestJS, **monolito modular** (ADR-009). El mismo código corre como proceso HTTP o como worker según una variable de entorno.
+- `apps/api`: NestJS, hoy **monolito modular**. El mismo código corre como proceso HTTP o como worker según una variable de entorno. Se está partiendo en microservicios en `services/*` (ADR-029, sustituye a ADR-009): `table-payments` (pago, cuenta, reparto, QR dinámico y cupones, con transacción ACID) no se parte; un esquema y un rol de Postgres por servicio; REST `/internal/*` entre servicios y eventos por outbox con una cola por consumidor. Ver `docs/MIGRACION.md`.
 - `apps/web-qr` (Next.js, `pay.<dominio>`): el producto principal; presupuesto estricto de rendimiento (NFR-01: < 1,5 s en 4G, JS inicial < 150 KB).
 - `apps/merchant-panel` (Next.js; incluye el backoffice en `/admin`), `apps/mobile` (Expo, secundaria).
 - `packages/shared-types` (enums y contratos de la API) y `packages/api-client` (cliente HTTP de servidor de las apps Next: todo fallo llega como `ApiError` con un problem RFC 9457 válido, con timeout; usa `lib/api.ts` de cada app, no `fetch` directo). Previstos: cliente generado desde el OpenAPI de NestJS en `api-client`, `packages/ui`, `packages/config`.
-- PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. AWS eu-south-2, Terraform, ECS Fargate.
+- PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. Despliegue del MVP en Kubernetes local con k3d y nginx como gateway (ADR-030, sustituye a ADR-011); la nube está sin elegir (D-07). Lo DevOps más allá de desplegar en k3d son recomendaciones (`docs/MIGRACION.md` §9), no parte de la migración.
 
 Reglas entre módulos del backend: un módulo solo accede a datos de otro a través de su servicio público (nada de joins entre tablas de módulos distintos, salvo vistas de `analytics` sobre la réplica). Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).
 

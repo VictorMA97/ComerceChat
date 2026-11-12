@@ -95,4 +95,6 @@ apps/merchant-panel  Next.js 16 · panel del comercio
 packages/shared-types  enums y contratos de la API compartidos
 ```
 
-Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md).
+Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md) · [STRIDE](docs/STRIDE.md) · [MIGRACION](docs/MIGRACION.md).
+
+**Migración a microservicios en curso** ([ADR-029](docs/DECISIONS.md#adr-029), [ADR-030](docs/DECISIONS.md#adr-030)): el backend se parte en servicios dentro de `services/`, desplegables en Kubernetes local con k3d detrás de un gateway nginx. Mientras dura, los comandos y la estructura de arriba siguen valiendo; el plan y su avance están en [docs/MIGRACION.md](docs/MIGRACION.md).

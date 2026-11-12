@@ -417,7 +417,7 @@ PointsLedgerEntry (EARN):
 | NFR-03 | Latencia p95 de la API < 300 ms (sin contar llamadas al PSP o al software de caja) |
 | NFR-04 | Accesibilidad WCAG 2.1 AA en la web QR, la app y el panel |
 | NFR-05 | Idiomas ES y EN; textos externalizados (i18n) desde el día 1 |
-| NFR-06 | Datos alojados en la UE (región AWS eu-south-2) |
+| NFR-06 | Datos alojados en la UE (región concreta pendiente de [D-07](DECISIONS.md#d-07); antes AWS eu-south-2, ADR-011) |
 | NFR-07 | Ámbito PCI DSS SAQ A (REG-06) |
 | NFR-08 | Cifrado en tránsito (TLS 1.2+) y en reposo (KMS) |
 | NFR-09 | Retención: registros financieros y de auditoría ≥ 6 años [HIPÓTESIS: confirmar con asesoría]; datos de marketing hasta la revocación del consentimiento |

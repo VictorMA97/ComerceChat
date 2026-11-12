@@ -14,7 +14,7 @@ Del escaneo del QR al cobro registrado en la caja:
 4. El PSP envía un webhook firmado; el worker marca el pago `CAPTURED`.
 5. Por el outbox, el pago se registra en la caja, se acreditan puntos y se avisa en tiempo real a la mesa y a la sala.
 
-Fuera de alcance: el alta del comercio y el panel (cubiertos por [ADR-025](DECISIONS.md#adr-025) y [ADR-028](DECISIONS.md#adr-028)), la infraestructura de AWS (se analizará con Terraform en M0) y el adaptador real del PSP (D-01, M1).
+Fuera de alcance: el alta del comercio y el panel (cubiertos por [ADR-025](DECISIONS.md#adr-025) y [ADR-028](DECISIONS.md#adr-028)), la infraestructura en la nube (pendiente de [D-07](DECISIONS.md#d-07); antes «AWS con Terraform en M0», sustituido por [ADR-030](DECISIONS.md#adr-030)) y el adaptador real del PSP (D-01, M1). Los cambios que trae la migración a microservicios están en [§6](#migracion).
 
 ## 2. Activos
 
@@ -93,7 +93,7 @@ Fuera de alcance: el alta del comercio y el panel (cubiertos por [ADR-025](DECIS
 | La caja se cae | Error claro en la web QR (FR-POS-06); el registro en la caja se reintenta sin revertir el pago | `[HECHO]` |
 | Webhooks duplicados o en tromba | Deduplicación por `psp_event_id`, respuesta 200 inmediata y proceso en el worker | `[HECHO]` (criterio 3) |
 | Cola caída o mensajes envenenados | Reintentos con espera creciente y DLQ tras agotar intentos ([ADR-026](DECISIONS.md#adr-026)) | `[HECHO]` (`queue-sqs.e2e-spec`) |
-| Volumen de ataque a nivel de red | WAF y límites en el balanceador | `[PENDIENTE]` M0 (Terraform) |
+| Volumen de ataque a nivel de red | WAF y límites en el balanceador | `[PENDIENTE]` [D-07](DECISIONS.md#d-07) (antes M0 con Terraform) |
 
 ### E: elevación de privilegios
 
@@ -110,6 +110,26 @@ Fuera de alcance: el alta del comercio y el panel (cubiertos por [ADR-025](DECIS
 |---|---|---|
 | QR sustituido físicamente por uno de phishing | Placas a prueba de manipulación, aviso del dominio en la web QR, formación del personal | Piloto (M1) |
 | Conciliación con el PSP | Conciliación diaria contra los informes del PSP real | M1 |
-| WAF, aislamiento de red y secretos en KMS | Terraform de staging | M0 (requiere AWS) |
+| WAF y secretos en un gestor de claves | Infraestructura en la nube | [D-07](DECISIONS.md#d-07) (antes M0 con AWS) |
 | Recuperación de cuenta sin códigos de recuperación | Reinicio del doble factor por soporte con verificación | M5 (backoffice) |
 | Revisión sistemática de autorización entre comercios | Pentest externo | M5 |
+
+<a id="migracion"></a>
+## 6. Cambios previstos por la migración a microservicios
+
+[ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030); plan en [MIGRACION.md](MIGRACION.md). Esta sección pasa a §3–§4 a medida que cada fase quede implementada y probada.
+
+**Fronteras de confianza nuevas:**
+
+6. **BFF → gateway nginx → servicio.** Sustituye a (2). El gateway solo enruta `/v1`; la IP del cliente sigue aceptándose solo con `INTERNAL_PROXY_SECRET`.
+7. **Servicio → servicio (`/internal/*`).** Red interna del clúster; el gateway no expone estas rutas.
+8. **Servicio → colas → servicio.** Eventos de dominio entre servicios (outbox y una cola por consumidor).
+
+| Amenaza | Mitigación prevista | Estado |
+|---|---|---|
+| Llamar a `/internal/*` desde fuera, o saltarse el gateway y llegar directo a un servicio | El gateway no enruta `/internal/*`; secreto compartido `INTERNAL_SERVICE_SECRET` en cada llamada interna; los servicios no se publican fuera del clúster | `[PENDIENTE]` MS F2–F7. Recomendado: `NetworkPolicy` y mTLS (MIGRACION §9) |
+| Un servicio comprometido lee o modifica datos de otro | Un rol de Postgres por servicio con permisos solo sobre su esquema | `[PENDIENTE]` MS F1 |
+| Evento falso o duplicado en una cola (puntos o cupones de más) | Solo los servicios escriben en las colas; procesadores idempotentes (`psp_event_id`, índice único de `EARN`, `source_ref` de los cupones) | `[PARCIAL]`: idempotencia `[HECHO]` (criterio 3); escritura restringida `[PENDIENTE]` |
+| Perder entradas de auditoría al separar `audit` | Se escriben en el outbox dentro de la transacción del cambio y se insertan de forma idempotente | `[PENDIENTE]` MS F1/F4 |
+| Rol o baja del comercio que no se aplican en otros servicios | Todos validan la sesión contra `identity` en cada petición, con los mismos criterios que hoy (rol actual, estado y doble factor) | `[PENDIENTE]` MS F5 |
+| Secretos en los manifiestos de Kubernetes | `Secret` generados desde `.env.local`, nunca en el repositorio | `[PENDIENTE]` MS F7. Recomendado: External Secrets o Sealed Secrets |

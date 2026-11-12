@@ -129,7 +129,7 @@
 <a id="adr-009"></a>
 ## ADR-009: monolito modular, no microservicios
 
-- **Estado:** Aceptada
+- **Estado:** Sustituida por [ADR-029](#adr-029) (12-nov-2026)
 - **Decisión:**
   - Una sola aplicación NestJS con módulos de fronteras estrictas (ARCHITECTURE §5).
   - Patrón outbox para los eventos de dominio.
@@ -154,7 +154,7 @@
 <a id="adr-011"></a>
 ## ADR-011: AWS en región UE (eu-south-2, España)
 
-- **Estado:** Aceptada
+- **Estado:** Sustituida por [ADR-030](#adr-030) (12-nov-2026). El proveedor de nube, la región y el CDN/WAF pasan a la decisión abierta [D-07](#d-07)
 - **Decisión:**
   - Infraestructura en AWS eu-south-2, con copias de seguridad en otra región de la UE.
   - Terraform y ECS Fargate (sin Kubernetes en el MVP).
@@ -445,7 +445,7 @@
     - La redrive policy de la cola (25 recepciones) es la red de seguridad si el proceso muere antes de moverlo.
     - Long polling (`SQS_WAIT_SECONDS`, 20 s por defecto). Los consumidores se cortan con `AbortController` al apagar.
   - **Local:** ElasticMQ (servicio `sqs` de docker compose, también en CI) y `SQS_CREATE_QUEUES=on` para crear colas y DLQ al arrancar.
-  - **Producción:** se exige `QUEUE_DRIVER=sqs`, y `SQS_CREATE_QUEUES=on` está prohibido: las colas las crea Terraform. Ver `productionViolations` en `config/env.ts`.
+  - **Producción:** se exige `QUEUE_DRIVER=sqs`, y `SQS_CREATE_QUEUES=on` está prohibido: las colas las crea Terraform. Ver `productionViolations` en `config/env.ts`. *(Con [ADR-030](#adr-030), quién crea las colas en un entorno de producción queda pendiente de [D-07](#d-07).)*
 - **Alternativas descartadas:**
   - **LocalStack:** más pesado, y su imagen gratuita ha cambiado de condiciones. ElasticMQ solo hace SQS y es suficiente.
   - **Colas FIFO:** deduplicarían, pero limitan el rendimiento y no hacen falta con procesadores idempotentes.
@@ -492,11 +492,73 @@
     - En el panel, página **Actividad**, con los fallos de doble factor y las anomalías de pago resaltados.
 - **Consecuencias:** el visor completo del backoffice interno (FR-ADM-05) sigue en M5. La retención de 6 años (NFR-09) se aplicará con la política de copias en AWS.
 
+<a id="adr-029"></a>
+## ADR-029: microservicios dentro del monorepo, como base para experimentos DevOps
+
+- **Estado:** Aceptada (12-nov-2026). Sustituye a [ADR-009](#adr-009). Plan de ejecución en [MIGRACION.md](MIGRACION.md).
+- **Contexto:**
+  - El proyecto es un portfolio y se quiere una base de microservicios sobre la que hacer experimentos DevOps.
+  - ADR-009 descartó los microservicios por el coste operativo con un equipo pequeño. Ese coste se asume a propósito: es justo lo que se quiere practicar.
+  - No hay datos de producción [HECHO], así que mover tablas y rehacer migraciones no exige migrar datos en vivo.
+  - El código actual no cumple la regla de ARCHITECTURE §5 de no acceder a tablas de otro módulo [HECHO] (MIGRACION §2.3).
+- **Decisión:**
+  - **Monorepo:** se mantiene pnpm + Turborepo. Los servicios viven en `services/*` y se construyen y despliegan por separado.
+  - **Servicios:** `identity`, `merchant-venues`, `table-payments`, `loyalty`, `realtime`, `audit`, `analytics`, y los simuladores `fake-psp` y `fake-pos`. Delante, un gateway (nginx, [ADR-030](#adr-030)).
+  - **El núcleo del dinero no se parte.** `table-payments` agrupa pago, cuenta de la mesa, reparto, QR dinámico y ciclo de vida del cupón, con las mismas transacciones ACID que hoy (ADR-015, ADR-022, ADR-024). No hay sagas en el camino del dinero.
+  - **Datos:** un clúster PostgreSQL con una base de datos y un esquema y un rol por servicio, sin claves foráneas entre esquemas. Redis compartido con prefijo por servicio.
+  - **Comunicación:**
+    - síncrona en REST/JSON, por rutas `/internal/*` que el gateway no expone;
+    - asíncrona con el outbox de cada servicio y una cola por consumidor;
+    - los eventos son versionados y llevan los datos que necesitan sus consumidores.
+  - **Auditoría:** cada servicio la escribe en su outbox dentro de su transacción, y `audit` la inserta de forma idempotente.
+  - **Fronteras verificadas en CI** con dependency-cruiser antes de extraer ningún servicio (fase F1).
+  - **DevOps:** queda fuera de la migración salvo lo mínimo para desplegar ([ADR-030](#adr-030)). El resto son recomendaciones (MIGRACION §9).
+- **Alternativas descartadas:**
+  - **Seguir con el monolito modular (ADR-009):** no sirve para el objetivo del portfolio.
+  - **Un repositorio por servicio:** obliga a versionar y publicar los paquetes compartidos y complica los cambios que tocan varios servicios.
+  - **Partir pagos, reparto y cupones en servicios distintos con sagas:** el canje del cupón y la protección contra cobrar dos veces dejarían de ser atómicos.
+  - **Una base de datos física por servicio:** más coste local sin ganancia para el objetivo; el rol por esquema ya impone la frontera.
+  - **gRPC:** se mantiene REST/JSON, como hoy.
+- **Consecuencias:**
+  - El trabajo funcional se para hasta terminar la migración, que va antes de M1 (ROADMAP, hito MS).
+  - La aparición en `audit_logs` y el modelo de lectura de `analytics` pasan a ser eventuales.
+  - La validación de sesiones se hace con una llamada a `identity`, lo que añade latencia de red (NFR-03).
+  - Los cupones los posee `table-payments`; `loyalty` los pide por `/internal/coupons`.
+  - Los simuladores se convierten en servicios HTTP, como lo serán los adaptadores reales. Esto resuelve la separación de las tablas `fake_*` (ARCHITECTURE §16.7).
+
+<a id="adr-030"></a>
+## ADR-030: despliegue del MVP en Kubernetes local (k3d) con nginx como gateway
+
+- **Estado:** Aceptada (12-nov-2026). Sustituye a [ADR-011](#adr-011).
+- **Contexto:**
+  - Con [ADR-029](#adr-029) hay varios servicios que desplegar y el objetivo es experimentar con DevOps sobre Kubernetes.
+  - ADR-011 fijaba AWS eu-south-2, Terraform y ECS Fargate sin Kubernetes, y Cloudflare como CDN/WAF. Ninguna de esas piezas tiene cuenta todavía [HECHO] (ROADMAP M0).
+- **Decisión:**
+  - **El MVP se despliega en Kubernetes local con k3d.** Además se mantienen `pnpm dev` y docker compose para el desarrollo.
+  - **Gateway:** nginx con configuración declarativa (`deploy/gateway/nginx.conf`), el mismo fichero en docker compose y en Kubernetes. Enruta `/v1` por ruta concreta, no expone `/internal/*`, desactiva el buffer en las rutas SSE y deja pasar intactos el cuerpo de los webhooks (ADR-015) y las cabeceras de IP de los BFF (ADR-021).
+  - **Clúster k3d:**
+    - registro de imágenes propio de k3d;
+    - Traefik desactivado;
+    - solo `web-qr` y `merchant-panel` publicados en `127.0.0.1`. La API no se publica (ADR-021).
+  - **Manifiestos:** Kustomize con base y overlay `local`. Cada servicio tiene un `Deployment` HTTP, otro para workers si los tiene y un `Job` de migración. La infraestructura (Postgres+PostGIS, Redis, ElasticMQ, Mailpit) va dentro del clúster en el overlay local.
+  - **El overlay local usa los simuladores** (ADR-018), así que no es un entorno de producción: las comprobaciones de `NODE_ENV=production` siguen como están.
+  - **Nube:** el proveedor, la región, la infraestructura como código y el CDN/WAF quedan abiertos en [D-07](#d-07).
+- **Alternativas descartadas:**
+  - **ECS Fargate (ADR-011):** sin Kubernetes no sirve para el objetivo.
+  - **kind o minikube:** k3d es más ligero y trae registro de imágenes y balanceador integrados.
+  - **Gateway propio en Node:** más código que mantener. nginx resuelve el enrutado por configuración.
+  - **Traefik (el ingress por defecto de k3d):** se elige nginx.
+- **Consecuencias:**
+  - La condición de «hecho» de M0 pasa de «en staging en AWS» a «en el despliegue en k3d».
+  - Terraform y el despliegue en ECS salen de M0.
+  - Lo que ARCHITECTURE §14 atribuía a AWS (RDS Multi-AZ, KMS, Secrets Manager, copias en otra región, WAF) queda pendiente de D-07. En local, los secretos van en `Secret` de Kubernetes generados desde `.env.local`.
+  - NFR-06 (datos en la UE) se mantiene como requisito; la región concreta depende de D-07.
+
 ---
 
 ## Decisiones abiertas
 
-> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 se resuelve en M0; la PoC usa autenticación local. D-06 está cerrada (ADR-019).
+> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 se resuelve en M0; la PoC usa autenticación local. D-06 está cerrada (ADR-019). D-07 no bloquea la migración a microservicios, que se despliega en k3d (ADR-030).
 
 <a id="d-01"></a>
 ### D-01: qué PSP usar en el MVP
@@ -569,3 +631,21 @@
   2. Calidad de las migraciones.
   3. Rendimiento.
 - **Se desbloquea con:** prueba técnica en la primera semana de la PoC (ADR-017).
+
+<a id="d-07"></a>
+### D-07: nube, región y CDN/WAF fuera del entorno local
+
+- **Contexto:** [ADR-030](#adr-030) sustituye a ADR-011. El MVP se despliega en Kubernetes local (k3d) y no hay elegido destino en la nube.
+- **Qué hay que decidir:**
+  - el proveedor de nube y su Kubernetes gestionado;
+  - la región (NFR-06: datos en la UE);
+  - la infraestructura como código;
+  - los servicios gestionados (base de datos, Redis, colas, secretos y claves);
+  - el CDN/WAF.
+- **Criterios:**
+  1. Residencia de datos en la UE (NFR-06).
+  2. Kubernetes gestionado compatible con los manifiestos de `deploy/k8s`.
+  3. Base de datos con recuperación a un punto en el tiempo y copias en otra región de la UE.
+  4. Colas compatibles con `QueueService` (ADR-026).
+  5. Coste para un portfolio.
+- **Se desbloquea con:** la decisión del propietario de desplegar fuera del entorno local. Mientras tanto no bloquea ningún hito.
