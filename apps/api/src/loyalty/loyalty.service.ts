@@ -23,6 +23,7 @@ import {
 import { type DomainEventJob, OutboxRelayService } from '../outbox/outbox-relay.service.js';
 import { isValidPaymentStatusToken } from '../payments/status-token.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
+import { IdempotencyService } from '../common/idempotency.service.js';
 import { CouponsService } from './coupons.service.js';
 
 /** Plazo para reclamar los puntos de un pago hecho sin cuenta (FR-USR-02). */
@@ -45,6 +46,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     private readonly coupons: CouponsService,
     private readonly relay: OutboxRelayService,
     private readonly queues: QueueService,
+    private readonly idempotency: IdempotencyService,
   ) {
     this.queues.registerWorker(QueueName.LOYALTY, () => this.releasePending(), 1);
   }
@@ -179,8 +181,21 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     });
   }
 
-  /** Canjea una recompensa por un cupón de un solo uso (FR-LOY-03). */
-  async redeemReward(userId: string, rewardId: string): Promise<CouponView> {
+  /**
+   * Canjea una recompensa por un cupón de un solo uso (FR-LOY-03), con Idempotency-Key obligatoria (ADR-015, NFR-11): la misma clave devuelve el mismo cupón
+   * sin un segundo REDEEM. El ámbito incluye al usuario para que dos comensales no compartan claves.
+   */
+  async redeemReward(
+    userId: string,
+    rewardId: string,
+    idempotencyKey: string | undefined,
+  ): Promise<CouponView> {
+    return this.idempotency.run(`reward-redeem:${userId}`, idempotencyKey, { rewardId }, () =>
+      this.redeemRewardOnce(userId, rewardId),
+    );
+  }
+
+  private async redeemRewardOnce(userId: string, rewardId: string): Promise<CouponView> {
     return this.db.transaction(async (tx) => {
       const reward = await tx.query.loyaltyRewards.findFirst({
         where: and(eq(loyaltyRewards.id, rewardId), eq(loyaltyRewards.active, true)),

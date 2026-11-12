@@ -338,6 +338,8 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 - REST JSON en `api.<dominio>/v1`. La especificación OpenAPI se genera desde NestJS y de ella sale `packages/api-client`.
 - **Errores:** formato RFC 9457 (`application/problem+json`) con un `code` estable (p. ej. `COUPON_ALREADY_REDEEMED`).
 - **Idempotencia:** cabecera `Idempotency-Key` obligatoria en todas las peticiones POST que crean pagos, reembolsos, canjes o campañas. Se guarda 24 h con la respuesta.
+  - La aplica `IdempotencyService` (`apps/api/src/common/`, tabla `idempotency_keys`) con un ámbito por operación: `payment-session` y `reward-redeem:<userId>` (`POST /me/rewards/:id/redeem`, FR-LOY-03). La misma clave con el mismo cuerpo devuelve la respuesta guardada; con otro cuerpo, 422 `IDEMPOTENCY_KEY_REUSED`; si la original sigue en curso, 409 `IDEMPOTENCY_IN_PROGRESS`; sin clave válida, 400 `IDEMPOTENCY_KEY_REQUIRED`. Si la operación falla, la clave se libera.
+  - `apps/web-qr` genera la clave en el servidor al pintar el formulario y la reutiliza en los reintentos del mismo intento.
 - **Autenticación:**
   - Usuarios: JWT de acceso de 15 min + token de renovación rotativo.
   - Invitados: `guest_session` firmada, ligada al QR y con caducidad.

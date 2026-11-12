@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { and, eq, lt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { AppError } from '../common/app-error.js';
+import { AppError } from './app-error.js';
 import { DB, type Database } from '../db/client.js';
 import { idempotencyKeys } from '../db/schema/index.js';
 

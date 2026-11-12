@@ -6,7 +6,7 @@ import { TablesModule } from '../tables/tables.module.js';
 import { FakePaymentProvider } from './fake-psp/fake-payment.provider.js';
 import { FakePspController } from './fake-psp/fake-psp.controller.js';
 import { FakePspService } from './fake-psp/fake-psp.service.js';
-import { IdempotencyService } from './idempotency.service.js';
+import { IdempotencyModule } from '../common/idempotency.module.js';
 import { PAYMENT_PROVIDER } from './payment-provider.js';
 import { PaymentEventsService } from './payment-events.service.js';
 import { PaymentsController } from './payments.controller.js';
@@ -14,7 +14,7 @@ import { PaymentsService } from './payments.service.js';
 import { PosSyncService } from './pos-sync.service.js';
 
 @Module({
-  imports: [TablesModule, QrModule, LoyaltyModule],
+  imports: [TablesModule, QrModule, LoyaltyModule, IdempotencyModule],
   controllers: [PaymentsController, FakePspController],
   providers: [
     FakePspService,
@@ -28,7 +28,6 @@ import { PosSyncService } from './pos-sync.service.js';
         throw new Error(`PAYMENT_PROVIDER=${env.PAYMENT_PROVIDER} aún no está implementado`);
       },
     },
-    IdempotencyService,
     PaymentsService,
     PaymentEventsService,
     PosSyncService,

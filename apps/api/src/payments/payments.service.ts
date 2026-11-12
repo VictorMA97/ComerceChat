@@ -32,7 +32,7 @@ import { QueueName, QueueService } from '../queue/queue.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { TableBillService } from '../tables/table-bill.service.js';
 import { platformFeeCents, statementDescriptor } from './fees.js';
-import { IdempotencyService } from './idempotency.service.js';
+import { IdempotencyService } from '../common/idempotency.service.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './payment-provider.js';
 import { paymentStatusToken, isValidPaymentStatusToken } from './status-token.js';
 import { CouponsService } from '../loyalty/coupons.service.js';

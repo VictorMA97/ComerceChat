@@ -310,15 +310,52 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     expect(loyalty[0]).toMatchObject({ balance: 50 });
   });
 
-  it('canjear puntos por una recompensa emite un cupón y descuenta el saldo', async () => {
+  it('canjear sin Idempotency-Key es un error RFC 9457 y no toca el saldo (ADR-015)', async () => {
     const reward = (await asUser('/v1/me/loyalty')).body[0].rewards[0];
-    const coupon = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post');
-    expect(coupon.body).toMatchObject({
+    const r = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post');
+    expect(r.status).toBe(400);
+    expect(r.headers['content-type']).toContain('application/problem+json');
+    expect(r.body).toMatchObject({ status: 400, code: 'IDEMPOTENCY_KEY_REQUIRED' });
+    expect((await asUser('/v1/me/loyalty')).body[0].balance).toBe(50);
+  });
+
+  it('canjear dos veces con la misma clave emite un solo cupón y un solo REDEEM', async () => {
+    const reward = (await asUser('/v1/me/loyalty')).body[0].rewards[0];
+    const key = `redeem-${suffix}-1`;
+    const first = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post').set(
+      'Idempotency-Key',
+      key,
+    );
+    expect(first.status).toBe(201);
+    expect(first.body).toMatchObject({
       title: 'Postre gratis',
       discountCents: 600,
       status: 'ACTIVE',
     });
+    const again = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post').set(
+      'Idempotency-Key',
+      key,
+    );
+    expect(again.status).toBe(201);
+    expect(again.body).toEqual(first.body);
+
     expect((await asUser('/v1/me/loyalty')).body[0].balance).toBe(30);
+    const redeems = await db
+      .select()
+      .from(s.pointsLedgerEntries)
+      .where(
+        and(
+          eq(s.pointsLedgerEntries.type, 'REDEEM'),
+          eq(s.pointsLedgerEntries.couponId, first.body.id),
+        ),
+      );
+    expect(redeems).toHaveLength(1);
+    // La recompensa es de un comercio creado solo para este test: cualquier segundo canje se vería aquí.
+    const rewardCoupons = await db
+      .select()
+      .from(s.coupons)
+      .where(eq(s.coupons.rewardId, reward.id));
+    expect(rewardCoupons.map((c) => c.id)).toEqual([first.body.id]);
   });
 
   it('100 peticiones paralelas con el mismo cupón: exactamente un canje (criterio 4)', async () => {

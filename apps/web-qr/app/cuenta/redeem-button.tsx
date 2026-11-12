@@ -4,8 +4,17 @@ import { useActionState } from 'react';
 import { formatCents } from '@/lib/money';
 import { redeemReward, type RedeemState } from '@/lib/user-actions';
 
-export function RedeemButton({ rewardId, disabled }: { rewardId: string; disabled: boolean }) {
-  const [state, action, pending] = useActionState<RedeemState>(
+export function RedeemButton({
+  rewardId,
+  disabled,
+  idempotencyKey,
+}: {
+  rewardId: string;
+  disabled: boolean;
+  /** Clave del intento de canje: se reutiliza en los reintentos para no canjear dos veces. */
+  idempotencyKey: string;
+}) {
+  const [state, action, pending] = useActionState<RedeemState, FormData>(
     redeemReward.bind(null, rewardId),
     {},
   );
@@ -18,6 +27,7 @@ export function RedeemButton({ rewardId, disabled }: { rewardId: string; disable
   }
   return (
     <form action={action}>
+      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
       <button type="submit" className="chip" disabled={disabled || pending}>
         {pending ? 'Canjeando…' : 'Canjear'}
       </button>

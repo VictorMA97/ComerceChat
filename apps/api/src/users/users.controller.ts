@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiOperation,
   ApiProperty,
   ApiPropertyOptional,
@@ -208,11 +209,13 @@ export class UsersController {
   @ApiOperation({
     summary: 'Canjea puntos por una recompensa: emite un cupón de un solo uso (FR-LOY-03)',
   })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   redeem(
     @CurrentUserId() userId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ): Promise<CouponView> {
-    return this.loyalty.redeemReward(userId, id);
+    return this.loyalty.redeemReward(userId, id, idempotencyKey);
   }
 
   @Post('me/claim')

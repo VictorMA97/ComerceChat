@@ -215,6 +215,7 @@ Formato: `ID: descripción`, seguido de los **criterios de aceptación (CA)**.
 - **FR-LOY-02: ganar puntos.** Solo al confirmarse el pago por webhook.
   - CA: se calcula `floor(importe_sin_propina × regla)`. El movimiento se crea `PENDING` y pasa a `AVAILABLE` tras el cierre diario o a las X h (configurable, por defecto 24 h).
 - **FR-LOY-03: recompensas.** El comercio define un catálogo de recompensas ("postre gratis = 100 puntos"). Al canjearla se genera un cupón de un solo uso.
+  - CA: el canje exige `Idempotency-Key` (NFR-11, [ADR-015](DECISIONS.md#adr-015)); la misma clave devuelve el mismo cupón sin descontar los puntos dos veces y, sin clave, la API responde 400 `IDEMPOTENCY_KEY_REQUIRED`. [HECHO] cubierto por `apps/api/test/loyalty-coupons.e2e-spec.ts`.
 - **FR-LOY-04: anulación de puntos.** Un reembolso o *chargeback* anula los puntos asociados de forma proporcional. Si ya se habían gastado, el saldo puede quedar negativo y bloquear canjes.
 - **FR-LOY-05: ajustes manuales.** Solo OWNER, con motivo obligatorio y registro de auditoría.
 - **FR-LOY-06: notificación.** "+N puntos en {comercio}. Te faltan M para {recompensa}".

@@ -1,4 +1,5 @@
 import type { CouponView, LoyaltyView, MeView } from '@comercechat/shared-types';
+import { randomUUID } from 'node:crypto';
 import { SignInFlow } from '@/components/sign-in-flow';
 import { ApiError } from '@/lib/api';
 import { formatCents } from '@/lib/money';
@@ -88,7 +89,11 @@ export default async function AccountPage() {
                     {r.name} <small className="muted">({formatCents(r.discountCents)})</small>
                   </span>
                   <span className="muted small">{r.costPoints} pts</span>
-                  <RedeemButton rewardId={r.id} disabled={l.balance < r.costPoints} />
+                  <RedeemButton
+                    rewardId={r.id}
+                    disabled={l.balance < r.costPoints}
+                    idempotencyKey={randomUUID()}
+                  />
                 </li>
               ))}
             </ul>
