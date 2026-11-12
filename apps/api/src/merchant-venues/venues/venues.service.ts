@@ -7,7 +7,7 @@ import { AppError } from '../../common/app-error.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { merchantLocations, tables } from '../schema/merchants.js';
 import { qrCodes } from '../schema/qr.js';
-import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
+import { POS_CONNECTOR, type PosConnector } from '@comercechat/pos-connectors';
 import { QrService } from '../qr/qr.service.js';
 
 export interface NewLocation {

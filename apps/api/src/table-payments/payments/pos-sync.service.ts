@@ -5,7 +5,7 @@ import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.j
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
 import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
-import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
+import { POS_CONNECTOR, type PosConnector } from '@comercechat/pos-connectors';
 import { RealtimeService } from '../../realtime/public/realtime.js';
 
 /**

@@ -11,7 +11,7 @@ import {
   POS_CONNECTOR,
   type PosConnector,
   PosUnavailableError,
-} from '../../pos/pos-connector.js';
+} from '@comercechat/pos-connectors';
 import { CouponsService } from '../coupons/coupons.service.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 
