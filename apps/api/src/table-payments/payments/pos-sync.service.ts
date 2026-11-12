@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
-import { orders, payments } from '../../db/schema/index.js';
+import { orders } from '../schema/orders.js';
+import { payments } from '../schema/payments.js';
 import { type DomainEventJob, OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';

@@ -2,7 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { FloorTableStatus, FloorView } from '@comercechat/shared-types';
 import { and, asc, desc, eq, gt, isNotNull, sql } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
-import { merchantLocations, orders, payments, tables } from '../../db/schema/index.js';
+import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
+import { orders } from '../schema/orders.js';
+import { payments } from '../schema/payments.js';
 import { POS_CONNECTOR, type PosConnector, PosUnavailableError } from '../../pos/pos-connector.js';
 import { TableBillService } from './table-bill.service.js';
 

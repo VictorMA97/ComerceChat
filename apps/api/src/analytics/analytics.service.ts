@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { AnalyticsPeriod, AnalyticsTotals, AnalyticsView } from '@comercechat/shared-types';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { DB, type Database } from '../db/client.js';
-import { payments } from '../db/schema/index.js';
+import { payments } from '../table-payments/schema/payments.js';
 
 const DAYS: Record<AnalyticsPeriod, number> = { today: 1, week: 7, month: 30 };
 const DAY_MS = 24 * 60 * 60 * 1000;

@@ -28,9 +28,8 @@ import {
   fakePosLocations,
   fakePosMenuItems,
   fakePosPayments,
-  merchantLocations,
-  tables,
-} from '../db/schema/index.js';
+} from './schema/fake-pos.js';
+import { merchantLocations, tables } from '../merchant-venues/schema/merchants.js';
 
 /** El simulador sigue mostrando una cuenta cerrada durante 30 min, para ver el pago que la cerró. */
 const RECENT_CLOSED_MS = 30 * 60 * 1000;

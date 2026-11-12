@@ -9,10 +9,10 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from './columns.js';
-import { orderSource, orderStatus } from './enums.js';
-import { merchantLocations, tables } from './merchants.js';
-import { users } from './users.js';
+import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { orderSource, orderStatus } from '../../db/schema/enums.js';
+import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
+import { users } from '../../identity/schema/users.js';
 
 /**
  * Pedido o cuenta. Con software de caja, es un espejo de la cuenta abierta en el TPV

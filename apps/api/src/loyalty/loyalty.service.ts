@@ -15,11 +15,11 @@ import {
   loyaltyAccounts,
   loyaltyPrograms,
   loyaltyRewards,
-  merchants,
-  payments,
   pointsLedgerEntries,
   promotions,
-} from '../db/schema/index.js';
+} from './schema/loyalty.js';
+import { merchants } from '../merchant-venues/schema/merchants.js';
+import { payments } from '../table-payments/schema/payments.js';
 import { type DomainEventJob, OutboxRelayService } from '../outbox/outbox-relay.service.js';
 import { isValidPaymentStatusToken } from '../table-payments/payments/status-token.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';

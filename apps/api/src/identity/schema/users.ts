@@ -1,7 +1,7 @@
 import { boolean, date, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from './columns.js';
-import { consentType, userStatus } from './enums.js';
-import { merchants } from './merchants.js';
+import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { consentType, userStatus } from '../../db/schema/enums.js';
+import { merchants } from '../../merchant-venues/schema/merchants.js';
 
 export const users = pgTable('users', {
   id: id(),

@@ -19,14 +19,11 @@ import { newId } from '../../common/ids.js';
 import { safeErrorForLog } from '../../common/safe-error.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
-import {
-  coupons,
-  merchants,
-  orderAllocations,
-  payments,
-  pointsLedgerEntries,
-  qrCodes,
-} from '../../db/schema/index.js';
+import { coupons } from '../schema/coupons.js';
+import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { orderAllocations, payments } from '../schema/payments.js';
+import { pointsLedgerEntries } from '../../loyalty/schema/loyalty.js';
+import { qrCodes } from '../../merchant-venues/schema/qr.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';

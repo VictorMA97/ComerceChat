@@ -5,7 +5,8 @@ import { AuditService } from '../audit/audit.service.js';
 import type { MerchantPrincipal } from '../identity/auth/auth.types.js';
 import { AppError } from '../common/app-error.js';
 import { DB, type Database } from '../db/client.js';
-import { coupons, promotions } from '../db/schema/index.js';
+import { coupons } from '../table-payments/schema/coupons.js';
+import { promotions } from './schema/loyalty.js';
 
 /** Promociones del comercio. En la PoC, la plantilla «Vuelve y te invitamos» (FR-CPN-01). */
 @Injectable()

@@ -5,7 +5,8 @@ import { AppError } from '../../common/app-error.js';
 import { encryptPii, decryptPii, hashPii } from '../../common/pii.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchants, userConsents, users } from '../../db/schema/index.js';
+import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { userConsents, users } from '../schema/users.js';
 import { maskPhone } from './phone.js';
 
 /** Versión de los textos legales aceptados (se guarda con cada consentimiento, ADR-016). */

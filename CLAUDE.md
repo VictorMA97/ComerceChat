@@ -13,7 +13,7 @@ Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.
 - Tests: `pnpm test:unit` (sin Docker, cacheado; lo ejecuta el hook `pre-push` junto a `lint` y `typecheck`) y `pnpm test:integration` (Postgres/Redis). El `pre-commit` pasa ESLint + Prettier con lint-staged.
 - Un solo test: `pnpm --filter @comercechat/api exec vitest run src/merchant-venues/qr/qr-signature.spec.ts` (o `-t "nombre del test"`).
 - Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres, Redis y ElasticMQ (SQS) reales de docker compose; crean sus propios datos con emails únicos.
-- Migraciones: edita `apps/api/src/db/schema/*`, ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
+- Migraciones: edita las tablas del contexto en `apps/api/src/<contexto>/schema/*` (`src/db/schema/index.ts` solo las junta), ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
 - `pnpm db:seed` borra y recrea los datos de prueba.
 - `pnpm e2e`: recorrido completo en navegador (Playwright, `e2e/`); recarga los datos y fija `WEB_QR_BASE_URL` a localhost durante la prueba.
 - `pnpm poc:stop`: libera los puertos 3000/3001/4000 si `pnpm dev` dejó procesos huérfanos. No uses `pkill -f` con patrones que aparezcan en tu propio comando.
@@ -63,7 +63,7 @@ TypeScript de punta a punta en un monorepo pnpm + Turborepo (ADR-008):
 - `packages/shared-types` (enums y contratos de la API) y `packages/api-client` (cliente HTTP de servidor de las apps Next: todo fallo llega como `ApiError` con un problem RFC 9457 válido, con timeout; usa `lib/api.ts` de cada app, no `fetch` directo). Previstos: cliente generado desde el OpenAPI de NestJS en `api-client`, `packages/ui`, `packages/config`.
 - PostgreSQL 16 + PostGIS, Redis (estado de mesa, bloqueos, nonces, pub/sub), SQS, S3. Despliegue del MVP en Kubernetes local con k3d y nginx como gateway (ADR-030, sustituye a ADR-011); la nube está sin elegir (D-07). Lo DevOps más allá de desplegar en k3d son recomendaciones (`docs/MIGRACION.md` §9), no parte de la migración.
 
-Reglas entre módulos del backend: un módulo solo accede a datos de otro a través de su servicio público (nada de joins entre tablas de módulos distintos, salvo vistas de `analytics` sobre la réplica). Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).
+Reglas entre módulos del backend: cada carpeta de `apps/api/src` en `CONTEXTS` (`.dependency-cruiser.cjs`) es un futuro servicio. Un contexto solo importa de otro lo que este expone en `src/<contexto>/public/`, y nunca sus tablas (`src/<contexto>/schema/`); el código compartido (`common`, `config`, `db`, `queue`, `outbox`…) no importa contextos. `pnpm lint` lo comprueba con dependency-cruiser; las violaciones pendientes de F1 están en `.dependency-cruiser-known-violations.json` y no se añaden nuevas. Los eventos de dominio se publican con patrón **outbox** (`outbox_events` → worker → SQS).
 
 Los proveedores externos van detrás de interfaces: `PaymentProvider` (PSP) y `PosConnector` (software de caja, con `ManualPosConnector` como modo degradado). El PSP y el software de caja concretos aún no están elegidos (D-01, D-02); no acoples código a un proveedor fuera de su adaptador.
 

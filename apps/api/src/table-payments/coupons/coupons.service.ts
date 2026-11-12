@@ -5,7 +5,8 @@ import { randomInt } from 'node:crypto';
 import { AppError } from '../../common/app-error.js';
 import { formatEur } from '../../common/money.js';
 import type { Database, Tx } from '../../db/client.js';
-import { couponRedemptions, coupons, merchants } from '../../db/schema/index.js';
+import { couponRedemptions, coupons } from '../schema/coupons.js';
+import { merchants } from '../../merchant-venues/schema/merchants.js';
 
 type Reader = Pick<Database, 'select'>;
 type CouponRow = typeof coupons.$inferSelect;

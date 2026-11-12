@@ -3,13 +3,8 @@ import { and, eq } from 'drizzle-orm';
 import { AuditService } from '../../audit/audit.service.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database } from '../../db/client.js';
-import {
-  orderAllocations,
-  payments,
-  pspWebhookEvents,
-  qrCodes,
-  transactions,
-} from '../../db/schema/index.js';
+import { orderAllocations, payments, pspWebhookEvents, transactions } from '../schema/payments.js';
+import { qrCodes } from '../../merchant-venues/schema/qr.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { CouponsService } from '../coupons/coupons.service.js';

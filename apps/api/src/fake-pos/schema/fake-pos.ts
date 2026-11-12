@@ -10,8 +10,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id } from './columns.js';
-import { merchantLocations } from './merchants.js';
+import { createdAt, id } from '../../db/schema/columns.js';
+import { merchantLocations } from '../../merchant-venues/schema/merchants.js';
 
 export const fakePosMenuItems = pgTable('fake_pos_menu_items', {
   id: id(),
@@ -74,20 +74,3 @@ export const fakePosPayments = pgTable(
   },
   (t) => [uniqueIndex('fake_pos_payments_reference_uq').on(t.reference)],
 );
-
-/** Sesiones de pago del PSP simulado. */
-export const fakePspSessions = pgTable('fake_psp_sessions', {
-  id: text('id').primaryKey(),
-  paymentId: uuid('payment_id').notNull(),
-  merchantName: text('merchant_name').notNull(),
-  statementDescriptor: text('statement_descriptor').notNull(),
-  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
-  platformFeeCents: bigint('platform_fee_cents', { mode: 'number' }).notNull(),
-  status: text('status')
-    .$type<'OPEN' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'EXPIRED'>()
-    .notNull()
-    .default('OPEN'),
-  returnUrl: text('return_url').notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  createdAt: createdAt(),
-});

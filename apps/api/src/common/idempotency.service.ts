@@ -3,7 +3,7 @@ import { and, eq, lt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { AppError } from './app-error.js';
 import { DB, type Database } from '../db/client.js';
-import { idempotencyKeys } from '../db/schema/index.js';
+import { idempotencyKeys } from '../db/schema/platform.js';
 
 const KEY_PATTERN = /^[A-Za-z0-9_:-]{8,200}$/;
 const RETENTION_MS = 24 * 60 * 60 * 1000;

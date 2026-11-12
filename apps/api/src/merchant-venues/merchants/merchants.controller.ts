@@ -23,7 +23,7 @@ import { AppError } from '../../common/app-error.js';
 import { ClientIp } from '../../common/client-ip.js';
 import { RATE_LIMITS } from '../../common/throttling.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchantUsers } from '../../db/schema/index.js';
+import { merchantUsers } from '../../identity/schema/merchant-users.js';
 import { MerchantsService } from './merchants.service.js';
 
 class RegisterMerchantDto {

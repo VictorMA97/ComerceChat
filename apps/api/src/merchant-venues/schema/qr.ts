@@ -11,9 +11,10 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id } from './columns.js';
-import { qrCodeStatus, qrCodeType } from './enums.js';
-import { merchantLocations, merchantUsers, tables } from './merchants.js';
+import { createdAt, id } from '../../db/schema/columns.js';
+import { qrCodeStatus, qrCodeType } from '../../db/schema/enums.js';
+import { merchantUsers } from '../../identity/schema/merchant-users.js';
+import { merchantLocations, tables } from './merchants.js';
 
 export const qrCodes = pgTable(
   'qr_codes',

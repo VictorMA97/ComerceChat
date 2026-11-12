@@ -17,7 +17,7 @@ import type { Observable } from 'rxjs';
 import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
 import { CurrentMerchant, MerchantAuthGuard } from '../../identity/auth/merchant-auth.guard.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchantLocations, tables } from '../../db/schema/index.js';
+import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
 import { AppError } from '../../common/app-error.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { RealtimeService } from '../../realtime/realtime.service.js';

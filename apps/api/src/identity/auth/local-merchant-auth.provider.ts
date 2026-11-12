@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
-import { merchantUsers } from '../../db/schema/index.js';
+import { merchantUsers } from '../schema/merchant-users.js';
 import type { MerchantAuthProvider, MerchantPrincipal } from './auth.types.js';
 import { hashPassword, verifyPassword } from './passwords.js';
 

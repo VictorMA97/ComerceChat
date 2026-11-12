@@ -5,7 +5,8 @@ import { AuditService } from '../../audit/audit.service.js';
 import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
-import { merchantLocations, qrCodes, tables } from '../../db/schema/index.js';
+import { merchantLocations, tables } from '../schema/merchants.js';
+import { qrCodes } from '../schema/qr.js';
 import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
 import { QrService } from '../qr/qr.service.js';
 

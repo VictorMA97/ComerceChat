@@ -8,7 +8,7 @@ import {
 import { asc, inArray, isNull } from 'drizzle-orm';
 import { safeErrorForLog } from '../common/safe-error.js';
 import { DB, type Database } from '../db/client.js';
-import { outboxEvents } from '../db/schema/index.js';
+import { outboxEvents } from '../db/schema/platform.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
 
 const RELAY_INTERVAL_MS = 300;

@@ -17,7 +17,7 @@ import {
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { DB, type Database } from '../../db/client.js';
-import { users } from '../../db/schema/index.js';
+import { users } from '../schema/users.js';
 
 interface UserJwtPayload {
   sub: string;

@@ -12,7 +12,7 @@ import {
   MerchantRoles,
 } from '../identity/auth/merchant-auth.guard.js';
 import { DB, type Database } from '../db/client.js';
-import { merchantUsers } from '../db/schema/index.js';
+import { merchantUsers } from '../identity/schema/merchant-users.js';
 
 class AuditQueryDto {
   @ApiProperty({ required: false, description: 'Cursor: id de la última entrada recibida' })

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Tx } from '../db/client.js';
-import { outboxEvents } from '../db/schema/index.js';
+import { outboxEvents } from '../db/schema/platform.js';
 
 export interface DomainEvent {
   aggregate: string;

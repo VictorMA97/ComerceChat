@@ -10,12 +10,17 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from './columns.js';
-import { allocationStatus, paymentMethod, paymentStatus, transactionType } from './enums.js';
-import { merchantLocations, merchants, tables } from './merchants.js';
+import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import {
+  allocationStatus,
+  paymentMethod,
+  paymentStatus,
+  transactionType,
+} from '../../db/schema/enums.js';
+import { merchantLocations, merchants, tables } from '../../merchant-venues/schema/merchants.js';
 import { orders } from './orders.js';
-import { qrCodes } from './qr.js';
-import { users } from './users.js';
+import { qrCodes } from '../../merchant-venues/schema/qr.js';
+import { users } from '../../identity/schema/users.js';
 
 /** Pago. Refleja el estado del PSP, que es la fuente de verdad del dinero (ARCHITECTURE §10). */
 export const payments = pgTable(
@@ -121,22 +126,6 @@ export const pspWebhookEvents = pgTable(
     error: text('error'),
   },
   (t) => [uniqueIndex('psp_webhook_events_psp_event_uq').on(t.psp, t.pspEventId)],
-);
-
-/** Respuestas guardadas por Idempotency-Key durante 24 h (ARCHITECTURE §11). */
-export const idempotencyKeys = pgTable(
-  'idempotency_keys',
-  {
-    id: id(),
-    scope: text('scope').notNull(),
-    key: text('key').notNull(),
-    requestHash: text('request_hash').notNull(),
-    statusCode: bigint('status_code', { mode: 'number' }),
-    response: jsonb('response'),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [uniqueIndex('idempotency_keys_scope_key_uq').on(t.scope, t.key)],
 );
 
 export const paymentsRelations = relations(payments, ({ one, many }) => ({

@@ -48,7 +48,7 @@ import { bearerToken } from '../../common/bearer.js';
 import { hashPii } from '../../common/pii.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { users } from '../../db/schema/index.js';
+import { users } from '../schema/users.js';
 import { CouponsService } from '../../table-payments/coupons/coupons.service.js';
 import { LoyaltyService } from '../../loyalty/loyalty.service.js';
 import { OtpService } from './otp.service.js';

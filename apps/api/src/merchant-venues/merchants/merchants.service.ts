@@ -11,7 +11,8 @@ import { hashPassword } from '../../identity/auth/passwords.js';
 import { AppError } from '../../common/app-error.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchants, merchantUsers } from '../../db/schema/index.js';
+import { merchants } from '../schema/merchants.js';
+import { merchantUsers } from '../../identity/schema/merchant-users.js';
 
 export interface MerchantRegistration {
   brandName: string;

@@ -9,7 +9,7 @@ import { newId } from '../../common/ids.js';
 import { hashPii } from '../../common/pii.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchantUsers } from '../../db/schema/index.js';
+import { merchantUsers } from '../schema/merchant-users.js';
 import { REDIS } from '../../redis/redis.module.js';
 import {
   MERCHANT_AUTH_PROVIDER,

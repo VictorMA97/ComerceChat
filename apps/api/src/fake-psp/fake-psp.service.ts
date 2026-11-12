@@ -6,7 +6,7 @@ import { AppError } from '../common/app-error.js';
 import { randomBase62 } from '../common/ids.js';
 import { ENV, type Env } from '../config/env.js';
 import { DB, type Database } from '../db/client.js';
-import { fakePspSessions } from '../db/schema/index.js';
+import { fakePspSessions } from './schema/fake-psp.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
 import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from './fake-psp-signature.js';
 

@@ -1,29 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id } from './columns.js';
-
-/** Registro de auditoría de solo-inserción. */
-export const auditLogs = pgTable(
-  'audit_logs',
-  {
-    id: id(),
-    actorType: text('actor_type').notNull(),
-    actorId: text('actor_id'),
-    action: text('action').notNull(),
-    entity: text('entity').notNull(),
-    entityId: text('entity_id'),
-    before: jsonb('before'),
-    after: jsonb('after'),
-    ip: text('ip'),
-    /** Comercio al que pertenece la entrada (para su registro de actividad). Sin FK: es histórico. */
-    merchantId: uuid('merchant_id'),
-    createdAt: createdAt(),
-  },
-  (t) => [
-    index('audit_logs_entity_idx').on(t.entity, t.entityId),
-    index('audit_logs_merchant_idx').on(t.merchantId, t.id),
-  ],
-);
+import { bigint, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { createdAt, id, updatedAt } from './columns.js';
 
 /** Patrón outbox: los eventos de dominio se escriben en la misma transacción (ARCHITECTURE §5). */
 export const outboxEvents = pgTable(
@@ -42,4 +19,20 @@ export const outboxEvents = pgTable(
       .on(t.createdAt)
       .where(sql`${t.publishedAt} is null`),
   ],
+);
+
+/** Respuestas guardadas por Idempotency-Key durante 24 h (ARCHITECTURE §11). */
+export const idempotencyKeys = pgTable(
+  'idempotency_keys',
+  {
+    id: id(),
+    scope: text('scope').notNull(),
+    key: text('key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    statusCode: bigint('status_code', { mode: 'number' }),
+    response: jsonb('response'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('idempotency_keys_scope_key_uq').on(t.scope, t.key)],
 );

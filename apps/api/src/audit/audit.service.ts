@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { DB, type Database, type Tx } from '../db/client.js';
-import { auditLogs } from '../db/schema/index.js';
+import { auditLogs } from './schema/audit.js';
 
 export interface AuditEntry {
   actorType: 'MERCHANT_USER' | 'USER' | 'ADMIN' | 'SYSTEM';

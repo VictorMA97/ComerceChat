@@ -7,7 +7,7 @@ import {
   fakePosLocations,
   fakePosMenuItems,
   fakePosPayments,
-} from '../db/schema/index.js';
+} from './schema/fake-pos.js';
 import {
   type PosBill,
   type PosConnector,
