@@ -1,7 +1,7 @@
 import { venuesSchema } from './pg-schema.js';
 import { relations } from 'drizzle-orm';
 import { boolean, index, integer, jsonb, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, geographyPoint, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, geographyPoint, id, updatedAt } from '@comercechat/service-kit/db';
 import { merchantStatus } from './enums.js';
 
 export const merchants = venuesSchema.table('merchants', {

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { AuditRecordedV1 } from '@comercechat/contracts';
 import { newId } from '../common/ids.js';
-import { DB, type Database, type Tx } from '../db/client.js';
+import { DB, type Database, type Tx } from '../db/database.js';
 import { OutboxService } from './outbox.service.js';
 
 export type AuditEntry = Omit<AuditRecordedV1, 'entryId' | 'at'>;

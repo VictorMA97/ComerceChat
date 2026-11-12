@@ -1,10 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { createHash, randomInt } from 'node:crypto';
 import type { Redis } from 'ioredis';
-import { AppError } from '../../common/app-error.js';
-import { hashPii } from '../../common/pii.js';
+import { AppError, hashPii, REDIS } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
-import { REDIS } from '../../redis/redis.module.js';
 import { OTP_SENDER, type OtpSender } from './otp-sender.js';
 
 const TTL_SECONDS = 300;

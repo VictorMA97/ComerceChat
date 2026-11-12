@@ -1,6 +1,6 @@
 import { fakePspSchema } from './pg-schema.js';
 import { bigint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { createdAt } from '../../db/schema/columns.js';
+import { createdAt } from '@comercechat/service-kit/db';
 
 /** Sesiones de pago del PSP simulado. */
 export const fakePspSessions = fakePspSchema.table('fake_psp_sessions', {

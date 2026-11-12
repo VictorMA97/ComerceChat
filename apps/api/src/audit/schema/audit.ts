@@ -1,6 +1,6 @@
 import { auditSchema } from './pg-schema.js';
 import { index, jsonb, text, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id } from '../../db/schema/columns.js';
+import { createdAt, id } from '@comercechat/service-kit/db';
 
 /** Registro de auditoría de solo-inserción. */
 export const auditLogs = auditSchema.table(

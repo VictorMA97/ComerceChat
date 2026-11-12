@@ -1,6 +1,7 @@
 // Regresiones de la auditoría de seguridad: OTP atómico, límites de peticiones, sesiones revocables,
 // validación de objetos anidados, cupones con la reserva caducada e importe del webhook.
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
@@ -8,8 +9,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { hashPassword } from '../src/identity/auth/passwords.js';
-import { configureApp } from '../src/bootstrap.js';
-import { CLIENT_IP_HEADER, PROXY_AUTH_HEADER } from '../src/common/client-ip.js';
+import { CLIENT_IP_HEADER, PROXY_AUTH_HEADER } from '@comercechat/service-kit';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -113,7 +113,7 @@ describe('Seguridad (E2E)', () => {
       .useValue({ send: async (p: string, c: string) => void codes.set(p, c) })
       .compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     app
       .get(FakePspService)

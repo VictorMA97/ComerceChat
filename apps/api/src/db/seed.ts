@@ -4,11 +4,10 @@
 import { sql } from 'drizzle-orm';
 import { hashPassword } from '../identity/auth/passwords.js';
 import { POC_TOTP_SECRET } from '../identity/auth/poc-mfa.js';
-import { newId } from '../common/ids.js';
-import { encryptPii, hashPii } from '../common/pii.js';
+import { newId, encryptPii, hashPii } from '@comercechat/service-kit';
 import { loadEnv } from '../config/env.js';
 import { FAKE_POS_MENU } from '../fake-pos/fake-pos-menu.js';
-import { generateShortCode, qrUrl, signQr } from '../common/qr-signature.js';
+import { generateShortCode, qrUrl, signQr } from '../merchant-venues/qr/qr-signature.js';
 import { createDatabase } from './client.js';
 import * as s from './schema/index.js';
 

@@ -1,5 +1,5 @@
 import { Body, Controller, Headers, HttpCode, Post } from '@nestjs/common';
-import { bearerToken } from '../../common/bearer.js';
+import { bearerToken, ClientIp, RATE_LIMITS } from '@comercechat/service-kit';
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type {
   LoginResponse,
@@ -9,8 +9,6 @@ import type {
 } from '@comercechat/shared-types';
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
-import { ClientIp } from '../../common/client-ip.js';
-import { RATE_LIMITS } from '../../common/throttling.js';
 import { AuthService } from './auth.service.js';
 import { MerchantMfaService } from './merchant-mfa.service.js';
 

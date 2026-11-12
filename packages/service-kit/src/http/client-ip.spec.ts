@@ -20,6 +20,12 @@ describe('clientIp', () => {
     ).toBe('10.0.0.5');
   });
 
+  it('sin secreto configurado no acepta la IP reenviada, ni con una cabecera vacía', () => {
+    expect(clientIp(req({ [PROXY_AUTH_HEADER]: '', [CLIENT_IP_HEADER]: '203.0.113.9' }), '')).toBe(
+      '10.0.0.5',
+    );
+  });
+
   it('ignora una IP reenviada mal formada', () => {
     expect(
       clientIp(req({ [PROXY_AUTH_HEADER]: SECRET, [CLIENT_IP_HEADER]: 'x; rm -rf' }), SECRET),

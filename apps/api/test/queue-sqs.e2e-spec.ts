@@ -1,6 +1,7 @@
 // Colas en SQS (ADR-026) contra ElasticMQ (servicio `sqs` de docker compose): reintentos, DLQ y un
 // cobro completo pasando por las tres colas de trabajo (webhook simulado, eventos del PSP, outbox).
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import { GetQueueUrlCommand, ReceiveMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { type INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -8,14 +9,12 @@ import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { configureApp } from '../src/bootstrap.js';
+import { QueueName, SqsTransport } from '@comercechat/service-kit';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
 import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
-import { QueueName } from '../src/queue/queue.types.js';
-import { SqsTransport } from '../src/queue/sqs.transport.js';
 
 // Cada fichero de test corre en su propio proceso: el entorno se lee al crear la app.
 process.env.QUEUE_DRIVER = 'sqs';
@@ -131,7 +130,7 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
     expect(env.QUEUE_DRIVER).toBe('sqs');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     app
       .get(FakePspService)

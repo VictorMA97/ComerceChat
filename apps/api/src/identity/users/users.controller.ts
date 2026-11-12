@@ -35,9 +35,7 @@ import {
 import { Type } from 'class-transformer';
 import { eq } from 'drizzle-orm';
 import { Inject } from '@nestjs/common';
-import { AppError } from '../../common/app-error.js';
-import { bearerToken } from '../../common/bearer.js';
-import { hashPii } from '../../common/pii.js';
+import { AppError, bearerToken, hashPii, RATE_LIMITS } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { users } from '../schema/users.js';
@@ -46,7 +44,6 @@ import { normalizePhone } from './phone.js';
 import { CurrentUserId, UserAuthGuard, UserTokens } from './user-auth.js';
 import { UsersService } from './users.service.js';
 import { Throttle } from '@nestjs/throttler';
-import { RATE_LIMITS } from '../../common/throttling.js';
 
 class OtpStartDto {
   @ApiProperty({ example: '+34600000000' }) @IsString() @Length(6, 20) phone: string;

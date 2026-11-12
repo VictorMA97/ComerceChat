@@ -1,5 +1,5 @@
 import { MerchantStatus, QrCodeStatus, QrCodeType } from '@comercechat/shared-types';
-import { enumValues } from '../../db/schema/columns.js';
+import { enumValues } from '@comercechat/service-kit/db';
 import { venuesSchema } from './pg-schema.js';
 
 export const merchantStatus = venuesSchema.enum('merchant_status', enumValues(MerchantStatus));

@@ -1,9 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
+import { AuditEmitter, AppError, newId } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import {

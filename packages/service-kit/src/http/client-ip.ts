@@ -2,7 +2,6 @@ import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
 import { isIP } from 'node:net';
 import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
-import { loadEnv } from '../config/env.js';
 
 /** Cabeceras con las que las apps Next reenvían la IP del navegador (ADR-021). */
 export const PROXY_AUTH_HEADER = 'x-cc-proxy-auth';
@@ -23,6 +22,8 @@ export function clientIp(req: Request, proxySecret: string): string {
   const auth = req.headers[PROXY_AUTH_HEADER];
   const forwarded = req.headers[CLIENT_IP_HEADER];
   if (
+    // Sin secreto configurado no se confía en nadie: '' === '' no puede bastar.
+    proxySecret.length > 0 &&
     typeof auth === 'string' &&
     typeof forwarded === 'string' &&
     sameSecret(auth, proxySecret) &&
@@ -33,7 +34,11 @@ export function clientIp(req: Request, proxySecret: string): string {
   return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }
 
-/** IP del cliente final para auditoría (`@ClientIp() ip: string`). */
+/**
+ * IP del cliente final para auditoría (`@ClientIp() ip: string`). Un decorador de parámetro no puede
+ * inyectar la configuración: lee `INTERNAL_PROXY_SECRET` de `process.env`, que el servicio ya ha
+ * validado al arrancar. Sin secreto, la cabecera de IP se ignora.
+ */
 export const ClientIp = createParamDecorator((_: unknown, ctx: ExecutionContext): string =>
-  clientIp(ctx.switchToHttp().getRequest<Request>(), loadEnv().INTERNAL_PROXY_SECRET),
+  clientIp(ctx.switchToHttp().getRequest<Request>(), process.env.INTERNAL_PROXY_SECRET ?? ''),
 );

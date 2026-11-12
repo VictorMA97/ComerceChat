@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { randomBase62 } from './ids.js';
+import { randomBase62 } from '@comercechat/service-kit';
 
 /** Longitud del código público de QR estático (≥ 10 base62, FR-QR-01): ~65 bits de entropía. */
 export const SHORT_CODE_LENGTH = 11;

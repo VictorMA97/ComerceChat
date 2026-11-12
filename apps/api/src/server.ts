@@ -1,7 +1,7 @@
 import { Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
+import { configureApi } from './configure-api.js';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { configureApp } from './bootstrap.js';
 import type { Env } from './config/env.js';
 
 /** Módulo raíz que, al apagar la app (SIGTERM en ECS), vacía las trazas pendientes. */
@@ -19,7 +19,7 @@ function rootModule(stopTelemetry: () => Promise<void>) {
 export async function startServer(env: Env, stopTelemetry: () => Promise<void>): Promise<void> {
   // rawBody: los webhooks del PSP se verifican sobre el cuerpo en bruto (ADR-015).
   const app = await NestFactory.create(rootModule(stopTelemetry), { rawBody: true });
-  configureApp(app, env);
+  configureApi(app, env);
   if (env.PROCESS_ROLE === 'worker') {
     await app.init();
     Logger.log('Proceso worker arrancado (sin HTTP)', 'Bootstrap');

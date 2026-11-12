@@ -1,7 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { equalShareCents, MAX_SPLIT_PARTS, type SplitRequest } from '@comercechat/shared-types';
-import { AppError } from '../../common/app-error.js';
-import { formatEur } from '../../common/money.js';
+import { AppError, formatEur } from '@comercechat/service-kit';
 import type { BillState } from '../tables/table-bill.service.js';
 
 export interface PlannedAllocation {

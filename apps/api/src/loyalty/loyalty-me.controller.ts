@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiHeader, ApiOperation, ApiProperty, ApiTags } from '@n
 import type { ClaimPointsResponse, CouponView, LoyaltyView } from '@comercechat/shared-types';
 import { Throttle } from '@nestjs/throttler';
 import { IsString, IsUUID, Length } from 'class-validator';
-import { RATE_LIMITS } from '../common/throttling.js';
+import { RATE_LIMITS } from '@comercechat/service-kit';
 import { CurrentUserId, UserAuthGuard } from '../identity/public/session.js';
 import { LoyaltyService } from './loyalty.service.js';
 

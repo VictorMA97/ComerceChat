@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { sql } from 'drizzle-orm';
 import type { Response } from 'express';
 import type { Redis } from 'ioredis';
-import { DB, type Database } from '../db/client.js';
+import { DB, type Database } from '../db/database.js';
 import { REDIS } from '../redis/redis.module.js';
 
 @ApiTags('health')

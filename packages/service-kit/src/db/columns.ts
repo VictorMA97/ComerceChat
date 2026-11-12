@@ -1,5 +1,5 @@
 import { customType, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { newId } from '../../common/ids.js';
+import { newId } from '../common/ids.js';
 
 /** Clave primaria UUIDv7 generada en la aplicación. */
 export const id = () =>

@@ -2,7 +2,7 @@ import { Controller, Get, HttpStatus, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { CouponView } from '@comercechat/shared-types';
 import { isUUID } from 'class-validator';
-import { AppError } from '../../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { CurrentUserId, UserAuthGuard } from '../../identity/public/session.js';
 import { CouponsService } from './coupons.service.js';
 

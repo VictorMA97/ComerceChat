@@ -3,9 +3,9 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule, type ThrottlerStorage } from '@nestjs/throttler';
 import type { Request } from 'express';
 import type { Redis } from 'ioredis';
-import { ENV, type Env } from '../config/env.js';
+import { ENV, type Env } from '../config/base-env.js';
 import { REDIS } from '../redis/redis.module.js';
-import { AppError } from './app-error.js';
+import { AppError } from '../common/app-error.js';
 import { clientIp } from './client-ip.js';
 
 /**

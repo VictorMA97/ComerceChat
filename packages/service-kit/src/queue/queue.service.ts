@@ -6,7 +6,7 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
-import { ENV, type Env } from '../config/env.js';
+import { ENV, type Env } from '../config/base-env.js';
 import { BullMqTransport } from './bullmq.transport.js';
 import {
   type EnqueueOptions,
@@ -19,9 +19,6 @@ import {
 } from './queue.types.js';
 import { SqsTransport } from './sqs.transport.js';
 import { contextFrom, traceCarrier } from './trace-context.js';
-
-export { QueueName } from './queue.types.js';
-export type { EnqueueOptions, QueueJob } from './queue.types.js';
 
 const tracer = trace.getTracer('comercechat-queue');
 

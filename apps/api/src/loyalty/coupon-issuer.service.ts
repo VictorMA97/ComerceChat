@@ -3,11 +3,13 @@ import type { CouponView } from '@comercechat/shared-types';
 import type { CouponIssuedV1 } from '@comercechat/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
-import { newId } from '../common/ids.js';
-import { safeErrorForLog } from '../common/safe-error.js';
+import {
+  newId,
+  safeErrorForLog,
+  OutboxRelayService,
+  OutboxService,
+} from '@comercechat/service-kit';
 import { DB, type Database, type Tx } from '../db/client.js';
-import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
-import { OutboxService } from '../outbox/outbox.service.js';
 import { PaymentsDirectory } from '../table-payments/public/payments-directory.js';
 import { couponIssuances } from './schema/loyalty.js';
 

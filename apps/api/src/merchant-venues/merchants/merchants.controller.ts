@@ -3,9 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagg
 import type { MerchantLoginResult, MerchantMe } from '@comercechat/shared-types';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { AppError } from '../../common/app-error.js';
-import { ClientIp } from '../../common/client-ip.js';
-import { RATE_LIMITS } from '../../common/throttling.js';
+import { AppError, ClientIp, RATE_LIMITS } from '@comercechat/service-kit';
 import { IdentityDirectory } from '../../identity/public/identity-directory.js';
 import {
   CurrentMerchant,

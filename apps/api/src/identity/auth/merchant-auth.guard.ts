@@ -9,7 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { MerchantUserRole } from '@comercechat/shared-types';
 import type { Request } from 'express';
-import { AppError } from '../../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { AuthService } from './auth.service.js';
 import type { MerchantPrincipal } from './auth.types.js';
 

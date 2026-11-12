@@ -11,5 +11,5 @@ export function createDatabase(url: string): { db: Database; pool: pg.Pool } {
   return { db: drizzle(pool, { schema }), pool };
 }
 
-export const DB = Symbol('DB');
-export const PG_POOL = Symbol('PG_POOL');
+// Los mismos tokens que inyectan los módulos de @comercechat/service-kit.
+export { DB, PG_POOL } from '@comercechat/service-kit/db';

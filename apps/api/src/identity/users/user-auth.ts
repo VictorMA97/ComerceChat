@@ -14,8 +14,7 @@ import {
   TokenRevocationService,
   USER_AUDIENCE,
 } from '../auth/token-revocation.service.js';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
+import { AppError, newId } from '@comercechat/service-kit';
 import { DB, type Database } from '../../db/client.js';
 import { users } from '../schema/users.js';
 

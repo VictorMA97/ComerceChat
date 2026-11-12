@@ -11,7 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 
 /** Programa de fidelización de un comercio (FR-LOY-01). En el MVP, uno por comercio (ADR-005). */
 export const loyaltyPrograms = loyaltySchema.table('loyalty_programs', {

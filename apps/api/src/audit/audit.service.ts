@@ -1,7 +1,7 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { and, desc, eq, lt } from 'drizzle-orm';
 import { DB, type Database } from '../db/client.js';
-import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
+import { OutboxRelayService } from '@comercechat/service-kit';
 import { auditLogs } from './schema/audit.js';
 
 export type AuditRow = typeof auditLogs.$inferSelect;

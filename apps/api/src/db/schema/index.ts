@@ -1,7 +1,7 @@
 // Esquema completo para el cliente de Drizzle, drizzle-kit, el seed y los tests. Cada contexto define
 // sus tablas en `src/<contexto>/schema/`, en su propio esquema de Postgres, y solo importa las suyas
 // (ADR-029, dependency-cruiser). Entre contextos no hay claves foráneas.
-export * from './platform.js';
+export { idempotencyKeys, outboxEvents, platformSchema } from '@comercechat/service-kit/db';
 export * from '../../identity/schema/pg-schema.js';
 export * from '../../identity/schema/enums.js';
 export * from '../../identity/schema/merchant-users.js';

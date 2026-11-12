@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { MerchantLoginResult, MerchantUserRole } from '@comercechat/shared-types';
 import { eq, inArray } from 'drizzle-orm';
-import { AppError } from '../../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { DB, type Database } from '../../db/client.js';
 import { MerchantMfaService, MFA_CHALLENGE_TTL_SECONDS } from '../auth/merchant-mfa.service.js';
 import { hashPassword } from '../auth/passwords.js';

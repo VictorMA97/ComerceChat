@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { DomainEvents, DomainEventType } from '@comercechat/contracts';
-import type { Database } from '../db/client.js';
-import { outboxEvents } from '../db/schema/platform.js';
+import type { Database } from '../db/database.js';
+import { outboxEvents } from '../db/platform.js';
 import { traceCarrier } from '../queue/trace-context.js';
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {

@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { QrResolution, TableBill } from '@comercechat/shared-types';
 import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
-import { AppError } from '../../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { orderAllocations, payments } from '../schema/payments.js';

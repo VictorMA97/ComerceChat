@@ -8,7 +8,13 @@ import {
 } from '@nestjs/common';
 import type { ClaimPointsResponse, CouponView, LoyaltyView } from '@comercechat/shared-types';
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
-import { AppError } from '../common/app-error.js';
+import {
+  AppError,
+  OutboxRelayService,
+  QueueName,
+  QueueService,
+  IdempotencyService,
+} from '@comercechat/service-kit';
 import { DB, type Database, type Tx } from '../db/client.js';
 import {
   loyaltyAccounts,
@@ -18,9 +24,6 @@ import {
   promotions,
 } from './schema/loyalty.js';
 import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
-import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
-import { QueueName, QueueService } from '../queue/queue.service.js';
-import { IdempotencyService } from '../common/idempotency.service.js';
 import {
   type CapturedPayment,
   PaymentsDirectory,

@@ -14,8 +14,8 @@ import {
   SUBSCRIPTIONS,
 } from '@comercechat/contracts';
 import { safeErrorForLog } from '../common/safe-error.js';
-import { DB, type Database } from '../db/client.js';
-import { outboxEvents } from '../db/schema/platform.js';
+import { DB, type Database } from '../db/database.js';
+import { outboxEvents } from '../db/platform.js';
 import { QueueService } from '../queue/queue.service.js';
 import type { NewJob } from '../queue/queue.types.js';
 

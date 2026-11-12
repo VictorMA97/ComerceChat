@@ -1,6 +1,6 @@
 import { identitySchema } from './pg-schema.js';
 import { boolean, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 import { merchantUserRole } from './enums.js';
 
 export const merchantUsers = identitySchema.table('merchant_users', {

@@ -1,7 +1,7 @@
 import { Controller, HttpStatus, type MessageEvent, Param, Sse, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
-import { AppError } from '../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import {
   CurrentMerchant,
   MerchantAuthGuard,

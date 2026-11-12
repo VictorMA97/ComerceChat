@@ -28,7 +28,7 @@ import {
   MerchantAuthGuard,
   MerchantRoles,
 } from '../../identity/public/session.js';
-import { ClientIp } from '../../common/client-ip.js';
+import { ClientIp } from '@comercechat/service-kit';
 import { VenuesService } from './venues.service.js';
 
 const CATEGORIES = ['restaurant', 'bar', 'cafe'] as const;

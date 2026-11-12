@@ -17,11 +17,11 @@ import { IsBoolean, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator'
 import { and, asc, desc, eq, gt, inArray, or } from 'drizzle-orm';
 import type { MerchantPrincipal } from '../identity/public/session.js';
 import { CurrentMerchant, MerchantAuthGuard } from '../identity/public/session.js';
-import { AppError } from '../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { ENV, type Env } from '../config/env.js';
 import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
 import { PaymentsDirectory } from '../table-payments/public/payments-directory.js';
-import { RealtimeService } from '../realtime/public/realtime.js';
+import { RealtimePublisher } from '@comercechat/service-kit';
 import { DB, type Database } from '../db/client.js';
 import {
   fakePosBillItems,
@@ -60,7 +60,7 @@ export class FakePosController {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
-    private readonly realtime: RealtimeService,
+    private readonly realtime: RealtimePublisher,
     private readonly payments: PaymentsDirectory,
     private readonly venues: VenuesDirectory,
   ) {}

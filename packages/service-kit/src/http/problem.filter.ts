@@ -9,8 +9,8 @@ import {
 } from '@nestjs/common';
 import type { ProblemDetails } from '@comercechat/shared-types';
 import type { Request, Response } from 'express';
-import { AppError } from './app-error.js';
-import { safeErrorForLog } from './safe-error.js';
+import { AppError } from '../common/app-error.js';
+import { safeErrorForLog } from '../common/safe-error.js';
 
 const DEFAULT_CODES: Record<number, string> = {
   400: 'BAD_REQUEST',

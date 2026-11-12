@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { orders } from './orders.js';
 import { paymentQrCodes } from './payment-qr.js';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 import { allocationStatus, paymentMethod, paymentStatus, transactionType } from './enums.js';
 
 /** Pago. Refleja el estado del PSP, que es la fuente de verdad del dinero (ARCHITECTURE §10). */

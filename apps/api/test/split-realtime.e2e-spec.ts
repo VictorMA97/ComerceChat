@@ -1,6 +1,7 @@
 // P3: dividir la cuenta con varios pagadores a la vez, webhooks en modo caos, tiempo real,
 // QR de cobro de la caja y vista de sala (ROADMAP §2, P3; SPEC §3.3 criterios 2, 3 y 5).
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 process.env.FAKE_PSP_CHAOS = 'on';
 
 import type { INestApplication } from '@nestjs/common';
@@ -11,7 +12,6 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { hashPassword } from '../src/identity/auth/passwords.js';
-import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -84,7 +84,7 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
     expect(env.FAKE_PSP_CHAOS).toBe('on');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     app
       .get(FakePspService)

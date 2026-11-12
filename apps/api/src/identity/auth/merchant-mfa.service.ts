@@ -4,14 +4,18 @@ import type { MfaSetupResponse } from '@comercechat/shared-types';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { randomBytes } from 'node:crypto';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
-import { decryptPii, encryptPii, hashPii } from '../../common/pii.js';
+import {
+  AuditEmitter,
+  AppError,
+  newId,
+  decryptPii,
+  encryptPii,
+  hashPii,
+  REDIS,
+} from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { merchantUserRecoveryCodes, merchantUsers } from '../schema/merchant-users.js';
-import { REDIS } from '../../redis/redis.module.js';
 import type { MerchantPrincipal } from './auth.types.js';
 import { base32Encode, generateTotpSecret, otpauthUri, verifyTotp } from './totp.js';
 import { JWT_ISSUER, TokenRevocationService } from './token-revocation.service.js';

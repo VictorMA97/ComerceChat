@@ -1,9 +1,9 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { and, eq, lt } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { AppError } from './app-error.js';
-import { DB, type Database } from '../db/client.js';
-import { idempotencyKeys } from '../db/schema/platform.js';
+import { AppError } from '../common/app-error.js';
+import { DB, type Database } from '../db/database.js';
+import { idempotencyKeys } from '../db/platform.js';
 
 const KEY_PATTERN = /^[A-Za-z0-9_:-]{8,200}$/;
 const RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -37,9 +37,10 @@ export class IdempotencyService {
       .returning({ id: idempotencyKeys.id });
 
     if (!claimed) {
-      const existing = await this.db.query.idempotencyKeys.findFirst({
-        where: and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)),
-      });
+      const [existing] = await this.db
+        .select()
+        .from(idempotencyKeys)
+        .where(and(eq(idempotencyKeys.scope, scope), eq(idempotencyKeys.key, key)));
       if (existing?.requestHash !== requestHash) {
         throw new AppError(
           'IDEMPOTENCY_KEY_REUSED',

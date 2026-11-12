@@ -1,6 +1,7 @@
 // P4: registro tras el pago, puntos, recompensas, cupones y analítica (ROADMAP §2, P4;
 // SPEC §3.3 criterios 3 y 4).
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { and, eq } from 'drizzle-orm';
@@ -8,7 +9,6 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { hashPassword } from '../src/identity/auth/passwords.js';
-import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -96,7 +96,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       .useValue({ send: async (p: string, c: string) => void codes.set(p, c) })
       .compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     app
       .get(FakePspService)

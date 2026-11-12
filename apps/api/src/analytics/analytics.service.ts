@@ -2,7 +2,7 @@ import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { AnalyticsPeriod, AnalyticsTotals, AnalyticsView } from '@comercechat/shared-types';
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { DB, type Database } from '../db/client.js';
-import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
+import { OutboxRelayService } from '@comercechat/service-kit';
 import { paymentFacts } from './schema/analytics.js';
 
 const DAYS: Record<AnalyticsPeriod, number> = { today: 1, week: 7, month: 30 };

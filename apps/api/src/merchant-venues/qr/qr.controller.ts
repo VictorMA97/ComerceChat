@@ -1,5 +1,5 @@
 import { Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
-import { ClientIp } from '../../common/client-ip.js';
+import { ClientIp } from '@comercechat/service-kit';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { QrResolution, TableQr } from '@comercechat/shared-types';
 import type { MerchantPrincipal } from '../../identity/public/session.js';

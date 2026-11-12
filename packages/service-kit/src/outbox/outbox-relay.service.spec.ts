@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { domainEventsQueue, SUBSCRIPTIONS } from '@comercechat/contracts';
-import type { Database } from '../db/client.js';
+import type { Database } from '../db/database.js';
 import type { QueueService } from '../queue/queue.service.js';
 import type { NewJob, QueueName } from '../queue/queue.types.js';
 import { OutboxRelayService } from './outbox-relay.service.js';

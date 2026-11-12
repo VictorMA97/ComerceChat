@@ -1,7 +1,7 @@
 import { Controller, Get, HttpStatus, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { DynamicQrView, FloorView, TableBill } from '@comercechat/shared-types';
-import { AppError } from '../../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import {
   CurrentMerchant,
   MerchantAuthGuard,

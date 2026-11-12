@@ -16,7 +16,7 @@ import {
   type SpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import type { Env } from './config/env.js';
+import type { Env } from './config/base-env.js';
 
 /** Atributos con URLs: pueden llevar tokens en la query (`/payments/:id?t=…`). */
 const URL_ATTRIBUTES = ['url.full', 'url.query', 'http.url', 'http.target', 'http.route.query'];
