@@ -1,6 +1,5 @@
-// Catálogo de eventos de dominio entre contextos (ADR-029, MIGRACION §3.3). En F2 pasa a
-// packages/contracts. Cada evento lleva los datos que necesitan sus consumidores, para que ninguno
-// lea tablas de otro contexto. La entrega es «al menos una vez» y sin orden: todo consumidor es
+// Catálogo de eventos de dominio entre servicios (ADR-029, MIGRACION §3.3). Cada evento lleva los
+// datos que necesitan sus consumidores, para que ninguno lea tablas de otro contexto. La entrega es «al menos una vez» y sin orden: todo consumidor es
 // idempotente (ADR-026). Un cambio incompatible en un evento es un tipo nuevo (`.v2`), no una edición.
 
 /** Contextos que consumen eventos. Cada uno tiene su cola: `domain-events-<consumidor>`. */

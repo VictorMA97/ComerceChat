@@ -5,7 +5,7 @@ import { AppError } from '../../common/app-error.js';
 import { formatEur } from '../../common/money.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { couponRedemptions, coupons } from '../schema/coupons.js';
-import type { CouponIssuedV1 } from '../../contracts/events.js';
+import type { CouponIssuedV1 } from '@comercechat/contracts';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 

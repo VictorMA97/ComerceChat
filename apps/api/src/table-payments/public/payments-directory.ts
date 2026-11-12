@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { DynamicQrView } from '@comercechat/shared-types';
-import type { CouponIssuedV1 } from '../../contracts/events.js';
+import type { CouponIssuedV1 } from '@comercechat/contracts';
 import { and, eq } from 'drizzle-orm';
 import { AppError } from '../../common/app-error.js';
 import { ENV, type Env } from '../../config/env.js';

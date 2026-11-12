@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import type { CouponView } from '@comercechat/shared-types';
-import type { CouponIssuedV1 } from '../contracts/events.js';
+import type { CouponIssuedV1 } from '@comercechat/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { newId } from '../common/ids.js';

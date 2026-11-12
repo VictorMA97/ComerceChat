@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuditRecordedV1 } from '../contracts/events.js';
+import type { AuditRecordedV1 } from '@comercechat/contracts';
 import { newId } from '../common/ids.js';
 import { DB, type Database, type Tx } from '../db/client.js';
 import { OutboxService } from './outbox.service.js';

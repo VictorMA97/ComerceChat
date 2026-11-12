@@ -12,7 +12,7 @@ import {
   type DomainEventType,
   domainEventsQueue,
   SUBSCRIPTIONS,
-} from '../contracts/events.js';
+} from '@comercechat/contracts';
 import { safeErrorForLog } from '../common/safe-error.js';
 import { DB, type Database } from '../db/client.js';
 import { outboxEvents } from '../db/schema/platform.js';

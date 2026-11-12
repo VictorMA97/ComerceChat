@@ -1,4 +1,4 @@
-import { CONSUMERS, type Consumer, domainEventsQueue } from '../contracts/events.js';
+import { CONSUMERS, type Consumer, domainEventsQueue } from '@comercechat/contracts';
 import type { TraceCarrier } from './trace-context.js';
 
 export const QueueName = {
