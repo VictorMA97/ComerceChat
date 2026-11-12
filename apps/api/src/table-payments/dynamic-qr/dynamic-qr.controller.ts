@@ -1,8 +1,8 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { DynamicQrResolution, DynamicQrView } from '@comercechat/shared-types';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
-import { CurrentMerchant, MerchantAuthGuard } from '../../identity/auth/merchant-auth.guard.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
+import { CurrentMerchant, MerchantAuthGuard } from '../../identity/public/session.js';
 import { DynamicQrService } from './dynamic-qr.service.js';
 
 /** El QR de cobro de una mesa se crea desde la caja: `POST /merchant/tables/:tableId/payment-qr`. */

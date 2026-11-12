@@ -16,6 +16,10 @@ import { RealtimeModule } from './realtime/realtime.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { TablesModule } from './table-payments/tables/tables.module.js';
 import { UsersModule } from './identity/users/users.module.js';
+import { LoyaltyModule } from './loyalty/loyalty.module.js';
+import { LoyaltyPublicModule } from './loyalty/public/loyalty-public.module.js';
+import { VenuesPublicModule } from './merchant-venues/public/venues-public.module.js';
+import { TablePaymentsPublicModule } from './table-payments/public/table-payments-public.module.js';
 import { VenuesModule } from './merchant-venues/venues/venues.module.js';
 
 @Module({
@@ -29,6 +33,10 @@ import { VenuesModule } from './merchant-venues/venues/venues.module.js';
     AuditModule,
     OutboxModule,
     AuthModule,
+    VenuesPublicModule,
+    TablePaymentsPublicModule,
+    LoyaltyPublicModule,
+    LoyaltyModule,
     MerchantsModule,
     VenuesModule,
     QrModule,

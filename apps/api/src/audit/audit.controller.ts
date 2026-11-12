@@ -1,18 +1,12 @@
-import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { AuditEntryView, AuditPage } from '@comercechat/shared-types';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
-import { inArray } from 'drizzle-orm';
 import { AuditService } from './audit.service.js';
-import type { MerchantPrincipal } from '../identity/auth/auth.types.js';
-import {
-  CurrentMerchant,
-  MerchantAuthGuard,
-  MerchantRoles,
-} from '../identity/auth/merchant-auth.guard.js';
-import { DB, type Database } from '../db/client.js';
-import { merchantUsers } from '../identity/schema/merchant-users.js';
+import type { MerchantPrincipal } from '../identity/public/session.js';
+import { CurrentMerchant, MerchantAuthGuard, MerchantRoles } from '../identity/public/session.js';
+import { IdentityDirectory } from '../identity/public/identity-directory.js';
 
 class AuditQueryDto {
   @ApiProperty({ required: false, description: 'Cursor: id de la última entrada recibida' })
@@ -44,7 +38,7 @@ export function maskIp(ip: string | null): string | null {
 @Controller('merchant/audit')
 export class MerchantAuditController {
   constructor(
-    @Inject(DB) private readonly db: Database,
+    private readonly identity: IdentityDirectory,
     private readonly audit: AuditService,
   ) {}
 
@@ -66,13 +60,7 @@ export class MerchantAuditController {
         page.filter((r) => r.actorType === 'MERCHANT_USER' && r.actorId).map((r) => r.actorId!),
       ),
     ];
-    const users = actorIds.length
-      ? await this.db
-          .select({ id: merchantUsers.id, email: merchantUsers.email })
-          .from(merchantUsers)
-          .where(inArray(merchantUsers.id, actorIds))
-      : [];
-    const emails = new Map(users.map((u) => [u.id, u.email]));
+    const emails = await this.identity.merchantUserEmails(actorIds);
     const items: AuditEntryView[] = page.map((r) => ({
       id: r.id,
       at: r.createdAt.toISOString(),

@@ -11,7 +11,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, geographyPoint, id, updatedAt } from '../../db/schema/columns.js';
 import { merchantStatus } from '../../db/schema/enums.js';
-import { merchantUsers } from '../../identity/schema/merchant-users.js';
 
 export const merchants = pgTable('merchants', {
   id: id(),
@@ -80,7 +79,6 @@ export const tables = pgTable(
 );
 
 export const merchantsRelations = relations(merchants, ({ many }) => ({
-  users: many(merchantUsers),
   locations: many(merchantLocations),
 }));
 

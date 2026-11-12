@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { LocationView } from '@comercechat/shared-types';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { AuditService } from '../../audit/audit.service.js';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
+import { AuditService } from '../../audit/public/audit.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { merchantLocations, tables } from '../schema/merchants.js';
@@ -33,7 +33,7 @@ export class VenuesService {
     input: NewLocation & { tableCount?: number; capacity?: number },
     ip?: string,
   ): Promise<{ id: string }> {
-    return this.db.transaction(async (tx) => {
+    const { id, created } = await this.db.transaction(async (tx) => {
       const [location] = await tx
         .insert(merchantLocations)
         .values({
@@ -57,11 +57,13 @@ export class VenuesService {
         },
         tx,
       );
-      if (input.tableCount) {
-        await this.insertTables(tx, principal, location!.id, input.tableCount, input.capacity, ip);
-      }
-      return { id: location!.id };
+      const created = input.tableCount
+        ? await this.insertTables(tx, principal, location!.id, input.tableCount, input.capacity, ip)
+        : [];
+      return { id: location!.id, created };
     });
+    await this.linkToPos(id, created);
+    return { id };
   }
 
   /** Alta masiva de mesas (FR-MER-04): numera a continuación de las existentes y emite su QR. */
@@ -72,7 +74,7 @@ export class VenuesService {
     capacity?: number,
     ip?: string,
   ): Promise<void> {
-    await this.db.transaction(async (tx) => {
+    const created = await this.db.transaction(async (tx) => {
       // Bloquea el local: dos altas simultáneas no pueden repetir la misma numeración.
       const [location] = await tx
         .select({ id: merchantLocations.id })
@@ -87,8 +89,25 @@ export class VenuesService {
       if (!location) {
         throw new AppError('LOCATION_NOT_FOUND', HttpStatus.NOT_FOUND, 'Local no encontrado');
       }
-      await this.insertTables(tx, principal, locationId, count, capacity, ip);
+      return this.insertTables(tx, principal, locationId, count, capacity, ip);
     });
+    await this.linkToPos(locationId, created);
+  }
+
+  /**
+   * Enlaza las mesas nuevas con el software de caja (FR-POS-05). Va después del commit: la caja es
+   * otro sistema (ADR-029). Si falla, las mesas quedan sin enlazar y la web QR pide la cuenta al
+   * personal (TABLE_NOT_LINKED) hasta que se emparejen.
+   */
+  private async linkToPos(
+    locationId: string,
+    created: { id: string; label: string }[],
+  ): Promise<void> {
+    if (created.length === 0 || !this.pos.linkNewTables) return;
+    const links = await this.pos.linkNewTables(locationId, created);
+    for (const [tableId, externalTableId] of links) {
+      await this.db.update(tables).set({ externalTableId }).where(eq(tables.id, tableId));
+    }
   }
 
   private async insertTables(
@@ -98,7 +117,7 @@ export class VenuesService {
     count: number,
     capacity = 4,
     ip?: string,
-  ): Promise<void> {
+  ): Promise<{ id: string; label: string }[]> {
     const existing = await tx
       .select({ label: tables.label })
       .from(tables)
@@ -118,12 +137,7 @@ export class VenuesService {
       )
       .returning({ id: tables.id, label: tables.label });
 
-    const links = (await this.pos.linkNewTables?.(tx, locationId, rows)) ?? new Map();
     for (const t of rows) {
-      const externalTableId = links.get(t.id);
-      if (externalTableId) {
-        await tx.update(tables).set({ externalTableId }).where(eq(tables.id, t.id));
-      }
       await this.qr.issueTableQr(tx, {
         locationId,
         tableId: t.id,
@@ -143,6 +157,7 @@ export class VenuesService {
       },
       tx,
     );
+    return rows;
   }
 
   /** Locales del comercio con sus mesas y el QR activo de cada mesa. */

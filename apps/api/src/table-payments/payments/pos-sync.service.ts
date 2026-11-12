@@ -1,11 +1,12 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
 import { type DomainEventJob, OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
-import { RealtimeService } from '../../realtime/realtime.service.js';
+import { RealtimeService } from '../../realtime/public/realtime.js';
 import { PAYMENT_CAPTURED } from './payment-events.service.js';
 
 /**
@@ -21,6 +22,7 @@ export class PosSyncService implements OnModuleInit {
     @Inject(POS_CONNECTOR) private readonly pos: PosConnector,
     private readonly relay: OutboxRelayService,
     private readonly realtime: RealtimeService,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   onModuleInit(): void {
@@ -29,16 +31,14 @@ export class PosSyncService implements OnModuleInit {
 
   async registerCaptured(event: DomainEventJob): Promise<void> {
     const paymentId = event.payload.paymentId as string;
-    const p = await this.db.query.payments.findFirst({
-      where: eq(payments.id, paymentId),
-      with: { table: true, order: true },
-    });
+    const [p] = await this.db.select().from(payments).where(eq(payments.id, paymentId));
     if (!p || p.posRegisteredAt) return;
-    if (!p.table?.externalTableId) {
+    const table = p.tableId ? (await this.venues.tablePlace(p.tableId))?.table : undefined;
+    if (!table?.externalTableId) {
       this.logger.warn(`Pago ${p.id} sin mesa enlazada con la caja: no se registra en el TPV`);
       return;
     }
-    const { billClosed } = await this.pos.registerPayment(p.locationId, p.table.externalTableId, {
+    const { billClosed } = await this.pos.registerPayment(p.locationId, table.externalTableId, {
       amountCents: p.amountCents,
       tipCents: p.tipCents,
       discountCents: p.discountCents,
@@ -57,7 +57,7 @@ export class PosSyncService implements OnModuleInit {
       billClosed ? 'bill.closed' : 'bill.updated',
     );
     this.logger.log(
-      `Pago ${p.id} registrado en la caja (mesa ${p.table.label}${billClosed ? ', cuenta cerrada' : ''})`,
+      `Pago ${p.id} registrado en la caja (mesa ${table.label}${billClosed ? ', cuenta cerrada' : ''})`,
     );
   }
 }

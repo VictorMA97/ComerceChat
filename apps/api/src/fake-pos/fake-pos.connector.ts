@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { DB, type Database, type Tx } from '../db/client.js';
+import { DB, type Database } from '../db/client.js';
 import {
   fakePosBillItems,
   fakePosBills,
@@ -81,20 +81,21 @@ export class FakePosConnector implements PosConnector {
 
   /** El simulador da de alta el local (con la carta por defecto) y una mesa propia por cada mesa. */
   async linkNewTables(
-    tx: Tx,
     locationId: string,
     tables: { id: string; label: string }[],
   ): Promise<Map<string, string>> {
-    const [created] = await tx
-      .insert(fakePosLocations)
-      .values({ locationId, healthy: true })
-      .onConflictDoNothing()
-      .returning({ locationId: fakePosLocations.locationId });
-    if (created) {
-      await tx
-        .insert(fakePosMenuItems)
-        .values(FAKE_POS_MENU.map((item) => ({ locationId, ...item })));
-    }
+    await this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(fakePosLocations)
+        .values({ locationId, healthy: true })
+        .onConflictDoNothing()
+        .returning({ locationId: fakePosLocations.locationId });
+      if (created) {
+        await tx
+          .insert(fakePosMenuItems)
+          .values(FAKE_POS_MENU.map((item) => ({ locationId, ...item })));
+      }
+    });
     return new Map(tables.map((t) => [t.id, `SIM-${t.id.slice(-12)}`]));
   }
 

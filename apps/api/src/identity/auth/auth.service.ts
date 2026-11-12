@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { LoginResponse, MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { AuditService } from '../../audit/audit.service.js';
+import { AuditService } from '../../audit/public/audit.js';
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { hashPii } from '../../common/pii.js';

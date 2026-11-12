@@ -5,26 +5,19 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
-  Param,
-  ParseUUIDPipe,
   Post,
   Put,
-  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiHeader,
   ApiOperation,
   ApiProperty,
   ApiPropertyOptional,
   ApiTags,
 } from '@nestjs/swagger';
 import type {
-  ClaimPointsResponse,
   ConsentsInput,
-  CouponView,
-  LoyaltyView,
   MeView,
   OtpStartResponse,
   UserSession,
@@ -35,7 +28,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  isUUID,
   Length,
   Matches,
   ValidateNested,
@@ -49,8 +41,6 @@ import { hashPii } from '../../common/pii.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { users } from '../schema/users.js';
-import { CouponsService } from '../../table-payments/coupons/coupons.service.js';
-import { LoyaltyService } from '../../loyalty/loyalty.service.js';
 import { OtpService } from './otp.service.js';
 import { normalizePhone } from './phone.js';
 import { CurrentUserId, UserAuthGuard, UserTokens } from './user-auth.js';
@@ -87,11 +77,6 @@ class ConsentsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() shareWithMerchant?: boolean;
 }
 
-class ClaimDto {
-  @ApiProperty() @IsUUID() paymentId: string;
-  @ApiProperty() @IsString() @Length(10, 64) statusToken: string;
-}
-
 const invalidPhone = () =>
   new AppError('PHONE_INVALID', HttpStatus.UNPROCESSABLE_ENTITY, 'Teléfono no válido');
 
@@ -102,8 +87,6 @@ export class UsersController {
     private readonly otp: OtpService,
     private readonly usersService: UsersService,
     private readonly tokens: UserTokens,
-    private readonly loyalty: LoyaltyService,
-    private readonly coupons: CouponsService,
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
   ) {}
@@ -177,56 +160,5 @@ export class UsersController {
       await this.usersService.setMerchantShare(userId, dto.merchantId, dto.shareWithMerchant);
     }
     return this.usersService.me(userId);
-  }
-
-  @Get('me/loyalty')
-  @UseGuards(UserAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Puntos y recompensas por comercio' })
-  loyaltyView(@CurrentUserId() userId: string): Promise<LoyaltyView[]> {
-    return this.loyalty.view(userId);
-  }
-
-  @Get('me/coupons')
-  @UseGuards(UserAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cupones disponibles (opcionalmente, de un comercio)' })
-  myCoupons(
-    @CurrentUserId() userId: string,
-    @Query('merchantId') merchantId?: string,
-  ): Promise<CouponView[]> {
-    // Vacío = todos los comercios. Si viene, tiene que ser un UUID (si no, Postgres fallaría con un 500).
-    if (merchantId && !isUUID(merchantId)) {
-      throw new AppError('VALIDATION_FAILED', HttpStatus.BAD_REQUEST, 'merchantId no es válido');
-    }
-    return this.coupons.listForUser(this.db, userId, merchantId || undefined);
-  }
-
-  @Post('me/rewards/:id/redeem')
-  @Throttle({ default: RATE_LIMITS.redeem })
-  @UseGuards(UserAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Canjea puntos por una recompensa: emite un cupón de un solo uso (FR-LOY-03)',
-  })
-  @ApiHeader({ name: 'Idempotency-Key', required: true })
-  redeem(
-    @CurrentUserId() userId: string,
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Headers('idempotency-key') idempotencyKey: string | undefined,
-  ): Promise<CouponView> {
-    return this.loyalty.redeemReward(userId, id, idempotencyKey);
-  }
-
-  @Post('me/claim')
-  @Throttle({ default: RATE_LIMITS.redeem })
-  @UseGuards(UserAuthGuard)
-  @ApiBearerAuth()
-  @HttpCode(200)
-  @ApiOperation({
-    summary: 'Reclama los puntos de un pago hecho sin cuenta, en las 24 h siguientes (FR-USR-02)',
-  })
-  claim(@CurrentUserId() userId: string, @Body() dto: ClaimDto): Promise<ClaimPointsResponse> {
-    return this.loyalty.claim(userId, dto.paymentId, dto.statusToken);
   }
 }

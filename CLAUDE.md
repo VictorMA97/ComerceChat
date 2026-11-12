@@ -11,7 +11,7 @@ Monorepo pnpm + Turborepo. **PoC local completa:** hitos P1–P4 (`docs/ROADMAP.
 - Todo: `pnpm poc:up` (Docker + `.env.local` + migraciones + seed + dev). Requiere Docker.
 - `pnpm dev` · `pnpm lint` · `pnpm typecheck` · `pnpm build` · `pnpm test` (Turborepo, todo el monorepo).
 - Tests: `pnpm test:unit` (sin Docker, cacheado; lo ejecuta el hook `pre-push` junto a `lint` y `typecheck`) y `pnpm test:integration` (Postgres/Redis). El `pre-commit` pasa ESLint + Prettier con lint-staged.
-- Un solo test: `pnpm --filter @comercechat/api exec vitest run src/merchant-venues/qr/qr-signature.spec.ts` (o `-t "nombre del test"`).
+- Un solo test: `pnpm --filter @comercechat/api exec vitest run src/common/qr-signature.spec.ts` (o `-t "nombre del test"`).
 - Los E2E de la API (`apps/api/test/*.e2e-spec.ts`) usan Postgres, Redis y ElasticMQ (SQS) reales de docker compose; crean sus propios datos con emails únicos.
 - Migraciones: edita las tablas del contexto en `apps/api/src/<contexto>/schema/*` (`src/db/schema/index.ts` solo las junta), ejecuta `pnpm db:generate`, **revisa el SQL** en `apps/api/drizzle/` (ver ADR-019: hay que corregir a mano el tipo `geography`) y aplica con `pnpm db:migrate`.
 - `pnpm db:seed` borra y recrea los datos de prueba.

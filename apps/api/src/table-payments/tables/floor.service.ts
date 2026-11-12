@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { FloorTableStatus, FloorView } from '@comercechat/shared-types';
-import { and, asc, desc, eq, gt, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNotNull, sql } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
-import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
 import { POS_CONNECTOR, type PosConnector, PosUnavailableError } from '../../pos/pos-connector.js';
@@ -20,20 +20,17 @@ export class FloorService {
     @Inject(DB) private readonly db: Database,
     @Inject(POS_CONNECTOR) private readonly pos: PosConnector,
     private readonly bills: TableBillService,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   async floor(merchantId: string): Promise<FloorView[]> {
-    const locations = await this.db
-      .select()
-      .from(merchantLocations)
-      .where(eq(merchantLocations.merchantId, merchantId))
-      .orderBy(asc(merchantLocations.name));
+    const locations = await this.venues.locationsOf(merchantId);
     return Promise.all(locations.map((l) => this.location(l.id, l.name)));
   }
 
   private async location(locationId: string, locationName: string): Promise<FloorView> {
     const [tableRows, todays] = await Promise.all([
-      this.db.select().from(tables).where(eq(tables.locationId, locationId)),
+      this.venues.tablesOf(locationId),
       this.db
         .select({
           tableId: payments.tableId,

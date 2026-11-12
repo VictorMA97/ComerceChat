@@ -2,12 +2,12 @@ import { Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/
 import { ClientIp } from '../../common/client-ip.js';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { QrResolution, TableQr } from '@comercechat/shared-types';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import {
   CurrentMerchant,
   MerchantAuthGuard,
   MerchantRoles,
-} from '../../identity/auth/merchant-auth.guard.js';
+} from '../../identity/public/session.js';
 import { QrService } from './qr.service.js';
 
 @ApiTags('qr')

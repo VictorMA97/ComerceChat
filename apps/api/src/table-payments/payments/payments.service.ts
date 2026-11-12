@@ -20,20 +20,19 @@ import { safeErrorForLog } from '../../common/safe-error.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { coupons } from '../schema/coupons.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orderAllocations, payments } from '../schema/payments.js';
-import { pointsLedgerEntries } from '../../loyalty/schema/loyalty.js';
 import { qrCodes } from '../../merchant-venues/schema/qr.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
-import { RealtimeService } from '../../realtime/realtime.service.js';
+import { RealtimeService } from '../../realtime/public/realtime.js';
 import { TableBillService } from '../tables/table-bill.service.js';
 import { platformFeeCents, statementDescriptor } from './fees.js';
 import { IdempotencyService } from '../../common/idempotency.service.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './payment-provider.js';
 import { paymentStatusToken, isValidPaymentStatusToken } from './status-token.js';
 import { CouponsService } from '../coupons/coupons.service.js';
-import { LoyaltyService, pointsFor } from '../../loyalty/loyalty.service.js';
+import { LoyaltyDirectory } from '../../loyalty/public/loyalty-directory.js';
 import { planSplit, type PlannedAllocation } from './split.js';
 
 interface NewPayment {
@@ -73,7 +72,8 @@ export class PaymentsService implements OnApplicationBootstrap {
     private readonly queues: QueueService,
     private readonly realtime: RealtimeService,
     private readonly coupons: CouponsService,
-    private readonly loyalty: LoyaltyService,
+    private readonly loyalty: LoyaltyDirectory,
+    private readonly venues: VenuesDirectory,
   ) {
     this.queues.registerWorker(
       QueueName.MAINTENANCE,
@@ -405,9 +405,7 @@ export class PaymentsService implements OnApplicationBootstrap {
     idempotencyKey: string,
   ): Promise<PaymentSessionResponse> {
     await this.cancelAtProvider(superseded);
-    const merchant = await this.db.query.merchants.findFirst({
-      where: eq(merchants.id, payment.merchantId),
-    });
+    const merchant = await this.venues.merchant(payment.merchantId);
     const statusToken = this.statusToken(payment.id);
     try {
       const session = await this.provider.createPaymentSession({
@@ -472,11 +470,13 @@ export class PaymentsService implements OnApplicationBootstrap {
   /** Estado y justificante del pago para el comensal (FR-PAY-05/06). Requiere el token del pago. */
   async receipt(paymentId: string, token: string | undefined): Promise<PaymentReceipt> {
     this.assertToken(paymentId, token);
-    const p = await this.db.query.payments.findFirst({
-      where: eq(payments.id, paymentId),
-      with: { merchant: true, location: true, table: true },
-    });
+    const [p] = await this.db.select().from(payments).where(eq(payments.id, paymentId));
     if (!p) throw new AppError('PAYMENT_NOT_FOUND', HttpStatus.NOT_FOUND, 'Pago no encontrado');
+    const [merchant, location, place] = await Promise.all([
+      this.venues.merchant(p.merchantId),
+      this.venues.location(p.locationId),
+      p.tableId ? this.venues.tablePlace(p.tableId) : null,
+    ]);
     const [coupon] = await this.db
       .select({ title: coupons.title })
       .from(coupons)
@@ -486,9 +486,9 @@ export class PaymentsService implements OnApplicationBootstrap {
       paymentId: p.id,
       status: p.status,
       failureReason: p.failureReason,
-      merchant: { brandName: p.merchant.brandName },
-      location: { name: p.location.name, address: p.location.address },
-      table: p.table ? { label: p.table.label } : null,
+      merchant: { brandName: merchant?.brandName ?? '' },
+      location: { name: location?.name ?? '', address: location?.address ?? '' },
+      table: place ? { label: place.table.label } : null,
       amountCents: p.amountCents,
       discountCents: p.discountCents,
       couponTitle: coupon?.title ?? null,
@@ -505,20 +505,20 @@ export class PaymentsService implements OnApplicationBootstrap {
 
   /** Puntos del pago para el justificante (FR-LOY-02, FR-USR-02). */
   private async pointsInfo(p: PaymentRow): Promise<PaymentReceipt['points']> {
-    const program = await this.loyalty.programFor(p.merchantId);
-    if (!program) return null;
-    const [earned] = await this.db
-      .select({ points: pointsLedgerEntries.points })
-      .from(pointsLedgerEntries)
-      .where(and(eq(pointsLedgerEntries.paymentId, p.id), eq(pointsLedgerEntries.type, 'EARN')));
+    const loyalty = await this.loyalty.receiptPoints({
+      paymentId: p.id,
+      merchantId: p.merchantId,
+      chargedCents: chargedCents(p),
+    });
+    if (!loyalty) return null;
     const claimWindowOpen =
       p.capturedAt !== null && Date.now() - p.capturedAt.getTime() < 24 * 60 * 60 * 1000;
     return {
       merchantId: p.merchantId,
-      points: earned?.points ?? pointsFor(program, chargedCents(p)),
+      points: loyalty.points,
       // Pago de un usuario identificado: el apunte llega por el outbox un instante después, pero está
       // garantizado (handler idempotente), así que ya se muestra como guardado.
-      claimed: Boolean(earned) || (p.status === 'CAPTURED' && Boolean(p.userId)),
+      claimed: loyalty.earned || (p.status === 'CAPTURED' && Boolean(p.userId)),
       claimable: p.status === 'CAPTURED' && !p.userId && claimWindowOpen,
     };
   }

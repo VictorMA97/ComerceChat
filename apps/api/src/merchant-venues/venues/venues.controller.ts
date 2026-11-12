@@ -22,12 +22,12 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import {
   CurrentMerchant,
   MerchantAuthGuard,
   MerchantRoles,
-} from '../../identity/auth/merchant-auth.guard.js';
+} from '../../identity/public/session.js';
 import { ClientIp } from '../../common/client-ip.js';
 import { VenuesService } from './venues.service.js';
 

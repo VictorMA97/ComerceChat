@@ -2,8 +2,8 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { QrResolution, TableQr } from '@comercechat/shared-types';
 import { and, eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { AuditService } from '../../audit/audit.service.js';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
+import { AuditService } from '../../audit/public/audit.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
@@ -12,7 +12,7 @@ import { merchantLocations, merchants, tables } from '../schema/merchants.js';
 import { qrCodes } from '../schema/qr.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { REDIS } from '../../redis/redis.module.js';
-import { generateShortCode, qrUrl, signQr, verifyQrSignature } from './qr-signature.js';
+import { generateShortCode, qrUrl, signQr, verifyQrSignature } from '../../common/qr-signature.js';
 
 /** TTL de la cache de resolución. Garantiza que un QR revocado deja de funcionar en < 60 s (FR-QR-05). */
 const RESOLVE_CACHE_TTL_SECONDS = 30;

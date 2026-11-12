@@ -1,36 +1,21 @@
-import {
-  Controller,
-  Get,
-  HttpStatus,
-  type MessageEvent,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Sse,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, HttpStatus, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { DynamicQrView, FloorView, TableBill } from '@comercechat/shared-types';
-import { and, eq } from 'drizzle-orm';
-import { Inject } from '@nestjs/common';
-import type { Observable } from 'rxjs';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
-import { CurrentMerchant, MerchantAuthGuard } from '../../identity/auth/merchant-auth.guard.js';
-import { DB, type Database } from '../../db/client.js';
-import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
 import { AppError } from '../../common/app-error.js';
+import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  type MerchantPrincipal,
+} from '../../identity/public/session.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
-import { RealtimeService } from '../../realtime/realtime.service.js';
 import { FloorService } from './floor.service.js';
 import { TableBillService } from './table-bill.service.js';
 
 @ApiTags('qr')
 @Controller('qr')
 export class TableBillController {
-  constructor(
-    private readonly bills: TableBillService,
-    private readonly realtime: RealtimeService,
-  ) {}
+  constructor(private readonly bills: TableBillService) {}
 
   @Get(':code/bill')
   @ApiOperation({
@@ -38,19 +23,6 @@ export class TableBillController {
   })
   bill(@Param('code') code: string): Promise<TableBill> {
     return this.bills.view(code);
-  }
-
-  @Sse(':code/events')
-  @ApiOperation({
-    summary: 'Avisos en tiempo real de la mesa (SSE): cuando llegan, se vuelve a pedir la cuenta',
-  })
-  async events(@Param('code') code: string): Promise<Observable<MessageEvent>> {
-    const ctx = await this.bills.context(code);
-    // Eventos de esta mesa o de todo el local (p. ej. caída del TPV).
-    return this.realtime.stream(
-      (e) =>
-        e.locationId === ctx.locationId && (e.tableId === ctx.tableId || (!e.tableId && !e.qrId)),
-    );
   }
 }
 
@@ -61,10 +33,9 @@ export class TableBillController {
 export class FloorController {
   constructor(
     private readonly floorService: FloorService,
-    private readonly realtime: RealtimeService,
     private readonly bills: TableBillService,
     private readonly dynamicQr: DynamicQrService,
-    @Inject(DB) private readonly db: Database,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   @Post('tables/:tableId/payment-qr')
@@ -76,12 +47,9 @@ export class FloorController {
     @CurrentMerchant() p: MerchantPrincipal,
     @Param('tableId', new ParseUUIDPipe()) tableId: string,
   ): Promise<DynamicQrView> {
-    const [own] = await this.db
-      .select({ id: tables.id })
-      .from(tables)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, tables.locationId))
-      .where(and(eq(tables.id, tableId), eq(merchantLocations.merchantId, p.merchantId)));
-    if (!own) throw new AppError('TABLE_NOT_FOUND', HttpStatus.NOT_FOUND, 'Mesa no encontrada');
+    const place = await this.venues.tablePlace(tableId);
+    if (place?.merchant.id !== p.merchantId)
+      throw new AppError('TABLE_NOT_FOUND', HttpStatus.NOT_FOUND, 'Mesa no encontrada');
     const ctx = await this.bills.contextForTable(tableId);
     const state = await this.bills.state(ctx);
     if (!state || state.pendingCents <= 0) {
@@ -109,16 +77,5 @@ export class FloorController {
   @ApiOperation({ summary: 'Vista de sala: estado de cada mesa y propinas del día (FR-MER-08)' })
   floor(@CurrentMerchant() p: MerchantPrincipal): Promise<FloorView[]> {
     return this.floorService.floor(p.merchantId);
-  }
-
-  @Sse('events')
-  @ApiOperation({ summary: 'Avisos en tiempo real de todos los locales del comercio (SSE)' })
-  async events(@CurrentMerchant() p: MerchantPrincipal): Promise<Observable<MessageEvent>> {
-    const locations = await this.db
-      .select({ id: merchantLocations.id })
-      .from(merchantLocations)
-      .where(eq(merchantLocations.merchantId, p.merchantId));
-    const ids = new Set(locations.map((l) => l.id));
-    return this.realtime.stream((e) => ids.has(e.locationId));
   }
 }

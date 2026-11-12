@@ -4,7 +4,6 @@ import { and, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { AppError } from '../../common/app-error.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
-import { merchantLocations, merchants, tables } from '../../merchant-venues/schema/merchants.js';
 import { orderAllocations, payments } from '../schema/payments.js';
 import { orderItems, orders } from '../schema/orders.js';
 import {
@@ -14,7 +13,7 @@ import {
   PosUnavailableError,
 } from '../../pos/pos-connector.js';
 import { CouponsService } from '../coupons/coupons.service.js';
-import { QrService } from '../../merchant-venues/qr/qr.service.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 
 export interface TableContext {
   qr: QrResolution;
@@ -52,25 +51,17 @@ export class TableBillService {
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
     @Inject(POS_CONNECTOR) private readonly pos: PosConnector,
-    private readonly qr: QrService,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   /** Resuelve el QR de mesa y los datos internos necesarios para leer y cobrar su cuenta. */
   async context(code: string): Promise<TableContext> {
-    const qr = await this.qr.resolve(code);
+    const qr = await this.venues.resolveQr(code);
     if (!qr.table) {
       throw new AppError('QR_NOT_TABLE', HttpStatus.CONFLICT, 'Este QR no corresponde a una mesa');
     }
-    const [row] = await this.db
-      .select({
-        merchantId: merchantLocations.merchantId,
-        tipConfig: merchantLocations.tipConfig,
-        externalTableId: tables.externalTableId,
-      })
-      .from(tables)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, tables.locationId))
-      .where(eq(tables.id, qr.table.id));
-    if (!row?.externalTableId) {
+    const place = await this.venues.tablePlace(qr.table.id);
+    if (!place?.table.externalTableId) {
       throw new AppError(
         'TABLE_NOT_LINKED',
         HttpStatus.CONFLICT,
@@ -79,24 +70,20 @@ export class TableBillService {
     }
     return {
       qr,
-      merchantId: row.merchantId,
+      merchantId: place.merchant.id,
       locationId: qr.location.id,
       tableId: qr.table.id,
-      externalTableId: row.externalTableId,
-      tipConfig: row.tipConfig,
+      externalTableId: place.table.externalTableId,
+      tipConfig: place.location.tipConfig,
     };
   }
 
   /** Contexto de una mesa por su id (QR de cobro de la caja, simulador). */
   async contextForTable(tableId: string): Promise<TableContext> {
-    const [row] = await this.db
-      .select({ table: tables, location: merchantLocations, merchant: merchants })
-      .from(tables)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, tables.locationId))
-      .innerJoin(merchants, eq(merchants.id, merchantLocations.merchantId))
-      .where(eq(tables.id, tableId));
-    if (!row) throw new AppError('TABLE_NOT_FOUND', HttpStatus.NOT_FOUND, 'Mesa no encontrada');
-    if (!row.table.externalTableId) {
+    const place = await this.venues.tablePlace(tableId);
+    if (!place) throw new AppError('TABLE_NOT_FOUND', HttpStatus.NOT_FOUND, 'Mesa no encontrada');
+    const { merchant, location, table } = place;
+    if (!table.externalTableId) {
       throw new AppError(
         'TABLE_NOT_LINKED',
         HttpStatus.CONFLICT,
@@ -107,19 +94,15 @@ export class TableBillService {
       qr: {
         shortCode: '',
         type: 'DYNAMIC_AMOUNT',
-        merchant: {
-          id: row.merchant.id,
-          brandName: row.merchant.brandName,
-          logoUrl: row.merchant.logoUrl,
-        },
-        location: { id: row.location.id, name: row.location.name, address: row.location.address },
-        table: { id: row.table.id, label: row.table.label },
+        merchant: { id: merchant.id, brandName: merchant.brandName, logoUrl: merchant.logoUrl },
+        location: { id: location.id, name: location.name, address: location.address },
+        table: { id: table.id, label: table.label },
       },
-      merchantId: row.merchant.id,
-      locationId: row.location.id,
-      tableId: row.table.id,
-      externalTableId: row.table.externalTableId,
-      tipConfig: row.location.tipConfig,
+      merchantId: merchant.id,
+      locationId: location.id,
+      tableId: table.id,
+      externalTableId: table.externalTableId,
+      tipConfig: location.tipConfig,
     };
   }
 

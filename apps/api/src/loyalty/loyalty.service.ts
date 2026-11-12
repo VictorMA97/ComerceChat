@@ -9,7 +9,6 @@ import {
 import type { ClaimPointsResponse, CouponView, LoyaltyView } from '@comercechat/shared-types';
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 import { AppError } from '../common/app-error.js';
-import { ENV, type Env } from '../config/env.js';
 import { DB, type Database, type Tx } from '../db/client.js';
 import {
   loyaltyAccounts,
@@ -18,23 +17,20 @@ import {
   pointsLedgerEntries,
   promotions,
 } from './schema/loyalty.js';
-import { merchants } from '../merchant-venues/schema/merchants.js';
-import { payments } from '../table-payments/schema/payments.js';
+import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
 import { type DomainEventJob, OutboxRelayService } from '../outbox/outbox-relay.service.js';
-import { isValidPaymentStatusToken } from '../table-payments/payments/status-token.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
 import { IdempotencyService } from '../common/idempotency.service.js';
 import { CouponsService } from '../table-payments/coupons/coupons.service.js';
+import {
+  type CapturedPayment,
+  PaymentsDirectory,
+} from '../table-payments/public/payments-directory.js';
+import { pointsFor } from './public/loyalty-directory.js';
 
-/** Plazo para reclamar los puntos de un pago hecho sin cuenta (FR-USR-02). */
-const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REWARD_COUPON_VALID_DAYS = 30;
 
 type ProgramRow = typeof loyaltyPrograms.$inferSelect;
-
-/** Puntos que genera un importe pagado (sin propina): floor(€ × puntos por euro) (FR-LOY-02). */
-export const pointsFor = (program: Pick<ProgramRow, 'earnRule'>, paidCents: number): number =>
-  Math.max(0, Math.floor((paidCents / 100) * program.earnRule.pointsPerEuro));
 
 @Injectable()
 export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
@@ -42,8 +38,9 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
 
   constructor(
     @Inject(DB) private readonly db: Database,
-    @Inject(ENV) private readonly env: Env,
     private readonly coupons: CouponsService,
+    private readonly payments: PaymentsDirectory,
+    private readonly venues: VenuesDirectory,
     private readonly relay: OutboxRelayService,
     private readonly queues: QueueService,
     private readonly idempotency: IdempotencyService,
@@ -53,9 +50,10 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
 
   onModuleInit(): void {
     // Puntos automáticos para pagos de usuarios identificados. Idempotente (índice único por pago).
-    this.relay.on('PaymentCaptured', (e: DomainEventJob) =>
-      this.earnForPayment(e.payload.paymentId as string).then(() => undefined),
-    );
+    this.relay.on('PaymentCaptured', async (e: DomainEventJob) => {
+      const payment = await this.payments.capturedPayment(e.payload.paymentId as string);
+      if (payment) await this.earnForPayment(payment);
+    });
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -82,12 +80,11 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
    * habían dado) y los cupones de bienvenida emitidos si es su primera visita al comercio.
    */
   async earnForPayment(
-    paymentId: string,
+    p: CapturedPayment,
     tx?: Tx,
   ): Promise<{ points: number; newCoupons: CouponView[] }> {
     const run = async (t: Tx) => {
-      const [p] = await t.select().from(payments).where(eq(payments.id, paymentId));
-      if (!p || p.status !== 'CAPTURED' || !p.userId) return { points: 0, newCoupons: [] };
+      if (!p.userId) return { points: 0, newCoupons: [] };
       const program = await this.programFor(p.merchantId, t);
       if (!program) return { points: 0, newCoupons: [] };
       const points = pointsFor(program, p.amountCents - p.discountCents);
@@ -132,37 +129,11 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     paymentId: string,
     statusToken: string,
   ): Promise<ClaimPointsResponse> {
-    if (!isValidPaymentStatusToken(this.env.PAYMENT_STATUS_SECRET, paymentId, statusToken)) {
-      throw new AppError('PAYMENT_NOT_FOUND', HttpStatus.NOT_FOUND, 'Pago no encontrado');
-    }
+    // table-payments valida el token, el estado, el dueño y el plazo, y asigna el pago al usuario.
+    const p = await this.payments.claimForUser(paymentId, userId, statusToken);
+    const brandName = (await this.venues.merchantNames([p.merchantId])).get(p.merchantId) ?? '';
     return this.db.transaction(async (tx) => {
-      const [p] = await tx.select().from(payments).where(eq(payments.id, paymentId)).for('update');
-      if (!p || p.status !== 'CAPTURED' || !p.capturedAt) {
-        throw new AppError(
-          'CLAIM_NOT_ALLOWED',
-          HttpStatus.CONFLICT,
-          'Este pago todavía no se ha completado',
-        );
-      }
-      if (p.userId && p.userId !== userId) {
-        throw new AppError(
-          'CLAIM_NOT_ALLOWED',
-          HttpStatus.CONFLICT,
-          'Los puntos de este pago ya tienen dueño',
-        );
-      }
-      if (!p.userId && Date.now() - p.capturedAt.getTime() > CLAIM_WINDOW_MS) {
-        throw new AppError(
-          'CLAIM_EXPIRED',
-          HttpStatus.CONFLICT,
-          'Han pasado más de 24 h desde el pago',
-        );
-      }
-      if (!p.userId) await tx.update(payments).set({ userId }).where(eq(payments.id, p.id));
-      const { points, newCoupons } = await this.earnForPayment(p.id, tx);
-      const merchant = await tx.query.merchants.findFirst({
-        where: eq(merchants.id, p.merchantId),
-      });
+      const { points, newCoupons } = await this.earnForPayment(p, tx);
       const program = await this.programFor(p.merchantId, tx);
       const account = program
         ? await tx.query.loyaltyAccounts.findFirst({
@@ -175,7 +146,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
       return {
         pointsEarned: points,
         balance: account?.balanceCached ?? 0,
-        merchant: { id: p.merchantId, brandName: merchant?.brandName ?? '' },
+        merchant: { id: p.merchantId, brandName },
         newCoupons,
       };
     });
@@ -199,7 +170,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     return this.db.transaction(async (tx) => {
       const reward = await tx.query.loyaltyRewards.findFirst({
         where: and(eq(loyaltyRewards.id, rewardId), eq(loyaltyRewards.active, true)),
-        with: { program: { with: { merchant: true } } },
+        with: { program: true },
       });
       if (!reward)
         throw new AppError('REWARD_NOT_FOUND', HttpStatus.NOT_FOUND, 'Recompensa no encontrada');
@@ -228,15 +199,17 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
         reason: `Recompensa: ${reward.name}`,
       });
       await this.addToBalance(tx, account.id, -reward.costPoints);
-      return this.coupons.toView(coupon!, reward.program.merchant.brandName);
+      const names = await this.venues.merchantNames([reward.program.merchantId]);
+      return this.coupons.toView(coupon!, names.get(reward.program.merchantId) ?? '');
     });
   }
 
   async view(userId: string): Promise<LoyaltyView[]> {
     const accounts = await this.db.query.loyaltyAccounts.findMany({
       where: eq(loyaltyAccounts.userId, userId),
-      with: { program: { with: { merchant: true, rewards: true } } },
+      with: { program: { with: { rewards: true } } },
     });
+    const names = await this.venues.merchantNames(accounts.map((a) => a.program.merchantId));
     const pending = accounts.length
       ? await this.db
           .select({
@@ -256,7 +229,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
           .groupBy(pointsLedgerEntries.accountId)
       : [];
     return accounts.map((a) => ({
-      merchant: { id: a.program.merchant.id, brandName: a.program.merchant.brandName },
+      merchant: { id: a.program.merchantId, brandName: names.get(a.program.merchantId) ?? '' },
       balance: a.balanceCached,
       pendingPoints: pending.find((p) => p.accountId === a.id)?.points ?? 0,
       pointsPerEuro: a.program.earnRule.pointsPerEuro,
@@ -323,9 +296,9 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
           eq(promotions.status, 'ACTIVE'),
         ),
       );
-    const merchant = active.length
-      ? await tx.query.merchants.findFirst({ where: eq(merchants.id, merchantId) })
-      : null;
+    const brandName = active.length
+      ? ((await this.venues.merchantNames([merchantId])).get(merchantId) ?? '')
+      : '';
     const issued: CouponView[] = [];
     for (const promo of active) {
       const coupon = await this.coupons.issue(tx, {
@@ -337,7 +310,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
         validDays: promo.rules.validDays,
         promotionId: promo.id,
       });
-      if (coupon) issued.push(this.coupons.toView(coupon, merchant?.brandName ?? ''));
+      if (coupon) issued.push(this.coupons.toView(coupon, brandName));
     }
     if (issued.length)
       this.logger.log(`Cupones de bienvenida para el usuario ${userId}: ${issued.length}`);

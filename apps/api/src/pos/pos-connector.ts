@@ -1,5 +1,3 @@
-import type { Tx } from '../db/client.js';
-
 /** Cuenta abierta en el software de caja (TPV) del restaurante. */
 export interface PosBill {
   externalBillId: string;
@@ -33,10 +31,10 @@ export interface PosConnector {
   /**
    * Mesas recién dadas de alta en el panel (FR-MER-04): devuelve el id de la mesa en la caja para las
    * que se puedan enlazar ya. Con un software de caja real el emparejamiento es manual (FR-POS-05,
-   * M2); el simulador crea su propia mesa por cada una. Se llama dentro de la transacción del alta.
+   * M2); el simulador crea su propia mesa por cada una. Se llama después de confirmar el alta: la
+   * caja es otro sistema y no comparte la transacción (ADR-029).
    */
   linkNewTables?(
-    tx: Tx,
     locationId: string,
     tables: { id: string; label: string }[],
   ): Promise<Map<string, string>>;

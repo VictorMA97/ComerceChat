@@ -10,8 +10,8 @@ import {
 import {
   FAKE_PSP_SIGNATURE_HEADER,
   verifyFakePspSignature,
-} from '../../../fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../../../fake-psp/fake-psp.service.js';
+} from '../../../fake-psp/public/fake-psp.js';
+import { FakePspService } from '../../../fake-psp/public/fake-psp.js';
 
 interface FakeWebhookBody {
   id: string;

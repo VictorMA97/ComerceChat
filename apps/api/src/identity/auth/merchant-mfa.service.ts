@@ -4,7 +4,7 @@ import type { MfaSetupResponse } from '@comercechat/shared-types';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { randomBytes } from 'node:crypto';
-import { AuditService } from '../../audit/audit.service.js';
+import { AuditService } from '../../audit/public/audit.js';
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { decryptPii, encryptPii, hashPii } from '../../common/pii.js';

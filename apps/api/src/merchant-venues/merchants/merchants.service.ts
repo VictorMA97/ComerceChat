@@ -1,18 +1,18 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
-import { AuditService } from '../../audit/audit.service.js';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
-import {
-  MerchantMfaService,
-  MFA_CHALLENGE_TTL_SECONDS,
-} from '../../identity/auth/merchant-mfa.service.js';
-import { hashPassword } from '../../identity/auth/passwords.js';
+import { AuditService } from '../../audit/public/audit.js';
 import { AppError } from '../../common/app-error.js';
+import { newId } from '../../common/ids.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
+import {
+  emailTaken,
+  IdentityDirectory,
+  normalizeEmail,
+} from '../../identity/public/identity-directory.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { merchants } from '../schema/merchants.js';
-import { merchantUsers } from '../../identity/schema/merchant-users.js';
 
 export interface MerchantRegistration {
   brandName: string;
@@ -22,72 +22,57 @@ export interface MerchantRegistration {
   password: string;
 }
 
-const emailTaken = () =>
-  new AppError('EMAIL_TAKEN', HttpStatus.CONFLICT, 'Ya hay una cuenta con ese email');
-
 @Injectable()
 export class MerchantsService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
-    private readonly mfa: MerchantMfaService,
+    private readonly identity: IdentityDirectory,
     private readonly audit: AuditService,
   ) {}
 
   /**
-   * Registro del comercio (FR-MER-01): crea el comercio en ONBOARDING y su OWNER. No abre sesión: el
-   * OWNER tiene que activar el doble factor primero (ADR-025), así que se devuelve ese paso.
+   * Registro del comercio (FR-MER-01) en dos pasos (ADR-029): merchant-venues crea el comercio en
+   * ONBOARDING e identity crea su OWNER. Si el segundo paso falla (p. ej. dos altas simultáneas con
+   * el mismo email), queda un comercio en ONBOARDING sin usuarios, que no acepta pagos. No abre
+   * sesión: el OWNER tiene que activar el doble factor primero (ADR-025).
    */
   async register(input: MerchantRegistration, ip?: string): Promise<MerchantLoginResult> {
-    const email = input.email.trim().toLowerCase();
-    const exists = await this.db.query.merchantUsers.findFirst({
-      where: eq(merchantUsers.email, email),
+    const email = normalizeEmail(input.email);
+    if (await this.identity.isMerchantEmailTaken(email)) throw emailTaken();
+    // El id del OWNER se fija aquí para que la auditoría del alta ya lo nombre como actor.
+    const ownerId = newId();
+    const merchantId = await this.db.transaction(async (tx) => {
+      const [merchant] = await tx
+        .insert(merchants)
+        .values({
+          brandName: input.brandName.trim(),
+          legalName: input.legalName.trim(),
+          taxId: input.taxId.trim().toUpperCase(),
+          status: 'ONBOARDING',
+        })
+        .returning();
+      await this.audit.record(
+        {
+          actorType: 'MERCHANT_USER',
+          actorId: ownerId,
+          merchantId: merchant!.id,
+          action: 'merchant.registered',
+          entity: 'merchant',
+          entityId: merchant!.id,
+          after: { brandName: merchant!.brandName },
+          ip,
+        },
+        tx,
+      );
+      return merchant!.id;
     });
-    if (exists) throw emailTaken();
-    const passwordHash = await hashPassword(input.password);
-
-    let ownerId: string;
-    try {
-      ownerId = await this.db.transaction(async (tx) => {
-        const [merchant] = await tx
-          .insert(merchants)
-          .values({
-            brandName: input.brandName.trim(),
-            legalName: input.legalName.trim(),
-            taxId: input.taxId.trim().toUpperCase(),
-            status: 'ONBOARDING',
-          })
-          .returning();
-        const [owner] = await tx
-          .insert(merchantUsers)
-          .values({ merchantId: merchant!.id, email, passwordHash, role: 'OWNER' })
-          .returning();
-        await this.audit.record(
-          {
-            actorType: 'MERCHANT_USER',
-            actorId: owner!.id,
-            merchantId: merchant!.id,
-            action: 'merchant.registered',
-            entity: 'merchant',
-            entityId: merchant!.id,
-            after: { brandName: merchant!.brandName },
-            ip,
-          },
-          tx,
-        );
-        return owner!.id;
-      });
-    } catch (err) {
-      // Dos registros simultáneos con el mismo email: el índice único decide.
-      const e = err as { code?: string; cause?: { code?: string } };
-      if ((e.code ?? e.cause?.code) === '23505') throw emailTaken();
-      throw err;
-    }
-    return {
-      step: 'MFA_SETUP_REQUIRED',
-      mfaToken: await this.mfa.challenge(ownerId, 'setup'),
-      expiresIn: MFA_CHALLENGE_TTL_SECONDS,
-    };
+    return this.identity.createMerchantOwner({
+      id: ownerId,
+      merchantId,
+      email,
+      password: input.password,
+    });
   }
 
   /**

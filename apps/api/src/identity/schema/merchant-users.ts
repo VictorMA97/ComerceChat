@@ -1,4 +1,3 @@
-import { relations } from 'drizzle-orm';
 import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
 import { merchantUserRole } from '../../db/schema/enums.js';
@@ -38,7 +37,3 @@ export const merchantUserRecoveryCodes = pgTable(
   },
   (t) => [uniqueIndex('merchant_user_recovery_codes_uq').on(t.merchantUserId, t.codeHash)],
 );
-
-export const merchantUsersRelations = relations(merchantUsers, ({ one }) => ({
-  merchant: one(merchants, { fields: [merchantUsers.merchantId], references: [merchants.id] }),
-}));

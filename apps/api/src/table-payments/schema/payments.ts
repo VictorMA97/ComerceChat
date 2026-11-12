@@ -130,15 +130,8 @@ export const pspWebhookEvents = pgTable(
 
 export const paymentsRelations = relations(payments, ({ one, many }) => ({
   order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
-  location: one(merchantLocations, {
-    fields: [payments.locationId],
-    references: [merchantLocations.id],
-  }),
-  merchant: one(merchants, { fields: [payments.merchantId], references: [merchants.id] }),
-  table: one(tables, { fields: [payments.tableId], references: [tables.id] }),
   transactions: many(transactions),
   allocations: many(orderAllocations),
-  qrCode: one(qrCodes, { fields: [payments.qrCodeId], references: [qrCodes.id] }),
 }));
 
 export const orderAllocationsRelations = relations(orderAllocations, ({ one }) => ({

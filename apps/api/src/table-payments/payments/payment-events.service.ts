@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { AuditService } from '../../audit/audit.service.js';
+import { AuditService } from '../../audit/public/audit.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database } from '../../db/client.js';
 import { orderAllocations, payments, pspWebhookEvents, transactions } from '../schema/payments.js';
@@ -8,7 +8,7 @@ import { qrCodes } from '../../merchant-venues/schema/qr.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { CouponsService } from '../coupons/coupons.service.js';
-import { RealtimeService } from '../../realtime/realtime.service.js';
+import { RealtimeService } from '../../realtime/public/realtime.js';
 import { TableBillService } from '../tables/table-bill.service.js';
 import {
   InvalidWebhookSignatureError,

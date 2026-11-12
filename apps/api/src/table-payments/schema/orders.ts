@@ -58,13 +58,8 @@ export const orderItems = pgTable('order_items', {
   modifiers: jsonb('modifiers').notNull().default([]),
 });
 
-export const ordersRelations = relations(orders, ({ many, one }) => ({
+export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderItems),
-  location: one(merchantLocations, {
-    fields: [orders.locationId],
-    references: [merchantLocations.id],
-  }),
-  table: one(tables, { fields: [orders.tableId], references: [tables.id] }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({

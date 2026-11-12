@@ -1,18 +1,18 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { DynamicQrResolution, DynamicQrView } from '@comercechat/shared-types';
 import { and, desc, eq, gt, inArray } from 'drizzle-orm';
-import { AuditService } from '../../audit/audit.service.js';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
+import { AuditService } from '../../audit/public/audit.js';
+import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { AppError } from '../../common/app-error.js';
 import { newId, randomBase62 } from '../../common/ids.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchantLocations, merchants, tables } from '../../merchant-venues/schema/merchants.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { payments } from '../schema/payments.js';
 import { qrCodes } from '../../merchant-venues/schema/qr.js';
-import { RealtimeService } from '../../realtime/realtime.service.js';
+import { RealtimeService } from '../../realtime/public/realtime.js';
 import { DynamicQrKeys, signDynamicQr, verifyDynamicQr } from './dynamic-qr-token.js';
-import { generateShortCode, signQr } from '../../merchant-venues/qr/qr-signature.js';
+import { generateShortCode, signQr } from '../../common/qr-signature.js';
 
 /** El simulador sigue mostrando el QR de cobro de una mesa durante este tiempo tras crearlo. */
 const SHOW_RECENT_MS = 30 * 60 * 1000;
@@ -46,6 +46,7 @@ export class DynamicQrService {
     @Inject(ENV) private readonly env: Env,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly venues: VenuesDirectory,
   ) {
     this.keys = new DynamicQrKeys(env.QR_SIGNING_KEY);
   }
@@ -177,12 +178,7 @@ export class DynamicQrService {
     ) {
       throw invalid();
     }
-    const [row] = await this.db
-      .select({ table: tables, location: merchantLocations, merchant: merchants })
-      .from(tables)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, tables.locationId))
-      .innerJoin(merchants, eq(merchants.id, merchantLocations.merchantId))
-      .where(eq(tables.id, payload.tableId));
+    const row = await this.venues.tablePlace(payload.tableId);
     if (!row || row.merchant.status !== 'ACTIVE') {
       throw new AppError(
         'MERCHANT_UNAVAILABLE',
@@ -224,19 +220,15 @@ export class DynamicQrService {
   }
 
   private async ownQr(p: MerchantPrincipal, qrId: string): Promise<QrRow> {
-    const [row] = await this.db
-      .select({ qr: qrCodes })
+    const [qr] = await this.db
+      .select()
       .from(qrCodes)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, qrCodes.locationId))
-      .where(
-        and(
-          eq(qrCodes.id, qrId),
-          eq(qrCodes.type, 'DYNAMIC_AMOUNT'),
-          eq(merchantLocations.merchantId, p.merchantId),
-        ),
-      );
-    if (!row) throw new AppError('QR_NOT_FOUND', HttpStatus.NOT_FOUND, 'QR no encontrado');
-    return row.qr;
+      .where(and(eq(qrCodes.id, qrId), eq(qrCodes.type, 'DYNAMIC_AMOUNT')));
+    const location = qr ? await this.venues.location(qr.locationId) : null;
+    if (!qr || location?.merchantId !== p.merchantId) {
+      throw new AppError('QR_NOT_FOUND', HttpStatus.NOT_FOUND, 'QR no encontrado');
+    }
+    return qr;
   }
 
   private toView(qr: QrRow, payment: PaymentRow | null): DynamicQrView {

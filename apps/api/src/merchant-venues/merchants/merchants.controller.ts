@@ -1,29 +1,19 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { MerchantLoginResult, MerchantMe } from '@comercechat/shared-types';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { eq } from 'drizzle-orm';
-import type { MerchantPrincipal } from '../../identity/auth/auth.types.js';
-import {
-  CurrentMerchant,
-  MerchantAuthGuard,
-  MerchantRoles,
-} from '../../identity/auth/merchant-auth.guard.js';
 import { AppError } from '../../common/app-error.js';
 import { ClientIp } from '../../common/client-ip.js';
 import { RATE_LIMITS } from '../../common/throttling.js';
-import { DB, type Database } from '../../db/client.js';
-import { merchantUsers } from '../../identity/schema/merchant-users.js';
+import { IdentityDirectory } from '../../identity/public/identity-directory.js';
+import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  type MerchantPrincipal,
+  MerchantRoles,
+} from '../../identity/public/session.js';
+import { VenuesDirectory } from '../public/venues-directory.js';
 import { MerchantsService } from './merchants.service.js';
 
 class RegisterMerchantDto {
@@ -56,8 +46,9 @@ class RegisterMerchantDto {
 @Controller('merchant')
 export class MerchantsController {
   constructor(
-    @Inject(DB) private readonly db: Database,
     private readonly merchants: MerchantsService,
+    private readonly identity: IdentityDirectory,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   @Post('auth/register')
@@ -76,21 +67,19 @@ export class MerchantsController {
   @UseGuards(MerchantAuthGuard)
   @ApiOperation({ summary: 'Usuario del comercio autenticado y su comercio' })
   async me(@CurrentMerchant() principal: MerchantPrincipal): Promise<MerchantMe> {
-    const user = await this.db.query.merchantUsers.findFirst({
-      where: eq(merchantUsers.id, principal.merchantUserId),
-      with: { merchant: true },
-    });
-    if (!user) throw new AppError('UNAUTHENTICATED', HttpStatus.UNAUTHORIZED, 'Sesión no válida');
+    const [user, merchant] = await Promise.all([
+      this.identity.merchantUser(principal.merchantUserId),
+      this.venues.merchant(principal.merchantId),
+    ]);
+    if (!user || !merchant) {
+      throw new AppError('UNAUTHENTICATED', HttpStatus.UNAUTHORIZED, 'Sesión no válida');
+    }
     return {
       merchantUserId: user.id,
       email: user.email,
       role: user.role,
       mfaEnabled: user.mfaEnabled,
-      merchant: {
-        id: user.merchant.id,
-        brandName: user.merchant.brandName,
-        status: user.merchant.status,
-      },
+      merchant: { id: merchant.id, brandName: merchant.brandName, status: merchant.status },
     };
   }
 

@@ -15,12 +15,13 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagg
 import type { FakePosState } from '@comercechat/shared-types';
 import { IsBoolean, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { and, asc, desc, eq, gt, inArray, or } from 'drizzle-orm';
-import type { MerchantPrincipal } from '../identity/auth/auth.types.js';
-import { CurrentMerchant, MerchantAuthGuard } from '../identity/auth/merchant-auth.guard.js';
+import type { MerchantPrincipal } from '../identity/public/session.js';
+import { CurrentMerchant, MerchantAuthGuard } from '../identity/public/session.js';
 import { AppError } from '../common/app-error.js';
 import { ENV, type Env } from '../config/env.js';
-import { DynamicQrService } from '../table-payments/dynamic-qr/dynamic-qr.service.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
+import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
+import { PaymentsDirectory } from '../table-payments/public/payments-directory.js';
+import { RealtimeService } from '../realtime/public/realtime.js';
 import { DB, type Database } from '../db/client.js';
 import {
   fakePosBillItems,
@@ -29,7 +30,6 @@ import {
   fakePosMenuItems,
   fakePosPayments,
 } from './schema/fake-pos.js';
-import { merchantLocations, tables } from '../merchant-venues/schema/merchants.js';
 
 /** El simulador sigue mostrando una cuenta cerrada durante 30 min, para ver el pago que la cerró. */
 const RECENT_CLOSED_MS = 30 * 60 * 1000;
@@ -61,18 +61,15 @@ export class FakePosController {
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
     private readonly realtime: RealtimeService,
-    private readonly dynamicQr: DynamicQrService,
+    private readonly payments: PaymentsDirectory,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   @Get()
   @ApiOperation({ summary: 'Estado del TPV simulado de cada local del comercio' })
   async state(@CurrentMerchant() p: MerchantPrincipal): Promise<FakePosState[]> {
     this.assertEnabled();
-    const locations = await this.db
-      .select()
-      .from(merchantLocations)
-      .where(eq(merchantLocations.merchantId, p.merchantId))
-      .orderBy(asc(merchantLocations.name));
+    const locations = await this.venues.locationsOf(p.merchantId);
     return Promise.all(locations.map((l) => this.locationState(l.id, l.name)));
   }
 
@@ -188,25 +185,13 @@ export class FakePosController {
   }
 
   private async ownsLocation(p: MerchantPrincipal, locationId: string): Promise<boolean> {
-    const loc = await this.db.query.merchantLocations.findFirst({
-      where: and(
-        eq(merchantLocations.id, locationId),
-        eq(merchantLocations.merchantId, p.merchantId),
-      ),
-    });
-    return Boolean(loc);
+    const loc = await this.venues.location(locationId);
+    return loc?.merchantId === p.merchantId;
   }
 
   private async ownTable(p: MerchantPrincipal, tableId: string) {
-    const [table] = await this.db
-      .select({
-        id: tables.id,
-        locationId: tables.locationId,
-        externalTableId: tables.externalTableId,
-      })
-      .from(tables)
-      .innerJoin(merchantLocations, eq(merchantLocations.id, tables.locationId))
-      .where(and(eq(tables.id, tableId), eq(merchantLocations.merchantId, p.merchantId)));
+    const place = await this.venues.tablePlace(tableId);
+    const table = place?.merchant.id === p.merchantId ? place.table : null;
     if (!table) throw new AppError('TABLE_NOT_FOUND', HttpStatus.NOT_FOUND, 'Mesa no encontrada');
     if (!table.externalTableId) {
       throw new AppError(
@@ -228,7 +213,7 @@ export class FakePosController {
         .from(fakePosMenuItems)
         .where(eq(fakePosMenuItems.locationId, locationId))
         .orderBy(asc(fakePosMenuItems.category), asc(fakePosMenuItems.name)),
-      this.db.select().from(tables).where(eq(tables.locationId, locationId)),
+      this.venues.tablesOf(locationId),
       this.db
         .select()
         .from(fakePosBills)
@@ -243,7 +228,7 @@ export class FakePosController {
         )
         .orderBy(desc(fakePosBills.openedAt)),
     ]);
-    const paymentQrs = await this.dynamicQr.latestForTables(tableRows.map((t) => t.id));
+    const paymentQrs = await this.payments.paymentQrsForTables(tableRows.map((t) => t.id));
     const billIds = bills.map((b) => b.id);
     const [items, pays] = billIds.length
       ? await Promise.all([

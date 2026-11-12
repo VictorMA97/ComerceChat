@@ -112,9 +112,8 @@ export const promotions = pgTable('promotions', {
   updatedAt: updatedAt(),
 });
 
-export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ many, one }) => ({
+export const loyaltyProgramsRelations = relations(loyaltyPrograms, ({ many }) => ({
   rewards: many(loyaltyRewards),
-  merchant: one(merchants, { fields: [loyaltyPrograms.merchantId], references: [merchants.id] }),
 }));
 export const loyaltyRewardsRelations = relations(loyaltyRewards, ({ one }) => ({
   program: one(loyaltyPrograms, {

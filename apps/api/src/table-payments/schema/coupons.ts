@@ -1,4 +1,4 @@
-import { relations, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { bigint, index, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
 import { users } from '../../identity/schema/users.js';
@@ -54,7 +54,3 @@ export const couponRedemptions = pgTable('coupon_redemptions', {
   discountCents: bigint('discount_cents', { mode: 'number' }).notNull(),
   redeemedAt: createdAt(),
 });
-
-export const couponsRelations = relations(coupons, ({ one }) => ({
-  merchant: one(merchants, { fields: [coupons.merchantId], references: [merchants.id] }),
-}));

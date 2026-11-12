@@ -5,7 +5,7 @@ import { AppError } from '../../common/app-error.js';
 import { encryptPii, decryptPii, hashPii } from '../../common/pii.js';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { userConsents, users } from '../schema/users.js';
 import { maskPhone } from './phone.js';
 
@@ -17,6 +17,7 @@ export class UsersService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
+    private readonly venues: VenuesDirectory,
   ) {}
 
   /** Crea el usuario o recupera el existente por el hash del teléfono (el número va cifrado). */
@@ -106,17 +107,20 @@ export class UsersService {
       );
     // Consentimientos: el último registro de cada tipo (y comercio) manda.
     const rows = await this.db
-      .select({ consent: userConsents, brandName: merchants.brandName })
+      .select()
       .from(userConsents)
-      .leftJoin(merchants, eq(merchants.id, userConsents.merchantId))
       .where(eq(userConsents.userId, userId))
       .orderBy(desc(userConsents.createdAt));
     const latest = new Map<string, (typeof rows)[number]>();
     for (const r of rows) {
-      const k = `${r.consent.type}:${r.consent.merchantId ?? ''}`;
+      const k = `${r.type}:${r.merchantId ?? ''}`;
       if (!latest.has(k)) latest.set(k, r);
     }
-    const last = (type: string) => latest.get(`${type}:`)?.consent.granted ?? false;
+    const last = (type: string) => latest.get(`${type}:`)?.granted ?? false;
+    const shared = [...latest.values()].filter(
+      (r) => r.type === 'SHARE_WITH_MERCHANT' && r.granted && r.merchantId,
+    );
+    const names = await this.venues.merchantNames(shared.map((r) => r.merchantId!));
     return {
       id: user.id,
       phoneMasked: maskPhone(decryptPii(user.phoneE164Enc, this.env.PII_ENCRYPTION_KEY)),
@@ -124,12 +128,10 @@ export class UsersService {
       consents: {
         terms: last('TERMS'),
         marketing: last('MKT_PLATFORM'),
-        sharedWith: [...latest.values()]
-          .filter(
-            (r) =>
-              r.consent.type === 'SHARE_WITH_MERCHANT' && r.consent.granted && r.consent.merchantId,
-          )
-          .map((r) => ({ merchantId: r.consent.merchantId!, brandName: r.brandName ?? '' })),
+        sharedWith: shared.map((r) => ({
+          merchantId: r.merchantId!,
+          brandName: names.get(r.merchantId!) ?? '',
+        })),
       },
     };
   }

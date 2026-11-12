@@ -1,7 +1,5 @@
 import { Global, Module } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
-import { LoyaltyModule } from '../../loyalty/loyalty.module.js';
-import { CouponsModule } from '../../table-payments/coupons/coupons.module.js';
 import { ConsoleOtpSender, OTP_SENDER } from './otp-sender.js';
 import { OtpService } from './otp.service.js';
 import { OptionalUserGuard, UserAuthGuard, UserTokens } from './user-auth.js';
@@ -10,7 +8,6 @@ import { UsersService } from './users.service.js';
 
 @Global()
 @Module({
-  imports: [LoyaltyModule, CouponsModule],
   controllers: [UsersController],
   providers: [
     UsersService,

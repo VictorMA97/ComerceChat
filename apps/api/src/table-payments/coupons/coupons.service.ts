@@ -1,12 +1,12 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { CouponView } from '@comercechat/shared-types';
 import { and, eq, gt, inArray, lte } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { AppError } from '../../common/app-error.js';
 import { formatEur } from '../../common/money.js';
-import type { Database, Tx } from '../../db/client.js';
+import { DB, type Database, type Tx } from '../../db/client.js';
 import { couponRedemptions, coupons } from '../schema/coupons.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 
 type Reader = Pick<Database, 'select'>;
 type CouponRow = typeof coupons.$inferSelect;
@@ -26,6 +26,11 @@ const available = () => eq(coupons.status, 'ACTIVE');
 /** Cupones de un solo uso, financiados por el comercio (FR-CPN-04…06, REG-04). */
 @Injectable()
 export class CouponsService {
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly venues: VenuesDirectory,
+  ) {}
+
   async issue(
     db: Pick<Database, 'insert'>,
     c: {
@@ -59,12 +64,11 @@ export class CouponsService {
   }
 
   /** Cupones que el usuario puede usar ahora (opcionalmente, en un comercio). */
-  async listForUser(db: Reader, userId: string, merchantId?: string): Promise<CouponView[]> {
+  async listForUser(userId: string, merchantId?: string): Promise<CouponView[]> {
     const now = new Date();
-    const rows = await db
-      .select({ coupon: coupons, brandName: merchants.brandName })
+    const rows = await this.db
+      .select()
       .from(coupons)
-      .innerJoin(merchants, eq(merchants.id, coupons.merchantId))
       .where(
         and(
           eq(coupons.userId, userId),
@@ -75,7 +79,8 @@ export class CouponsService {
         ),
       )
       .orderBy(coupons.validTo);
-    return rows.map(({ coupon, brandName }) => this.toView(coupon, brandName));
+    const names = await this.venues.merchantNames(rows.map((c) => c.merchantId));
+    return rows.map((c) => this.toView(c, names.get(c.merchantId) ?? ''));
   }
 
   /**

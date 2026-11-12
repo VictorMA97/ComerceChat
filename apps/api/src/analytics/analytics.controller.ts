@@ -1,8 +1,8 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AnalyticsPeriod, AnalyticsView } from '@comercechat/shared-types';
-import type { MerchantPrincipal } from '../identity/auth/auth.types.js';
-import { CurrentMerchant, MerchantAuthGuard } from '../identity/auth/merchant-auth.guard.js';
+import type { MerchantPrincipal } from '../identity/public/session.js';
+import { CurrentMerchant, MerchantAuthGuard } from '../identity/public/session.js';
 import { AnalyticsService } from './analytics.service.js';
 
 const PERIODS: AnalyticsPeriod[] = ['today', 'week', 'month'];
