@@ -12,8 +12,8 @@ import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { FakePspService } from '../src/payments/fake-psp/fake-psp.service.js';
-import { QrService } from '../src/qr/qr.service.js';
+import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { QueueName } from '../src/queue/queue.types.js';
 import { SqsTransport } from '../src/queue/sqs.transport.js';
 

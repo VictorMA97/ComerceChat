@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { IdempotencyModule } from '../common/idempotency.module.js';
-import { CouponsService } from './coupons.service.js';
+import { CouponsModule } from '../table-payments/coupons/coupons.module.js';
 import { LoyaltyService } from './loyalty.service.js';
 import { PromotionsController } from './promotions.controller.js';
 import { PromotionsService } from './promotions.service.js';
 
 @Module({
-  imports: [IdempotencyModule],
+  imports: [IdempotencyModule, CouponsModule],
   controllers: [PromotionsController],
-  providers: [CouponsService, LoyaltyService, PromotionsService],
-  exports: [CouponsService, LoyaltyService],
+  providers: [LoyaltyService, PromotionsService],
+  exports: [LoyaltyService],
 })
 export class LoyaltyModule {}

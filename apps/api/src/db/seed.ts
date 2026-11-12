@@ -2,13 +2,13 @@
 // Uso: pnpm db:seed. Crece con cada hito (P2: caja simulada con carta y cuentas abiertas;
 // P4: fidelización, recompensas, promoción «Vuelve y te invitamos», cupones e historial de pagos).
 import { sql } from 'drizzle-orm';
-import { hashPassword } from '../auth/passwords.js';
-import { POC_TOTP_SECRET } from '../auth/poc-mfa.js';
+import { hashPassword } from '../identity/auth/passwords.js';
+import { POC_TOTP_SECRET } from '../identity/auth/poc-mfa.js';
 import { newId } from '../common/ids.js';
 import { encryptPii, hashPii } from '../common/pii.js';
 import { loadEnv } from '../config/env.js';
-import { FAKE_POS_MENU } from '../pos/fake-pos-menu.js';
-import { generateShortCode, qrUrl, signQr } from '../qr/qr-signature.js';
+import { FAKE_POS_MENU } from '../fake-pos/fake-pos-menu.js';
+import { generateShortCode, qrUrl, signQr } from '../merchant-venues/qr/qr-signature.js';
 import { createDatabase } from './client.js';
 import * as s from './schema/index.js';
 

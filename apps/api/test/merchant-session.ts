@@ -1,8 +1,8 @@
 // Sesión del panel en los E2E: contraseña + segundo factor (ADR-025) con el secreto de prueba.
 import type request from 'supertest';
 import { expect } from 'vitest';
-import { POC_TOTP_SECRET } from '../src/auth/poc-mfa.js';
-import { totp } from '../src/auth/totp.js';
+import { POC_TOTP_SECRET } from '../src/identity/auth/poc-mfa.js';
+import { totp } from '../src/identity/auth/totp.js';
 import { encryptPii } from '../src/common/pii.js';
 import type { Env } from '../src/config/env.js';
 

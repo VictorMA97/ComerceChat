@@ -25,7 +25,7 @@
     "poc:tunnel": "node scripts/poc-tunnel.mjs",
     "e2e": "pnpm --filter @comercechat/e2e e2e",
     "poc:stop": "node scripts/poc-stop.mjs",
-    "poc:totp": "pnpm --silent --filter @comercechat/api exec tsx src/auth/poc-mfa.ts"
+    "poc:totp": "pnpm --silent --filter @comercechat/api exec tsx src/identity/auth/poc-mfa.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

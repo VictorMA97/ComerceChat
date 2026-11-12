@@ -448,7 +448,7 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Terraform / AWS / ECS | No aplica (sustituido por Kubernetes local con k3d, ADR-030) | — |
 | App móvil (Expo) | No aplica | — |
 
-**Regla de código:** las implementaciones simuladas viven en `apps/api/src/pos/fake-pos.*` y `apps/api/src/payments/fake-psp/` y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
+**Regla de código:** las implementaciones simuladas viven en `apps/api/src/fake-pos/` y `apps/api/src/fake-psp/` (y el adaptador `apps/api/src/table-payments/payments/providers/fake-payment.provider.ts`) y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
 
 <a id="poc-fakes"></a>
 ### 16.3 Simuladores

@@ -6,12 +6,12 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { hashPassword } from '../src/auth/passwords.js';
+import { hashPassword } from '../src/identity/auth/passwords.js';
 import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { QrService } from '../src/qr/qr.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 describe('Comercio: autenticación, mesas y QR (E2E)', () => {

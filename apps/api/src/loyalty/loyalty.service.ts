@@ -21,10 +21,10 @@ import {
   promotions,
 } from '../db/schema/index.js';
 import { type DomainEventJob, OutboxRelayService } from '../outbox/outbox-relay.service.js';
-import { isValidPaymentStatusToken } from '../payments/status-token.js';
+import { isValidPaymentStatusToken } from '../table-payments/payments/status-token.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
 import { IdempotencyService } from '../common/idempotency.service.js';
-import { CouponsService } from './coupons.service.js';
+import { CouponsService } from '../table-payments/coupons/coupons.service.js';
 
 /** Plazo para reclamar los puntos de un pago hecho sin cuenta (FR-USR-02). */
 const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;

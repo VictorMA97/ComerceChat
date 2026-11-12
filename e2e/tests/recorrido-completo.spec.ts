@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
-import { POC_TOTP_SECRET } from '../../apps/api/src/auth/poc-mfa.js';
-import { totp } from '../../apps/api/src/auth/totp.js';
+import { POC_TOTP_SECRET } from '../../apps/api/src/identity/auth/poc-mfa.js';
+import { totp } from '../../apps/api/src/identity/auth/totp.js';
 
 const PANEL = 'http://localhost:3001';
 const WEB_QR = 'http://localhost:3000';

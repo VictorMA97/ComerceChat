@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { totp } from '../../apps/api/src/auth/totp.js';
+import { totp } from '../../apps/api/src/identity/auth/totp.js';
 
 const PANEL = 'http://localhost:3001';
 
