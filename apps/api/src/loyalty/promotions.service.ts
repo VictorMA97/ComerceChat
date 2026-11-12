@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { CreatePromotionRequest, PromotionView } from '@comercechat/shared-types';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { AuditEmitter, AppError } from '@comercechat/service-kit';
-import type { MerchantPrincipal } from '../identity/public/session.js';
 import { DB, type Database } from '../db/client.js';
 import { couponIssuances, promotions } from './schema/loyalty.js';
 

@@ -1,3 +1,4 @@
+import { CurrentUserId, UserAuthGuard } from '@comercechat/auth-client';
 import {
   Body,
   Controller,
@@ -14,7 +15,6 @@ import type { ClaimPointsResponse, CouponView, LoyaltyView } from '@comercechat/
 import { Throttle } from '@nestjs/throttler';
 import { IsString, IsUUID, Length } from 'class-validator';
 import { RATE_LIMITS } from '@comercechat/service-kit';
-import { CurrentUserId, UserAuthGuard } from '../identity/public/session.js';
 import { LoyaltyService } from './loyalty.service.js';
 
 class ClaimDto {

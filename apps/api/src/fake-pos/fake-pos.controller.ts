@@ -1,4 +1,9 @@
 import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  type MerchantPrincipal,
+} from '@comercechat/auth-client';
+import {
   Body,
   Controller,
   Delete,
@@ -15,8 +20,6 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagg
 import type { FakePosState } from '@comercechat/shared-types';
 import { IsBoolean, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { and, asc, desc, eq, gt, inArray, or } from 'drizzle-orm';
-import type { MerchantPrincipal } from '../identity/public/session.js';
-import { CurrentMerchant, MerchantAuthGuard } from '../identity/public/session.js';
 import { AppError } from '@comercechat/service-kit';
 import { ENV, type Env } from '../config/env.js';
 import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';

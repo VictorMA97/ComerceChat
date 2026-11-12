@@ -1,11 +1,15 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  MerchantRoles,
+  type MerchantPrincipal,
+} from '@comercechat/auth-client';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { AuditEntryView, AuditPage } from '@comercechat/shared-types';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { AuditService } from './audit.service.js';
-import type { MerchantPrincipal } from '../identity/public/session.js';
-import { CurrentMerchant, MerchantAuthGuard, MerchantRoles } from '../identity/public/session.js';
 import { IdentityDirectory } from '../identity/public/identity-directory.js';
 
 class AuditQueryDto {

@@ -1,11 +1,6 @@
-import type { MerchantUserRole } from '@comercechat/shared-types';
+import type { MerchantPrincipal } from '@comercechat/auth-client';
 
-/** Identidad de un usuario del panel de comercio, tal como viaja en el JWT. */
-export interface MerchantPrincipal {
-  merchantUserId: string;
-  merchantId: string;
-  role: MerchantUserRole;
-}
+export type { MerchantPrincipal };
 
 /**
  * Proveedor de autenticación de comercios (D-03). En la PoC: `LocalMerchantAuthProvider`

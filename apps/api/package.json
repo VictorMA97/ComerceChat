@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1152.0",
+    "@comercechat/auth-client": "workspace:*",
     "@comercechat/contracts": "workspace:*",
     "@comercechat/pos-connectors": "workspace:*",
     "@comercechat/service-kit": "workspace:*",

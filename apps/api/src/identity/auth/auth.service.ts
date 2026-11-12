@@ -1,3 +1,4 @@
+import type { MerchantSessionVerifier } from '@comercechat/auth-client';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { LoginResponse, MerchantLoginResult } from '@comercechat/shared-types';
@@ -33,7 +34,7 @@ interface MerchantJwtPayload {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements MerchantSessionVerifier {
   constructor(
     @Inject(MERCHANT_AUTH_PROVIDER) private readonly provider: MerchantAuthProvider,
     @Inject(ENV) private readonly env: Env,

@@ -1,3 +1,4 @@
+import { CurrentUserId, UserAuthGuard } from '@comercechat/auth-client';
 import {
   Body,
   Controller,
@@ -41,7 +42,7 @@ import { DB, type Database } from '../../db/client.js';
 import { users } from '../schema/users.js';
 import { OtpService } from './otp.service.js';
 import { normalizePhone } from './phone.js';
-import { CurrentUserId, UserAuthGuard, UserTokens } from './user-auth.js';
+import { UserTokens } from './user-auth.js';
 import { UsersService } from './users.service.js';
 import { Throttle } from '@nestjs/throttler';
 

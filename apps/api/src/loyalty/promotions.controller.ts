@@ -1,4 +1,10 @@
 import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  MerchantRoles,
+  type MerchantPrincipal,
+} from '@comercechat/auth-client';
+import {
   Body,
   Controller,
   Get,
@@ -11,8 +17,6 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { PromotionView } from '@comercechat/shared-types';
 import { IsInt, IsString, Length } from 'class-validator';
-import type { MerchantPrincipal } from '../identity/public/session.js';
-import { CurrentMerchant, MerchantAuthGuard, MerchantRoles } from '../identity/public/session.js';
 import { PromotionsService } from './promotions.service.js';
 
 class CreatePromotionDto {

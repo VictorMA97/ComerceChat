@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { DynamicQrResolution, DynamicQrView } from '@comercechat/shared-types';
 import { and, desc, eq, gt, inArray } from 'drizzle-orm';
 import { AuditEmitter, AppError, newId, randomBase62 } from '@comercechat/service-kit';
-import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';

@@ -3,15 +3,32 @@ import {
   createParamDecorator,
   type ExecutionContext,
   HttpStatus,
+  Inject,
   Injectable,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { MerchantUserRole } from '@comercechat/shared-types';
-import type { Request } from 'express';
 import { AppError } from '@comercechat/service-kit';
-import { AuthService } from './auth.service.js';
-import type { MerchantPrincipal } from './auth.types.js';
+import type { Request } from 'express';
+
+/** Identidad de un usuario del panel de comercio, tal como viaja en el JWT. */
+export interface MerchantPrincipal {
+  merchantUserId: string;
+  merchantId: string;
+  role: MerchantUserRole;
+}
+
+/**
+ * Valida un token de sesión del panel con los criterios de identity (ADR-025): firma, revocación, rol,
+ * estado y doble factor leídos al momento. En la PoC lo implementa identity en el mismo proceso; con
+ * servicios separados será una llamada a `POST /internal/sessions/merchant` (MIGRACION §3.3).
+ */
+export interface MerchantSessionVerifier {
+  verifyMerchantToken(token: string): Promise<MerchantPrincipal | null>;
+}
+
+export const MERCHANT_SESSION_VERIFIER = Symbol('MERCHANT_SESSION_VERIFIER');
 
 type AuthedRequest = Request & { merchantPrincipal?: MerchantPrincipal };
 
@@ -29,10 +46,11 @@ export const CurrentMerchant = createParamDecorator(
   },
 );
 
+/** Exige una sesión válida del panel y, con `@MerchantRoles`, uno de los roles indicados. */
 @Injectable()
 export class MerchantAuthGuard implements CanActivate {
   constructor(
-    private readonly auth: AuthService,
+    @Inject(MERCHANT_SESSION_VERIFIER) private readonly sessions: MerchantSessionVerifier,
     private readonly reflector: Reflector,
   ) {}
 
@@ -40,7 +58,7 @@ export class MerchantAuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<AuthedRequest>();
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
     const principal =
-      scheme === 'Bearer' && token ? await this.auth.verifyMerchantToken(token) : null;
+      scheme === 'Bearer' && token ? await this.sessions.verifyMerchantToken(token) : null;
     if (!principal) {
       throw new AppError('UNAUTHENTICATED', HttpStatus.UNAUTHORIZED, 'Sesión no válida o caducada');
     }

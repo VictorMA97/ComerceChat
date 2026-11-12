@@ -1,0 +1,38 @@
+{
+  "name": "@comercechat/auth-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@comercechat/service-kit": "workspace:*",
+    "@comercechat/shared-types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^12.1.3",
+    "@nestjs/core": "^12.1.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^12.1.3",
+    "@nestjs/core": "^12.1.3",
+    "reflect-metadata": "^0.2.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.5",
+    "typescript": "~5.9.3",
+    "rxjs": "^7.8.2"
+  }
+}

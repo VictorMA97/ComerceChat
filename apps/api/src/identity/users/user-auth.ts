@@ -1,20 +1,13 @@
-import {
-  type CanActivate,
-  createParamDecorator,
-  type ExecutionContext,
-  HttpStatus,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import type { UserSessionVerifier } from '@comercechat/auth-client';
 import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
-import type { Request } from 'express';
 import {
   JWT_ISSUER,
   TokenRevocationService,
   USER_AUDIENCE,
 } from '../auth/token-revocation.service.js';
-import { AppError, newId } from '@comercechat/service-kit';
+import { newId } from '@comercechat/service-kit';
 import { DB, type Database } from '../../db/client.js';
 import { users } from '../schema/users.js';
 
@@ -25,11 +18,12 @@ interface UserJwtPayload {
   exp: number;
 }
 
-type UserRequest = Request & { userId?: string | null };
-
-/** Tokens de sesión del comensal (distintos de los del comercio por audiencia y `typ`). */
+/**
+ * Tokens de sesión del comensal (distintos de los del comercio por audiencia y `typ`). Es el
+ * `UserSessionVerifier` que usan los guards de @comercechat/auth-client en este proceso.
+ */
 @Injectable()
-export class UserTokens {
+export class UserTokens implements UserSessionVerifier {
   constructor(
     private readonly jwt: JwtService,
     private readonly revocations: TokenRevocationService,
@@ -59,6 +53,10 @@ export class UserTokens {
     return user?.status === 'ACTIVE' ? p.sub : null;
   }
 
+  verifyUserToken(token: string | undefined): Promise<string | null> {
+    return this.verify(token);
+  }
+
   /** Cierre de sesión: el token deja de valer aunque no haya caducado. */
   async revoke(token: string | undefined): Promise<void> {
     const p = await this.decode(token);
@@ -77,47 +75,5 @@ export class UserTokens {
     } catch {
       return null;
     }
-  }
-
-  /** Lee el usuario del `Authorization: Bearer` (opcional) y lo deja en la petición. */
-  async fromRequest(req: UserRequest): Promise<string | null> {
-    if (req.userId !== undefined) return req.userId;
-    const [scheme, token] = (req.headers.authorization ?? '').split(' ');
-    req.userId = scheme === 'Bearer' ? await this.verify(token) : null;
-    return req.userId;
-  }
-}
-
-/** Exige un comensal autenticado. */
-@Injectable()
-export class UserAuthGuard implements CanActivate {
-  constructor(private readonly tokens: UserTokens) {}
-
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    if (!(await this.tokens.fromRequest(ctx.switchToHttp().getRequest<UserRequest>()))) {
-      throw new AppError(
-        'UNAUTHENTICATED',
-        HttpStatus.UNAUTHORIZED,
-        'Inicia sesión con tu teléfono',
-      );
-    }
-    return true;
-  }
-}
-
-/** Usuario autenticado (con `UserAuthGuard`) u opcional (`null` si no hay sesión válida). */
-export const CurrentUserId = createParamDecorator(
-  (_: unknown, ctx: ExecutionContext): string | null =>
-    ctx.switchToHttp().getRequest<UserRequest>().userId ?? null,
-);
-
-/** Guard que nunca bloquea: solo resuelve el usuario si hay token, para endpoints públicos. */
-@Injectable()
-export class OptionalUserGuard implements CanActivate {
-  constructor(private readonly tokens: UserTokens) {}
-
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    await this.tokens.fromRequest(ctx.switchToHttp().getRequest<UserRequest>());
-    return true;
   }
 }

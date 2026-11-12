@@ -1,9 +1,9 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { QrResolution, TableQr } from '@comercechat/shared-types';
 import { and, eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { AuditEmitter, AppError, newId, OutboxService, REDIS } from '@comercechat/service-kit';
-import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { merchantLocations, merchants, tables } from '../schema/merchants.js';

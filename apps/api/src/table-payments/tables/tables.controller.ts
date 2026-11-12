@@ -1,12 +1,12 @@
 import { Controller, Get, HttpStatus, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { DynamicQrView, FloorView, TableBill } from '@comercechat/shared-types';
-import { AppError } from '@comercechat/service-kit';
 import {
   CurrentMerchant,
   MerchantAuthGuard,
   type MerchantPrincipal,
-} from '../../identity/public/session.js';
+} from '@comercechat/auth-client';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { DynamicQrView, FloorView, TableBill } from '@comercechat/shared-types';
+import { AppError } from '@comercechat/service-kit';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { FloorService } from './floor.service.js';

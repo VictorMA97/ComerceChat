@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { LocationView } from '@comercechat/shared-types';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { AuditEmitter, AppError } from '@comercechat/service-kit';
-import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { merchantLocations, tables } from '../schema/merchants.js';
 import { qrCodes } from '../schema/qr.js';

@@ -5,7 +5,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { MERCHANT_AUTH_PROVIDER } from './auth.types.js';
 import { LocalMerchantAuthProvider } from './local-merchant-auth.provider.js';
-import { MerchantAuthGuard } from './merchant-auth.guard.js';
+import { MERCHANT_SESSION_VERIFIER } from '@comercechat/auth-client';
 import { IdentityDirectory } from '../public/identity-directory.js';
 import { MerchantMfaService } from './merchant-mfa.service.js';
 import { TokenRevocationService } from './token-revocation.service.js';
@@ -23,7 +23,8 @@ import { TokenRevocationService } from './token-revocation.service.js';
     AuthService,
     IdentityDirectory,
     MerchantMfaService,
-    MerchantAuthGuard,
+    // Los guards de @comercechat/auth-client validan las sesiones del panel con AuthService.
+    { provide: MERCHANT_SESSION_VERIFIER, useExisting: AuthService },
     TokenRevocationService,
     // AUTH_PROVIDER=local es el único valor en la PoC (D-03).
     { provide: MERCHANT_AUTH_PROVIDER, useClass: LocalMerchantAuthProvider },
@@ -32,7 +33,7 @@ import { TokenRevocationService } from './token-revocation.service.js';
     AuthService,
     IdentityDirectory,
     MerchantMfaService,
-    MerchantAuthGuard,
+    MERCHANT_SESSION_VERIFIER,
     TokenRevocationService,
     JwtModule,
   ],
