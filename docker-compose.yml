@@ -3,7 +3,7 @@ name: comercechat
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:18-3.7
     environment:
       POSTGRES_USER: comercechat
       POSTGRES_PASSWORD: comercechat
