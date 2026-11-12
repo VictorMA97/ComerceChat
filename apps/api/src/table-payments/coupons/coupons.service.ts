@@ -1,0 +1,180 @@
+import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
+import type { CouponView } from '@comercechat/shared-types';
+import { and, eq, gt, inArray, lte } from 'drizzle-orm';
+import { AppError } from '../../common/app-error.js';
+import { formatEur } from '../../common/money.js';
+import { DB, type Database, type Tx } from '../../db/client.js';
+import { couponRedemptions, coupons } from '../schema/coupons.js';
+import type { CouponIssuedV1 } from '../../contracts/events.js';
+import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
+import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
+
+type Reader = Pick<Database, 'select'>;
+type CouponRow = typeof coupons.$inferSelect;
+
+/**
+ * Un cupón solo está disponible si está ACTIVE. Un cupón RESERVED vuelve a ACTIVE únicamente cuando
+ * su pago termina sin cobrarse (`release`, desde `TableBillService.releaseAllocations`): que la
+ * reserva haya caducado no basta, porque el PSP aún puede capturar ese pago y el descuento se
+ * aplicaría dos veces.
+ */
+const available = () => eq(coupons.status, 'ACTIVE');
+
+/** Cupones de un solo uso, financiados por el comercio (FR-CPN-04…06, REG-04). */
+@Injectable()
+export class CouponsService implements OnModuleInit {
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly venues: VenuesDirectory,
+    private readonly relay: OutboxRelayService,
+  ) {}
+
+  onModuleInit(): void {
+    this.relay.on('table-payments', 'CouponIssued.v1', (e) => this.materialize(e.payload));
+  }
+
+  /**
+   * Crea el cupón que ha emitido loyalty, con su mismo id (ADR-029). Idempotente: si el evento llega
+   * dos veces, el segundo no hace nada.
+   */
+  async materialize(c: CouponIssuedV1): Promise<void> {
+    await this.db
+      .insert(coupons)
+      .values({
+        id: c.couponId,
+        merchantId: c.merchantId,
+        userId: c.userId,
+        code: c.code,
+        title: c.title,
+        discountCents: c.discountCents,
+        minSpendCents: c.minSpendCents,
+        validFrom: new Date(c.validFrom),
+        validTo: new Date(c.validTo),
+      })
+      .onConflictDoNothing({ target: coupons.id });
+  }
+
+  /** Cupones que el usuario puede usar ahora (opcionalmente, en un comercio). */
+  async listForUser(userId: string, merchantId?: string): Promise<CouponView[]> {
+    const now = new Date();
+    const rows = await this.db
+      .select()
+      .from(coupons)
+      .where(
+        and(
+          eq(coupons.userId, userId),
+          merchantId ? eq(coupons.merchantId, merchantId) : undefined,
+          available(),
+          lte(coupons.validFrom, now),
+          gt(coupons.validTo, now),
+        ),
+      )
+      .orderBy(coupons.validTo);
+    const names = await this.venues.merchantNames(rows.map((c) => c.merchantId));
+    return rows.map((c) => this.toView(c, names.get(c.merchantId) ?? ''));
+  }
+
+  /**
+   * Comprueba que el cupón se puede aplicar y devuelve el descuento. La reserva real la hace
+   * `reserve()` dentro de la transacción del pago, de forma atómica.
+   */
+  async discountFor(
+    db: Reader,
+    p: { couponId: string; userId: string; merchantId: string; amountCents: number },
+  ): Promise<{ discountCents: number; title: string }> {
+    const [c] = await db.select().from(coupons).where(eq(coupons.id, p.couponId));
+    const now = Date.now();
+    if (
+      !c ||
+      c.userId !== p.userId ||
+      c.merchantId !== p.merchantId ||
+      c.validFrom.getTime() > now ||
+      c.validTo.getTime() <= now
+    ) {
+      throw new AppError(
+        'COUPON_UNAVAILABLE',
+        HttpStatus.CONFLICT,
+        'Este cupón no se puede usar aquí',
+      );
+    }
+    if (p.amountCents < c.minSpendCents) {
+      throw new AppError(
+        'COUPON_MIN_SPEND',
+        HttpStatus.CONFLICT,
+        `Este cupón requiere pagar al menos ${formatEur(c.minSpendCents)}`,
+      );
+    }
+    return { discountCents: Math.min(c.discountCents, p.amountCents), title: c.title };
+  }
+
+  /**
+   * Reserva atómica (FR-CPN-06): ACTIVE → RESERVED con un UPDATE condicional. Si dos pagos lo
+   * intentan a la vez, solo uno actualiza la fila; el otro recibe COUPON_UNAVAILABLE.
+   */
+  async reserve(
+    tx: Tx,
+    couponId: string,
+    userId: string,
+    paymentId: string,
+    until: Date,
+  ): Promise<void> {
+    const [row] = await tx
+      .update(coupons)
+      .set({ status: 'RESERVED', reservedPaymentId: paymentId, reservedUntil: until })
+      .where(and(eq(coupons.id, couponId), eq(coupons.userId, userId), available()))
+      .returning({ id: coupons.id });
+    if (!row) {
+      throw new AppError(
+        'COUPON_UNAVAILABLE',
+        HttpStatus.CONFLICT,
+        'Este cupón ya se ha usado o se está usando en otro pago',
+      );
+    }
+  }
+
+  /** Devuelve a ACTIVE los cupones reservados por pagos que no se completaron. */
+  static async release(tx: Tx, paymentIds: string[]): Promise<void> {
+    if (paymentIds.length === 0) return;
+    await tx
+      .update(coupons)
+      .set({ status: 'ACTIVE', reservedPaymentId: null, reservedUntil: null })
+      .where(and(inArray(coupons.reservedPaymentId, paymentIds), eq(coupons.status, 'RESERVED')));
+  }
+
+  /**
+   * Canje definitivo al capturarse el pago. La unicidad de coupon_id impide canjearlo dos veces.
+   * Devuelve los cupones canjeados: ninguno en un pago con descuento es una anomalía.
+   */
+  static async redeem(tx: Tx, paymentId: string, discountCents: number): Promise<string[]> {
+    const reserved = await tx
+      .update(coupons)
+      .set({ status: 'REDEEMED' })
+      .where(
+        and(
+          eq(coupons.reservedPaymentId, paymentId),
+          inArray(coupons.status, ['RESERVED', 'ACTIVE']),
+        ),
+      )
+      .returning({ id: coupons.id });
+    for (const c of reserved) {
+      await tx
+        .insert(couponRedemptions)
+        .values({ couponId: c.id, paymentId, discountCents })
+        .onConflictDoNothing();
+    }
+    return reserved.map((c) => c.id);
+  }
+
+  toView(c: CouponRow, brandName: string): CouponView {
+    return {
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      discountCents: c.discountCents,
+      minSpendCents: c.minSpendCents,
+      validTo: c.validTo.toISOString(),
+      status: c.status,
+      merchant: { id: c.merchantId, brandName },
+    };
+  }
+}

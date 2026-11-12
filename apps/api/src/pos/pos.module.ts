@@ -1,16 +1,14 @@
 import { Global, Module } from '@nestjs/common';
 import { ENV, type Env } from '../config/env.js';
-import { QrModule } from '../qr/qr.module.js';
-import { FakePosConnector } from './fake-pos.connector.js';
-import { FakePosController } from './fake-pos.controller.js';
+import { FakePosConnector } from '../fake-pos/fake-pos.connector.js';
+import { FakePosModule } from '../fake-pos/fake-pos.module.js';
 import { POS_CONNECTOR } from './pos-connector.js';
 
+/** Elige el adaptador del software de caja (ARCHITECTURE §6.2). Raíz de composición. */
 @Global()
 @Module({
-  imports: [QrModule],
-  controllers: [FakePosController],
+  imports: [FakePosModule],
   providers: [
-    FakePosConnector,
     {
       provide: POS_CONNECTOR,
       inject: [ENV, FakePosConnector],

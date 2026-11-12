@@ -1,0 +1,33 @@
+# Actualizaciones de dependencias (ROADMAP M0: CI completa). Agrupadas para no abrir un PR por paquete;
+# las de seguridad llegan aparte y en cuanto se publican.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 5
+    groups:
+      minor-y-parches:
+        update-types: [minor, patch]
+    ignore:
+      # Fijado a ~5.9: el CLI de Nest no soporta TypeScript 7 (ADR-020).
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly

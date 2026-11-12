@@ -1,27 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import { createdAt, id } from './columns.js';
+import { bigint, index, jsonb, pgSchema, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { createdAt, id, updatedAt } from './columns.js';
 
-/** Registro de auditoría de solo-inserción. */
-export const auditLogs = pgTable(
-  'audit_logs',
-  {
-    id: id(),
-    actorType: text('actor_type').notNull(),
-    actorId: text('actor_id'),
-    action: text('action').notNull(),
-    entity: text('entity').notNull(),
-    entityId: text('entity_id'),
-    before: jsonb('before'),
-    after: jsonb('after'),
-    ip: text('ip'),
-    createdAt: createdAt(),
-  },
-  (t) => [index('audit_logs_entity_idx').on(t.entity, t.entityId)],
-);
+/**
+ * Tablas de infraestructura compartida (outbox e Idempotency-Key). En la PoC son comunes a todos los
+ * contextos; al separar los servicios, cada uno tendrá las suyas en su esquema (MIGRACION §3.4).
+ */
+export const platformSchema = pgSchema('platform');
 
 /** Patrón outbox: los eventos de dominio se escriben en la misma transacción (ARCHITECTURE §5). */
-export const outboxEvents = pgTable(
+export const outboxEvents = platformSchema.table(
   'outbox_events',
   {
     id: id(),
@@ -29,6 +17,8 @@ export const outboxEvents = pgTable(
     aggregateId: text('aggregate_id').notNull(),
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
+    /** Contexto de traza (W3C) de la operación que creó el evento, para seguirlo de punta a punta. */
+    traceContext: jsonb('trace_context').$type<Record<string, string>>(),
     createdAt: createdAt(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
   },
@@ -37,4 +27,20 @@ export const outboxEvents = pgTable(
       .on(t.createdAt)
       .where(sql`${t.publishedAt} is null`),
   ],
+);
+
+/** Respuestas guardadas por Idempotency-Key durante 24 h (ARCHITECTURE §11). */
+export const idempotencyKeys = platformSchema.table(
+  'idempotency_keys',
+  {
+    id: id(),
+    scope: text('scope').notNull(),
+    key: text('key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    statusCode: bigint('status_code', { mode: 'number' }),
+    response: jsonb('response'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('idempotency_keys_scope_key_uq').on(t.scope, t.key)],
 );

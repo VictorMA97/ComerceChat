@@ -39,6 +39,24 @@ services:
       - '127.0.0.1:8025:8025'
       - '127.0.0.1:1025:1025'
 
+  # SQS compatible para probar QUEUE_DRIVER=sqs en local (ADR-026). En memoria: las colas se crean
+  # al arrancar la API (SQS_CREATE_QUEUES=on) y desaparecen al recrear el contenedor.
+  # Interfaz de consulta en http://localhost:9325.
+  sqs:
+    image: softwaremill/elasticmq-native:1.6.14
+    ports:
+      - '127.0.0.1:9324:9324'
+      - '127.0.0.1:9325:9325'
+
+  # Visor de trazas opcional (ADR-027): docker compose --profile observability up -d y TELEMETRY=on.
+  # Recibe OTLP en 4318 y se consulta en http://localhost:16686. En memoria.
+  jaeger:
+    image: jaegertracing/jaeger:2.11.0
+    profiles: [observability]
+    ports:
+      - '127.0.0.1:16686:16686'
+      - '127.0.0.1:4318:4318'
+
   # Túnel HTTPS opcional para abrir la web QR desde el móvil (pnpm poc:tunnel).
   # Expone SOLO la web QR (puerto 3000) en una URL aleatoria *.trycloudflare.com que cambia
   # cada vez que se recrea el contenedor. La API y el panel siguen siendo solo locales.

@@ -1,6 +1,8 @@
 # ARCHITECTURE: arquitectura técnica de ComerceChat (MVP)
 
-> **Estado:** v0.3 (19-oct-2026). Incluye la arquitectura de la PoC local ([§16](#poc-local)).
+> **Estado:** v0.4 (12-nov-2026). Incluye la arquitectura de la PoC local ([§16](#poc-local)).
+>
+> **Migración en curso (hito MS):** la arquitectura objetivo pasa de monolito modular a microservicios dentro del monorepo ([ADR-029](DECISIONS.md#adr-029)), desplegados en Kubernetes local con k3d y nginx como gateway ([ADR-030](DECISIONS.md#adr-030)). Detalle y fases en [MIGRACION.md](MIGRACION.md). Hasta la fase F6, el código sigue en `apps/api` como se describe en §5, §13 y §16.
 > **Documentos relacionados:**
 > - Requisitos en [SPEC.md](SPEC.md).
 > - Razones de cada elección en [DECISIONS.md](DECISIONS.md).
@@ -12,12 +14,14 @@
 
 1. **El dinero no pasa por nosotros.** El PSP es la fuente de verdad del dinero; nuestra base de datos es la fuente de verdad de pedidos, puntos y cupones. (REG-01, ADR-003)
 2. **La web QR es el producto.** Debe cargar rápido, funcionar sin instalación y tolerar fallos del software de caja. (ADR-002)
-3. **Monolito modular en TypeScript de punta a punta.** Fronteras claras entre módulos para poder extraer servicios más adelante, sin coste operativo hoy. (ADR-008, ADR-009)
+3. **Microservicios en TypeScript dentro de un monorepo.** Un servicio por contexto, con su esquema de base de datos; el núcleo del dinero (`table-payments`) no se parte. (ADR-008, [ADR-029](DECISIONS.md#adr-029); antes monolito modular, ADR-009)
 4. **Proveedores externos detrás de interfaces.** `PaymentProvider` (PSP) y `PosConnector` (software de caja), para cambiar de proveedor sin reescribir. (D-01, D-02)
 5. **Todo lo financiero es idempotente, auditable y de solo-inserción** (pagos, puntos, canjes).
 6. **Seguridad y privacidad desde el diseño**: ámbito PCI mínimo, consentimientos granulares, datos en la UE.
 
 ## 2. Vista general
+
+> El diagrama siguiente es el del monolito modular (ADR-009, sustituida). La vista objetivo con microservicios, gateway nginx y Kubernetes local está en [MIGRACION.md §3](MIGRACION.md#arquitectura-objetivo); este apartado se rehace al terminar el hito MS.
 
 ```
                      ┌──────────── Cloudflare (DNS, WAF, CDN, anti-bots, límites de peticiones) ────────────┐
@@ -57,13 +61,15 @@
 | Web QR | Next.js (App Router) + TypeScript + React, renderizado en servidor y en el borde | Carga < 1,5 s en 4G sin instalación (ADR-002) |
 | Panel comercio + backoffice | Next.js + shadcn/ui + TanStack Query | Mismo stack que la web QR |
 | App usuario | React Native con Expo (EAS Build + EAS Update) | Comparte TypeScript y tipos (ADR-008) |
-| Backend | NestJS 12 (ESM, Node 22 LTS), monolito modular; tests con Vitest | ADR-009, ADR-020 |
+| Backend | NestJS 12 (ESM, Node 22 LTS); microservicios en `services/*` (hoy aún monolito en `apps/api`); tests con Vitest | ADR-029, ADR-020 |
+| Gateway | nginx con configuración declarativa (`deploy/gateway/nginx.conf`) | ADR-030 |
 | ORM / migraciones | Drizzle ORM + migraciones SQL generadas con drizzle-kit y revisadas | SQL explícito para bloqueos, RETURNING y PostGIS (ADR-019) |
 | Base de datos | PostgreSQL 16 + PostGIS (RDS Multi-AZ) | ACID para el registro de puntos y los canjes; consultas geográficas (ADR-010) |
 | Cache / bloqueos / tiempo real | Redis (ElastiCache) | ADR-010 |
 | Colas | SQS + colas de error (DLQ); BullMQ en local | Webhooks y campañas asíncronos con reintentos |
 | Tiempo real | Server-Sent Events (web QR) y WebSocket (panel), con pub/sub de Redis | Estado compartido de la mesa |
-| Cloud | AWS eu-south-2 (España); Terraform; ECS Fargate | ADR-011 |
+| Despliegue | Kubernetes local con k3d; manifiestos Kustomize (base + overlay `local`) | ADR-030 |
+| Cloud | Sin elegir: proveedor, región en la UE (NFR-06), infraestructura como código y CDN/WAF | [D-07](DECISIONS.md#d-07) (antes ADR-011: AWS eu-south-2, Terraform, ECS Fargate) |
 | CDN / WAF | Cloudflare | Anti-bots, límites de peticiones, protección DDoS |
 | Autenticación | OTP por teléfono + passkeys + Apple/Google (usuarios); email + contraseña + doble factor obligatorio (comercios) | ADR-013; proveedor [D-03] |
 | Pagos | PSP de plataforma con componentes de pago alojados | ADR-003, PCI SAQ A |
@@ -87,8 +93,9 @@ comercechat/
 │  ├─ api-client/          # cliente HTTP de las apps Next (errores RFC 9457, timeout); cliente generado desde OpenAPI pendiente (ADR-020)
 │  ├─ ui/                  # componentes compartidos web (pendiente)
 │  └─ config/              # eslint, tsconfig, prettier (de momento en la raíz)
-├─ infra/
-│  └─ terraform/           # VPC, RDS, ElastiCache, ECS, SQS, S3, KMS, IAM, Secrets
+├─ services/               # microservicios (hito MS, ADR-029): identity · merchant-venues · table-payments ·
+│                          #   loyalty · realtime · audit · analytics · fake-psp · fake-pos
+├─ deploy/                 # docker/ · gateway/ (nginx) · k8s/ (Kustomize) · k3d/ (ADR-030)
 ├─ e2e/                    # Playwright: recorrido completo en navegador (pnpm e2e)
 ├─ scripts/                # poc:up, poc:keys, poc:tunnel, poc:stop
 └─ docs/                   # SPEC · ARCHITECTURE · DECISIONS · ROADMAP · DEMO
@@ -117,12 +124,14 @@ comercechat/
 | `pos-integrations` | `PosConnector` + adaptadores por software de caja, emparejamiento de mesas, modo degradado | FR-POS-* |
 | `realtime` | Canal por mesa (SSE/WS) sobre pub/sub de Redis | FR-ORD-01, FR-MER-08 |
 | `risk` | Reglas, puntuación de riesgo, límites, cola de revisión | §9 |
-| `audit` | `AuditLog` de solo-inserción | NFR, FR-ADM-05 |
+| `audit` | `AuditLog` de solo-inserción (forzada con triggers), ligado al comercio; registro de actividad del OWNER (ADR-028) | NFR, FR-ADM-05 |
 | `admin` | Backoffice | FR-ADM-* |
 
-**Reglas entre módulos:**
+**Servicio de destino de cada módulo (hito MS, [ADR-029](DECISIONS.md#adr-029)):** `auth` y `users` → `identity`; `merchants`, `venues` y los QR estáticos de `qr` → `merchant-venues`; `orders`, `payments`, los QR dinámicos y la reserva y el canje de `coupons` → `table-payments`; `loyalty` y las promociones de `coupons` → `loyalty`; `realtime`, `audit` y `analytics` → servicios del mismo nombre. `pos-integrations` pasa a ser una librería (`packages/pos-connectors`) y sus simuladores, el servicio `fake-pos`. Los módulos aún no construidos (`catalog`, `campaigns`, `crm`, `notifications`, `risk`, `admin`) se asignarán cuando entren por su hito. Reparto completo en [MIGRACION.md §3.1](MIGRACION.md#servicios).
+
+**Reglas entre módulos** (desde MS F1 las comprueba dependency-cruiser en `pnpm lint`; cada contexto expone su API en `src/<contexto>/public/` y sus tablas están en su propio esquema de Postgres, sin claves foráneas hacia otros):
 - Un módulo solo accede a las tablas de otro a través de su servicio público. Prohibido hacer joins entre tablas de módulos distintos desde fuera del módulo propietario; la excepción son las vistas de `analytics` sobre la réplica.
-- Los eventos de dominio (`PaymentCaptured`, `PaymentRefunded`, `PaymentDisputed`, `CouponRedeemed`…) se publican en un bus interno con patrón **outbox** (tabla `outbox_events` + worker → SQS). Así no se pierden eventos si el proceso cae entre el commit y la publicación.
+- Los eventos de dominio se publican con patrón **outbox** (tabla `outbox_events` + worker → SQS). Así no se pierden eventos si el proceso cae entre el commit y la publicación. Desde MS F1 son versionados (`PaymentCaptured.v1`, `CouponIssued.v1`, `CouponRedeemed.v1`, `AuditRecorded.v1`…, en `apps/api/src/contracts/events.ts`), llevan los datos que necesita cada consumidor y van a una cola por contexto consumidor (`domain-events-<contexto>`). Los futuros `PaymentRefunded` y `PaymentDisputed` entrarán en el mismo catálogo.
 
 ## 6. Abstracciones de proveedores
 
@@ -246,6 +255,7 @@ web-qr                     api                          PSP                     
 ## 10. Modelo de datos
 
 Convenciones:
+- Desde MS F1, cada contexto tiene su esquema de Postgres (`identity`, `venues`, `payments`, `loyalty`, `audit`, `analytics`, `fake_pos`, `fake_psp`; outbox e idempotencia en `platform`) y no hay claves foráneas entre esquemas. El diagrama de abajo es lógico: las flechas entre contextos son ids sin referencia. Cambios respecto a él: los QR de cobro están en `payments.payment_qr_codes`; la emisión de cupones, en `loyalty.coupon_issuances`; la analítica, en `analytics.payment_facts` (ver [MIGRACION.md §3](MIGRACION.md#arquitectura-objetivo)).
 - Identificadores `uuid` (v7).
 - Importes en `*_cents BIGINT` + `currency CHAR(3)`.
 - Columnas `created_at` y `updated_at` en todas las tablas.
@@ -260,7 +270,9 @@ devices(id, user_id→users, push_token, platform, fingerprint_hash, last_seen_a
 
 merchants(id, legal_name, tax_id, brand_name, status[ONBOARDING|ACTIVE|SUSPENDED|REJECTED],
           psp, psp_account_id UNIQUE, psp_kyb_status, plan_id, created_at)
-merchant_users(id, merchant_id→merchants, email UNIQUE, role[OWNER|MANAGER|STAFF], mfa_enabled, status)
+merchant_users(id, merchant_id→merchants, email UNIQUE, role[OWNER|MANAGER|STAFF], mfa_enabled,
+               mfa_secret_enc?, mfa_enabled_at?, status)       -- secreto TOTP cifrado (ADR-025)
+merchant_user_recovery_codes(id, merchant_user_id→merchant_users, code_hash, used_at?)  -- HMAC, un solo uso
 merchant_locations(id, merchant_id→merchants, name, address, geo GEOGRAPHY(Point), timezone,
                    opening_hours JSONB, category, pos_integration_id?→pos_integrations, tip_config JSONB)
 tables(id, location_id→merchant_locations, label, capacity, external_table_id?, active)
@@ -306,7 +318,8 @@ notifications(id, recipient_type[USER|MERCHANT_USER], recipient_id, channel[PUSH
               template, payload JSONB, campaign_id?, status, sent_at?, opened_at?)
 reservations(...)                                                        -- fase 2, no crear en el MVP
 
-audit_logs(id, actor_type, actor_id, action, entity, entity_id, before JSONB, after JSONB, ip, created_at)  -- solo inserción
+audit_logs(id, actor_type, actor_id, action, entity, entity_id, before JSONB, after JSONB, ip, merchant_id?, created_at)
+           -- solo inserción: un trigger rechaza UPDATE/DELETE (ADR-028)
 risk_events(id, entity_type, entity_id, rule, score, action[ALLOW|REVIEW|BLOCK], resolved_by?, created_at)
 outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, published_at?)
 ```
@@ -326,16 +339,19 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 - REST JSON en `api.<dominio>/v1`. La especificación OpenAPI se genera desde NestJS y de ella sale `packages/api-client`.
 - **Errores:** formato RFC 9457 (`application/problem+json`) con un `code` estable (p. ej. `COUPON_ALREADY_REDEEMED`).
 - **Idempotencia:** cabecera `Idempotency-Key` obligatoria en todas las peticiones POST que crean pagos, reembolsos, canjes o campañas. Se guarda 24 h con la respuesta.
+  - La aplica `IdempotencyService` (`apps/api/src/common/`, tabla `idempotency_keys`) con un ámbito por operación: `payment-session` y `reward-redeem:<userId>` (`POST /me/rewards/:id/redeem`, FR-LOY-03). La misma clave con el mismo cuerpo devuelve la respuesta guardada; con otro cuerpo, 422 `IDEMPOTENCY_KEY_REUSED`; si la original sigue en curso, 409 `IDEMPOTENCY_IN_PROGRESS`; sin clave válida, 400 `IDEMPOTENCY_KEY_REQUIRED`. Si la operación falla, la clave se libera.
+  - `apps/web-qr` genera la clave en el servidor al pintar el formulario y la reutiliza en los reintentos del mismo intento.
 - **Autenticación:**
   - Usuarios: JWT de acceso de 15 min + token de renovación rotativo.
   - Invitados: `guest_session` firmada, ligada al QR y con caducidad.
-  - Comercios: sesión con cookie httpOnly + doble factor.
+  - Comercios: sesión con cookie httpOnly + doble factor TOTP en dos pasos: el login devuelve un `mfaToken` de 5 min que solo sirve para `POST /merchant/auth/mfa/setup|activate|verify` ([ADR-025](DECISIONS.md#adr-025)).
 - **Paginación** por cursor.
 - **Webhooks entrantes:** `POST /v1/webhooks/psp/{provider}` y `POST /v1/webhooks/pos/{provider}`, con la firma verificada sobre el cuerpo en bruto.
 - **Endpoints principales del MVP (ilustrativo):**
   - `GET /qr/{code}` · `POST /payment-sessions` · `GET /payments/{id}` · `POST /auth/otp/start|verify` · `POST /guest/claim-points`
   - `GET /me/loyalty` · `GET /me/coupons` · `GET /merchants/nearby?lat&lng`
   - Panel: `/merchant/locations` · `/tables` · `/qr` · `/promotions` · `/customers` · `/analytics/*` · `/payments` · `/refunds`
+  - Comercio (M0): `POST /merchant/auth/register` · `POST /merchant/auth/mfa/setup|activate|verify` · `POST /merchant/locations` · `POST /merchant/locations/{id}/tables` · `GET /merchant/audit` (ADR-025, ADR-028)
 
 ## 12. Tiempo real
 
@@ -361,14 +377,17 @@ outbox_events(id, aggregate, aggregate_id, type, payload JSONB, created_at, publ
 ## 14. Entornos, despliegue y operación
 
 - **Entornos:**
-  - `local`: docker-compose con Postgres+PostGIS, Redis, LocalStack (SQS/S3) y el modo de pruebas del PSP.
-  - `staging`: PSP en modo pruebas y un software de caja de pruebas.
-  - `prod`.
-- **Infraestructura como código:** Terraform con estado remoto en S3 y bloqueo en DynamoDB, y un workspace por entorno.
-- **Despliegue:** GitHub Actions → imagen al registro ECR → ECS Fargate con despliegue *rolling* (*blue/green* en fase 2). Las migraciones de BD se ejecutan como tarea previa al despliegue y deben ser compatibles hacia atrás (patrón *expand/contract*).
-- La **web QR y el panel** se despliegan en el mismo ECS (o en un hosting compatible en la UE) detrás de Cloudflare.
+  - `local`: docker-compose con Postgres+PostGIS, Redis, ElasticMQ (SQS, ADR-026), Mailpit y, opcional, Jaeger (ADR-027). S3 se simulará cuando haga falta.
+  - `k3d` (hito MS, [ADR-030](DECISIONS.md#adr-030)): Kubernetes local, con los simuladores y la infraestructura dentro del clúster. Es el entorno de despliegue del MVP.
+  - En la nube (staging y producción): pendiente de [D-07](DECISIONS.md#d-07).
+- ~~**Infraestructura como código:** Terraform con estado remoto en S3 y bloqueo en DynamoDB, y un workspace por entorno.~~ *Pendiente de D-07.*
+- **Despliegue:**
+  - Una imagen por servicio y manifiestos Kustomize (base + overlay `local`) en `deploy/k8s`.
+  - Las migraciones de cada servicio son un `Job` previo y deben ser compatibles hacia atrás (patrón *expand/contract*).
+  - ~~GitHub Actions → ECR → ECS Fargate~~ *(ADR-011, sustituida por ADR-030)*. CI/CD y entrega continua son recomendaciones ([MIGRACION.md §9](MIGRACION.md#recomendaciones-devops)).
+- La **web QR y el panel** se publican con el balanceador de k3d. La API solo es accesible desde dentro del clúster, por el gateway nginx (ADR-021). CDN/WAF: D-07.
 - **App móvil:** EAS Build → TestFlight / Play interno; EAS Update para cambios de JS.
-- **Copias de seguridad:** recuperación a un punto en el tiempo en RDS (35 días) + instantánea diaria en otra región de la UE. Prueba de restauración trimestral.
+- **Copias de seguridad:** ~~recuperación a un punto en el tiempo en RDS (35 días) + instantánea diaria en otra región de la UE~~ *pendiente de D-07*. Prueba de restauración trimestral.
 - **Observabilidad:**
   - Trazas OpenTelemetry con `paymentId` como atributo en todo el recorrido (NFR-13).
   - Paneles de métricas: tasa de éxito de pagos, latencia de webhooks, salud del software de caja por proveedor, errores 5xx.
@@ -419,18 +438,18 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Software de caja real (D-02) | `FakePosConnector` + `ManualPosConnector` | `POS_CONNECTOR=fake\|manual` |
 | SMS / WhatsApp OTP (D-04) | `ConsoleOtpSender` (log + Mailpit) | `OTP_SENDER=console` |
 | Email (Postmark/SES) | SMTP hacia Mailpit | `SMTP_URL=smtp://localhost:1025` |
-| SQS | BullMQ sobre Redis | `QUEUE_DRIVER=bullmq` |
+| SQS | BullMQ sobre Redis por defecto; SQS real contra ElasticMQ con `QUEUE_DRIVER=sqs` (ADR-026). Las tareas periódicas van siempre en BullMQ | `QUEUE_DRIVER=bullmq\|sqs` |
 | S3 | Sistema de ficheros local (`./.data/uploads`) | `STORAGE_DRIVER=local` |
 | KMS (firma de QR y tokens) | Claves Ed25519/HMAC en `.env.local` (generadas por `pnpm poc:keys`, que también añade las que falten a un `.env.local` existente). Cada clave tiene un solo uso | `QR_SIGNING_KEY`, `QR_HMAC_SECRET`, `PAYMENT_STATUS_SECRET` |
 | Autenticación gestionada (D-03) | JWT propio + OTP por consola, detrás de la misma interfaz `AuthProvider` | `AUTH_PROVIDER=local` |
 | Cloudflare / WAF | Límites de peticiones en la aplicación (`@nestjs/throttler` sobre Redis, por IP del cliente). Las apps Next reenvían la IP del navegador con un secreto compartido, porque son ellas quienes llaman a la API (ADR-021) | `RATE_LIMITS=on` (`off` solo en los tests; prohibido en producción), `INTERNAL_PROXY_SECRET` |
-| Sentry / OpenTelemetry / PostHog | Desactivados por defecto; logs estructurados (pino) en la consola | `TELEMETRY=off` |
+| Sentry / OpenTelemetry / PostHog | Desactivados por defecto. Con `TELEMETRY=on`, trazas OpenTelemetry a Jaeger local (ADR-027); Sentry y PostHog pendientes | `TELEMETRY=off\|on` |
 | Proceso worker separado | Workers BullMQ y relé del outbox dentro del proceso de la API | `PROCESS_ROLE=all\|http\|worker` |
 | Colas aisladas por entorno | Prefijo de colas en Redis (los tests usan uno propio) | `QUEUE_PREFIX` |
-| Terraform / AWS / ECS | No aplica | — |
+| Terraform / AWS / ECS | No aplica (sustituido por Kubernetes local con k3d, ADR-030) | — |
 | App móvil (Expo) | No aplica | — |
 
-**Regla de código:** las implementaciones simuladas viven en `apps/api/src/pos/fake-pos.*` y `apps/api/src/payments/fake-psp/` y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
+**Regla de código:** las implementaciones simuladas viven en `apps/api/src/fake-pos/` y `apps/api/src/fake-psp/` (y el adaptador `apps/api/src/table-payments/payments/providers/fake-payment.provider.ts`) y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
 
 <a id="poc-fakes"></a>
 ### 16.3 Simuladores
@@ -454,7 +473,7 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 - 2 comercios: "Casa Pepe" (Malasaña) y "La Tasca de Ana" (Chamberí), con coordenadas reales del barrio.
 - 8 mesas por local con sus QR, enlazadas con la caja simulada (`M1`…`M8`); carta de 20 productos y cuentas abiertas en las mesas 1–3.
 - Fidelización: 1 punto/€ sin retención, recompensas «Caña gratis» (25 pts) y «Postre gratis» (50 pts), y la promoción «Vuelve y te invitamos» (5 € a partir de 20 €, 30 días).
-- Usuarios del comercio: `owner@casapepe.test`, `staff@casapepe.test`, `owner@tascadeana.test` (contraseña `poc1234`).
+- Usuarios del comercio: `owner@casapepe.test`, `staff@casapepe.test`, `owner@tascadeana.test` (contraseña `poc1234`). Los OWNER tienen el doble factor activado con el secreto de prueba `JBSWY3DPEHPK3PXP`: `pnpm poc:totp` da el código del momento (ADR-025).
 - 3 comensales; Lucía (`+34600000001`) comparte datos con Casa Pepe y tiene 60 puntos y un cupón. El número de demo `+34600000000` queda libre para el alta.
 - 14 pagos de los últimos 7 días por comercio, para que la analítica no aparezca vacía.
 
@@ -497,5 +516,5 @@ Al terminar imprime las URL y un QR en la terminal para abrir la web QR desde el
 |---|---|
 | D-01 cerrada | Implementar el adaptador real del PSP. `FakePaymentProvider` se queda para tests |
 | D-02 cerrada | Implementar el adaptador real del software de caja. `FakePosConnector` se queda para tests y demos |
-| Hito M0 del ROADMAP | Añadir Terraform, staging en AWS, CI completa, doble factor de comercio, Sentry y OpenTelemetry |
+| Hito M0 del ROADMAP | Añadir Sentry y OpenTelemetry; el despliegue pasa a k3d con el hito MS (ADR-030; antes Terraform y staging en AWS). Ya hechos: doble factor de comercio y alta de comercio, locales y mesas (ADR-025), Gitleaks, Semgrep y Dependabot |
 | Esquema de BD | Las tablas `fake_*` se mantienen solo en entornos que no son producción (migración condicionada o esquema `dev`) |

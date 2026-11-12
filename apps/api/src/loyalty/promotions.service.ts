@@ -1,29 +1,29 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { CreatePromotionRequest, PromotionView } from '@comercechat/shared-types';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { AuditService } from '../audit/audit.service.js';
-import type { MerchantPrincipal } from '../auth/auth.types.js';
+import { AuditEmitter } from '../outbox/audit-emitter.js';
+import type { MerchantPrincipal } from '../identity/public/session.js';
 import { AppError } from '../common/app-error.js';
 import { DB, type Database } from '../db/client.js';
-import { coupons, promotions } from '../db/schema/index.js';
+import { couponIssuances, promotions } from './schema/loyalty.js';
 
 /** Promociones del comercio. En la PoC, la plantilla «Vuelve y te invitamos» (FR-CPN-01). */
 @Injectable()
 export class PromotionsService {
   constructor(
     @Inject(DB) private readonly db: Database,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
   ) {}
 
   async list(merchantId: string): Promise<PromotionView[]> {
     const rows = await this.db
       .select({
         p: promotions,
-        issued: sql<number>`count(${coupons.id})::int`,
-        redeemed: sql<number>`count(${coupons.id}) filter (where ${coupons.status} = 'REDEEMED')::int`,
+        issued: sql<number>`count(${couponIssuances.id})::int`,
+        redeemed: sql<number>`count(${couponIssuances.redeemedAt})::int`,
       })
       .from(promotions)
-      .leftJoin(coupons, eq(coupons.promotionId, promotions.id))
+      .leftJoin(couponIssuances, eq(couponIssuances.promotionId, promotions.id))
       .where(eq(promotions.merchantId, merchantId))
       .groupBy(promotions.id)
       .orderBy(desc(promotions.createdAt));
@@ -88,6 +88,7 @@ export class PromotionsService {
         {
           actorType: 'MERCHANT_USER',
           actorId: m.merchantUserId,
+          merchantId: m.merchantId,
           action: 'promotion.created',
           entity: 'promotion',
           entityId: p!.id,

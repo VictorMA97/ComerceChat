@@ -113,7 +113,7 @@ Planificación en [ROADMAP.md › PoC](ROADMAP.md#poc).
 | Usuarios | FR-USR-01, FR-USR-02, FR-USR-04 | OTP mostrado en la consola o en Mailpit; no se envían SMS. Sin passkeys ni Apple/Google |
 | Fidelización | FR-LOY-01, FR-LOY-02, FR-LOY-03 | `hold_hours = 0` configurable para que los puntos aparezcan al momento en la demo |
 | Cupones | FR-CPN-04, FR-CPN-05, FR-CPN-06 + una plantilla ("Vuelve y te invitamos") | Sin vista previa de alcance ni informes |
-| Comercio | FR-MER-04, FR-MER-06, FR-MER-08 | Comercios y usuarios del comercio creados con el script de datos de prueba; inicio de sesión con email y contraseña sin doble factor; sin KYB |
+| Comercio | FR-MER-01, FR-MER-03, FR-MER-04, FR-MER-06, FR-MER-08 | Comercios de prueba creados con el script de datos o registrados desde el panel con doble factor (desde M0, ADR-025); alta de locales y mesas; KYB simulado |
 | Analítica | FR-ANA-01 (volumen, nº de pagos, ticket medio, propinas, clientes identificados) | Consultas directas a la base de datos, sin vistas materializadas |
 | Tiempo real | Actualización de la mesa vía SSE | — |
 
@@ -215,6 +215,7 @@ Formato: `ID: descripción`, seguido de los **criterios de aceptación (CA)**.
 - **FR-LOY-02: ganar puntos.** Solo al confirmarse el pago por webhook.
   - CA: se calcula `floor(importe_sin_propina × regla)`. El movimiento se crea `PENDING` y pasa a `AVAILABLE` tras el cierre diario o a las X h (configurable, por defecto 24 h).
 - **FR-LOY-03: recompensas.** El comercio define un catálogo de recompensas ("postre gratis = 100 puntos"). Al canjearla se genera un cupón de un solo uso.
+  - CA: el canje exige `Idempotency-Key` (NFR-11, [ADR-015](DECISIONS.md#adr-015)); la misma clave devuelve el mismo cupón sin descontar los puntos dos veces y, sin clave, la API responde 400 `IDEMPOTENCY_KEY_REQUIRED`. [HECHO] cubierto por `apps/api/test/loyalty-coupons.e2e-spec.ts`.
 - **FR-LOY-04: anulación de puntos.** Un reembolso o *chargeback* anula los puntos asociados de forma proporcional. Si ya se habían gastado, el saldo puede quedar negativo y bloquear canjes.
 - **FR-LOY-05: ajustes manuales.** Solo OWNER, con motivo obligatorio y registro de auditoría.
 - **FR-LOY-06: notificación.** "+N puntos en {comercio}. Te faltan M para {recompensa}".
@@ -242,7 +243,8 @@ Formato: `ID: descripción`, seguido de los **criterios de aceptación (CA)**.
 
 ### 5.7 Comercio: alta y configuración (`FR-MER`)
 
-- **FR-MER-01: registro del comercio.** Email, contraseña y doble factor obligatorio para el OWNER.
+- **FR-MER-01: registro del comercio.** Email, contraseña y doble factor obligatorio para OWNER y MANAGER (TOTP con app de autenticación y códigos de recuperación, ADR-025).
+  - CA: sin el segundo factor no hay sesión; el comercio nace en `ONBOARDING` y no acepta pagos hasta completar FR-MER-02.
 - **FR-MER-02: alta ante el PSP.** Redirección al flujo alojado de verificación del PSP.
   - CA: el estado KYB se sincroniza por webhook. Sin verificación aprobada no se pueden activar los QR de pago.
 - **FR-MER-03: locales** con dirección, coordenadas, horario, categoría, fotos y software de caja asociado.
@@ -416,7 +418,7 @@ PointsLedgerEntry (EARN):
 | NFR-03 | Latencia p95 de la API < 300 ms (sin contar llamadas al PSP o al software de caja) |
 | NFR-04 | Accesibilidad WCAG 2.1 AA en la web QR, la app y el panel |
 | NFR-05 | Idiomas ES y EN; textos externalizados (i18n) desde el día 1 |
-| NFR-06 | Datos alojados en la UE (región AWS eu-south-2) |
+| NFR-06 | Datos alojados en la UE (región concreta pendiente de [D-07](DECISIONS.md#d-07); antes AWS eu-south-2, ADR-011) |
 | NFR-07 | Ámbito PCI DSS SAQ A (REG-06) |
 | NFR-08 | Cifrado en tránsito (TLS 1.2+) y en reposo (KMS) |
 | NFR-09 | Retención: registros financieros y de auditoría ≥ 6 años [HIPÓTESIS: confirmar con asesoría]; datos de marketing hasta la revocación del consentimiento |

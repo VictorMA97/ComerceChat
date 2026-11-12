@@ -93,6 +93,9 @@ const MINUTE = 60_000;
  */
 export const RATE_LIMITS = {
   merchantLogin: { limit: 10, ttl: 15 * MINUTE, blockDuration: 15 * MINUTE },
+  // El límite por cuenta (5 fallos) está en MerchantMfaService; este frena el reparto entre cuentas.
+  merchantMfa: { limit: 10, ttl: MINUTE, blockDuration: 15 * MINUTE },
+  merchantRegister: { limit: 5, ttl: 60 * MINUTE, blockDuration: 60 * MINUTE },
   // Holgado para las demos con el número de pruebas; el límite por teléfono está en OtpService.
   otpStart: { limit: 10, ttl: 10 * MINUTE, blockDuration: 30 * MINUTE },
   otpVerify: { limit: 10, ttl: MINUTE, blockDuration: 15 * MINUTE },

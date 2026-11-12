@@ -1,4 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { POC_TOTP_SECRET } from '../../apps/api/src/identity/auth/poc-mfa.js';
+import { totp } from '../../apps/api/src/identity/auth/totp.js';
 
 const PANEL = 'http://localhost:3001';
 const WEB_QR = 'http://localhost:3000';
@@ -22,6 +24,7 @@ test.beforeAll(async ({ request }) => {
     `${PANEL}/analitica`,
     `${PANEL}/promociones`,
     `${PANEL}/pos-simulator`,
+    `${PANEL}/actividad`,
     `${WEB_QR}/`,
     `${WEB_QR}/cuenta`,
     `${WEB_QR}/t/calentamiento`,
@@ -37,6 +40,9 @@ async function panel(browser: Browser): Promise<Page> {
   await page.goto(`${PANEL}/login`, { waitUntil: 'networkidle' });
   await page.getByLabel('Email').fill('owner@casapepe.test');
   await page.getByLabel('Contraseña').fill('poc1234');
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  // OWNER: segundo factor con el secreto de las cuentas de prueba (ADR-025).
+  await page.getByLabel('Código').fill(totp(POC_TOTP_SECRET));
   await page.getByRole('button', { name: 'Entrar' }).click();
   await page.waitForURL(`${PANEL}/`);
   return page;
@@ -83,12 +89,10 @@ test('recorrido completo: pagar, guardar puntos, volver con cupón y verlo en el
     timeout: 20_000,
   });
   const scanToPaid = (Date.now() - scannedAt) / 1000;
-  test
-    .info()
-    .annotations.push({
-      type: 'criterio 1',
-      description: `${scanToPaid.toFixed(1)} s del escaneo al pago`,
-    });
+  test.info().annotations.push({
+    type: 'criterio 1',
+    description: `${scanToPaid.toFixed(1)} s del escaneo al pago`,
+  });
   console.log(`Criterio 1: ${scanToPaid.toFixed(1)} s del escaneo al pago (< 30 s)`);
   expect(scanToPaid).toBeLessThan(30);
 

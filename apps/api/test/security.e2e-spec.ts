@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { hashPassword } from '../src/auth/passwords.js';
+import { hashPassword } from '../src/identity/auth/passwords.js';
 import { configureApp } from '../src/bootstrap.js';
 import { CLIENT_IP_HEADER, PROXY_AUTH_HEADER } from '../src/common/client-ip.js';
 import { loadEnv } from '../src/config/env.js';
@@ -16,10 +16,11 @@ import * as s from '../src/db/schema/index.js';
 import {
   FAKE_PSP_SIGNATURE_HEADER,
   signFakePspPayload,
-} from '../src/payments/fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../src/payments/fake-psp/fake-psp.service.js';
-import { QrService } from '../src/qr/qr.service.js';
-import { OTP_SENDER } from '../src/users/otp-sender.js';
+} from '../src/fake-psp/fake-psp-signature.js';
+import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
+import { OTP_SENDER } from '../src/identity/users/otp-sender.js';
+import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 // Este fichero prueba los límites: se activan aunque vitest los desactive para el resto (cada fichero
 // de test corre en su propio proceso y el entorno se lee al crear la app).
@@ -57,14 +58,16 @@ describe('Seguridad (E2E)', () => {
     const email = `sec-${role.toLowerCase()}-${rnd()}-${suffix}@e2e.test`;
     const [u] = await db
       .insert(s.merchantUsers)
-      .values({ merchantId, email, passwordHash: await hashPassword('secreto123'), role })
+      .values({
+        merchantId,
+        email,
+        passwordHash: await hashPassword('secreto123'),
+        role,
+        ...(role === 'OWNER' ? testMfaColumns(env) : {}),
+      })
       .returning();
-    const login = await via(http().post('/v1/merchant/auth/login')).send({
-      email,
-      password: 'secreto123',
-    });
-    expect(login.status).toBe(200);
-    return { id: u!.id, email, token: login.body.accessToken as string };
+    const token = await merchantLogin((path) => via(http().post(path)), email);
+    return { id: u!.id, email, token };
   }
 
   async function newUser() {
@@ -228,9 +231,14 @@ describe('Seguridad (E2E)', () => {
       });
       expect(r.status).toBe(429);
       expect(r.body.code).toBe('LOGIN_LOCKED');
-      // En la auditoría no queda el email en claro.
+      // En la auditoría no queda el email en claro: ni en audit_logs ni en los eventos que la llevan.
       const audits = await db.select().from(s.auditLogs);
       expect(JSON.stringify(audits)).not.toContain(u.email);
+      const pending = await db
+        .select()
+        .from(s.outboxEvents)
+        .where(eq(s.outboxEvents.type, 'AuditRecorded.v1'));
+      expect(JSON.stringify(pending)).not.toContain(u.email);
     });
   });
 

@@ -25,10 +25,31 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
+/**
+ * Resultado del login del comercio (ADR-025). OWNER y MANAGER necesitan siempre doble factor: si aún
+ * no lo tienen, el login solo deja activarlo. `mfaToken` vale para ese paso y caduca en minutos.
+ */
+export type MerchantLoginResult =
+  | ({ step: 'DONE' } & LoginResponse)
+  | { step: 'MFA_REQUIRED'; mfaToken: string; expiresIn: number }
+  | { step: 'MFA_SETUP_REQUIRED'; mfaToken: string; expiresIn: number };
+
+/** Secreto para darlo de alta en la app de autenticación (se muestra una vez, como QR). */
+export interface MfaSetupResponse {
+  secret: string;
+  otpauthUri: string;
+}
+
+/** Doble factor activado: sesión iniciada y códigos de recuperación (se muestran una sola vez). */
+export interface MfaActivateResponse extends LoginResponse {
+  recoveryCodes: string[];
+}
+
 export interface MerchantMe {
   merchantUserId: string;
   email: string;
   role: MerchantUserRole;
+  mfaEnabled: boolean;
   merchant: { id: string; brandName: string; status: string };
 }
 
@@ -372,4 +393,22 @@ export interface AnalyticsView {
   previous: AnalyticsTotals;
   /** Pagos por día del periodo actual. */
   daily: { date: string; volumeCents: number; payments: number }[];
+}
+
+/** Entrada del registro de actividad del comercio (GET /merchant/audit, ADR-028). */
+export interface AuditEntryView {
+  id: string;
+  at: string;
+  action: string;
+  actor: { type: 'MERCHANT_USER' | 'USER' | 'ADMIN' | 'SYSTEM'; email: string | null };
+  entity: string;
+  entityId: string | null;
+  /** IP recortada: suficiente para reconocer un acceso extraño sin guardar la dirección exacta. */
+  ip: string | null;
+}
+
+export interface AuditPage {
+  items: AuditEntryView[];
+  /** Pasar como `before` para la página siguiente; `null` si no hay más. */
+  nextCursor: string | null;
 }

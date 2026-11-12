@@ -116,13 +116,23 @@ export interface RedeemState {
   coupon?: CouponView;
 }
 
-/** Canjea puntos por una recompensa: emite un cupón (FR-LOY-03). */
-export async function redeemReward(rewardId: string, _prev: RedeemState): Promise<RedeemState> {
+/**
+ * Canjea puntos por una recompensa: emite un cupón (FR-LOY-03). La Idempotency-Key llega del
+ * formulario y es la misma en cada reintento del intento: un doble clic o un reintento tras un
+ * fallo de red devuelve el mismo cupón en vez de canjear dos veces (ADR-015).
+ */
+export async function redeemReward(
+  rewardId: string,
+  _prev: RedeemState,
+  form: FormData,
+): Promise<RedeemState> {
+  const idempotencyKey = `redeem:${String(form.get('idempotencyKey') ?? '')}`;
   try {
     const coupon = await apiAsUser<CouponView>(
       `/me/rewards/${encodeURIComponent(rewardId)}/redeem`,
       {
         method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
       },
     );
     revalidatePath('/cuenta');

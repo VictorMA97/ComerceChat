@@ -9,31 +9,28 @@ import {
 import type { ClaimPointsResponse, CouponView, LoyaltyView } from '@comercechat/shared-types';
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 import { AppError } from '../common/app-error.js';
-import { ENV, type Env } from '../config/env.js';
 import { DB, type Database, type Tx } from '../db/client.js';
 import {
   loyaltyAccounts,
   loyaltyPrograms,
   loyaltyRewards,
-  merchants,
-  payments,
   pointsLedgerEntries,
   promotions,
-} from '../db/schema/index.js';
-import { type DomainEventJob, OutboxRelayService } from '../outbox/outbox-relay.service.js';
-import { isValidPaymentStatusToken } from '../payments/status-token.js';
+} from './schema/loyalty.js';
+import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
+import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
 import { QueueName, QueueService } from '../queue/queue.service.js';
-import { CouponsService } from './coupons.service.js';
+import { IdempotencyService } from '../common/idempotency.service.js';
+import {
+  type CapturedPayment,
+  PaymentsDirectory,
+} from '../table-payments/public/payments-directory.js';
+import { CouponIssuer, type IssuedCoupon } from './coupon-issuer.service.js';
+import { pointsFor } from './public/loyalty-directory.js';
 
-/** Plazo para reclamar los puntos de un pago hecho sin cuenta (FR-USR-02). */
-const CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
 const REWARD_COUPON_VALID_DAYS = 30;
 
 type ProgramRow = typeof loyaltyPrograms.$inferSelect;
-
-/** Puntos que genera un importe pagado (sin propina): floor(€ × puntos por euro) (FR-LOY-02). */
-export const pointsFor = (program: Pick<ProgramRow, 'earnRule'>, paidCents: number): number =>
-  Math.max(0, Math.floor((paidCents / 100) * program.earnRule.pointsPerEuro));
 
 @Injectable()
 export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
@@ -41,30 +38,33 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
 
   constructor(
     @Inject(DB) private readonly db: Database,
-    @Inject(ENV) private readonly env: Env,
-    private readonly coupons: CouponsService,
+    private readonly coupons: CouponIssuer,
+    private readonly payments: PaymentsDirectory,
+    private readonly venues: VenuesDirectory,
     private readonly relay: OutboxRelayService,
     private readonly queues: QueueService,
+    private readonly idempotency: IdempotencyService,
   ) {
     this.queues.registerWorker(QueueName.LOYALTY, () => this.releasePending(), 1);
   }
 
   onModuleInit(): void {
     // Puntos automáticos para pagos de usuarios identificados. Idempotente (índice único por pago).
-    this.relay.on('PaymentCaptured', (e: DomainEventJob) =>
-      this.earnForPayment(e.payload.paymentId as string).then(() => undefined),
-    );
+    this.relay.on('loyalty', 'PaymentCaptured.v1', async ({ payload: p }) => {
+      const { issued } = await this.earnForPayment({
+        id: p.paymentId,
+        merchantId: p.merchantId,
+        userId: p.userId,
+        amountCents: p.amountCents,
+        discountCents: p.discountCents,
+      });
+      await this.coupons.deliver(issued);
+    });
   }
 
   async onApplicationBootstrap(): Promise<void> {
     if (!this.queues.runsWorkers) return;
-    await this.queues
-      .queue(QueueName.LOYALTY)
-      .upsertJobScheduler(
-        'release-pending-points',
-        { every: 5 * 60_000 },
-        { name: 'release-pending-points' },
-      );
+    await this.queues.schedule(QueueName.LOYALTY, 'release-pending-points', 5 * 60_000);
   }
 
   async programFor(
@@ -86,14 +86,13 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
    * habían dado) y los cupones de bienvenida emitidos si es su primera visita al comercio.
    */
   async earnForPayment(
-    paymentId: string,
+    p: Pick<CapturedPayment, 'id' | 'merchantId' | 'userId' | 'amountCents' | 'discountCents'>,
     tx?: Tx,
-  ): Promise<{ points: number; newCoupons: CouponView[] }> {
+  ): Promise<{ points: number; newCoupons: CouponView[]; issued: IssuedCoupon[] }> {
     const run = async (t: Tx) => {
-      const [p] = await t.select().from(payments).where(eq(payments.id, paymentId));
-      if (!p || p.status !== 'CAPTURED' || !p.userId) return { points: 0, newCoupons: [] };
+      if (!p.userId) return { points: 0, newCoupons: [], issued: [] };
       const program = await this.programFor(p.merchantId, t);
-      if (!program) return { points: 0, newCoupons: [] };
+      if (!program) return { points: 0, newCoupons: [], issued: [] };
       const points = pointsFor(program, p.amountCents - p.discountCents);
       const account = await this.lockAccount(t, p.userId, program.id);
 
@@ -117,12 +116,14 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
         })
         .onConflictDoNothing()
         .returning();
-      if (!entry) return { points: 0, newCoupons: [] };
+      if (!entry) return { points: 0, newCoupons: [], issued: [] };
       if (status === 'AVAILABLE') await this.addToBalance(t, account.id, points);
 
-      const newCoupons =
-        (previous?.n ?? 0) === 0 ? await this.issueWelcomeCoupons(t, p.merchantId, p.userId) : [];
-      return { points, newCoupons };
+      const welcome =
+        (previous?.n ?? 0) === 0
+          ? await this.issueWelcomeCoupons(t, p.merchantId, p.userId)
+          : { views: [], rows: [] };
+      return { points, newCoupons: welcome.views, issued: welcome.rows };
     };
     return tx ? run(tx) : this.db.transaction(run);
   }
@@ -136,37 +137,11 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     paymentId: string,
     statusToken: string,
   ): Promise<ClaimPointsResponse> {
-    if (!isValidPaymentStatusToken(this.env.PAYMENT_STATUS_SECRET, paymentId, statusToken)) {
-      throw new AppError('PAYMENT_NOT_FOUND', HttpStatus.NOT_FOUND, 'Pago no encontrado');
-    }
-    return this.db.transaction(async (tx) => {
-      const [p] = await tx.select().from(payments).where(eq(payments.id, paymentId)).for('update');
-      if (!p || p.status !== 'CAPTURED' || !p.capturedAt) {
-        throw new AppError(
-          'CLAIM_NOT_ALLOWED',
-          HttpStatus.CONFLICT,
-          'Este pago todavía no se ha completado',
-        );
-      }
-      if (p.userId && p.userId !== userId) {
-        throw new AppError(
-          'CLAIM_NOT_ALLOWED',
-          HttpStatus.CONFLICT,
-          'Los puntos de este pago ya tienen dueño',
-        );
-      }
-      if (!p.userId && Date.now() - p.capturedAt.getTime() > CLAIM_WINDOW_MS) {
-        throw new AppError(
-          'CLAIM_EXPIRED',
-          HttpStatus.CONFLICT,
-          'Han pasado más de 24 h desde el pago',
-        );
-      }
-      if (!p.userId) await tx.update(payments).set({ userId }).where(eq(payments.id, p.id));
-      const { points, newCoupons } = await this.earnForPayment(p.id, tx);
-      const merchant = await tx.query.merchants.findFirst({
-        where: eq(merchants.id, p.merchantId),
-      });
+    // table-payments valida el token, el estado, el dueño y el plazo, y asigna el pago al usuario.
+    const p = await this.payments.claimForUser(paymentId, userId, statusToken);
+    const brandName = (await this.venues.merchantNames([p.merchantId])).get(p.merchantId) ?? '';
+    const { response, issued } = await this.db.transaction(async (tx) => {
+      const { points, newCoupons, issued } = await this.earnForPayment(p, tx);
       const program = await this.programFor(p.merchantId, tx);
       const account = program
         ? await tx.query.loyaltyAccounts.findFirst({
@@ -177,20 +152,38 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
           })
         : undefined;
       return {
-        pointsEarned: points,
-        balance: account?.balanceCached ?? 0,
-        merchant: { id: p.merchantId, brandName: merchant?.brandName ?? '' },
-        newCoupons,
+        response: {
+          pointsEarned: points,
+          balance: account?.balanceCached ?? 0,
+          merchant: { id: p.merchantId, brandName },
+          newCoupons,
+        },
+        issued,
       };
     });
+    await this.coupons.deliver(issued);
+    return response;
   }
 
-  /** Canjea una recompensa por un cupón de un solo uso (FR-LOY-03). */
-  async redeemReward(userId: string, rewardId: string): Promise<CouponView> {
-    return this.db.transaction(async (tx) => {
+  /**
+   * Canjea una recompensa por un cupón de un solo uso (FR-LOY-03), con Idempotency-Key obligatoria (ADR-015, NFR-11): la misma clave devuelve el mismo cupón
+   * sin un segundo REDEEM. El ámbito incluye al usuario para que dos comensales no compartan claves.
+   */
+  async redeemReward(
+    userId: string,
+    rewardId: string,
+    idempotencyKey: string | undefined,
+  ): Promise<CouponView> {
+    return this.idempotency.run(`reward-redeem:${userId}`, idempotencyKey, { rewardId }, () =>
+      this.redeemRewardOnce(userId, rewardId),
+    );
+  }
+
+  private async redeemRewardOnce(userId: string, rewardId: string): Promise<CouponView> {
+    const { view, coupon } = await this.db.transaction(async (tx) => {
       const reward = await tx.query.loyaltyRewards.findFirst({
         where: and(eq(loyaltyRewards.id, rewardId), eq(loyaltyRewards.active, true)),
-        with: { program: { with: { merchant: true } } },
+        with: { program: true },
       });
       if (!reward)
         throw new AppError('REWARD_NOT_FOUND', HttpStatus.NOT_FOUND, 'Recompensa no encontrada');
@@ -219,15 +212,22 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
         reason: `Recompensa: ${reward.name}`,
       });
       await this.addToBalance(tx, account.id, -reward.costPoints);
-      return this.coupons.toView(coupon!, reward.program.merchant.brandName);
+      const names = await this.venues.merchantNames([reward.program.merchantId]);
+      return {
+        view: this.coupons.toView(coupon!, names.get(reward.program.merchantId) ?? ''),
+        coupon: coupon!,
+      };
     });
+    await this.coupons.deliver([coupon]);
+    return view;
   }
 
   async view(userId: string): Promise<LoyaltyView[]> {
     const accounts = await this.db.query.loyaltyAccounts.findMany({
       where: eq(loyaltyAccounts.userId, userId),
-      with: { program: { with: { merchant: true, rewards: true } } },
+      with: { program: { with: { rewards: true } } },
     });
+    const names = await this.venues.merchantNames(accounts.map((a) => a.program.merchantId));
     const pending = accounts.length
       ? await this.db
           .select({
@@ -247,7 +247,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
           .groupBy(pointsLedgerEntries.accountId)
       : [];
     return accounts.map((a) => ({
-      merchant: { id: a.program.merchant.id, brandName: a.program.merchant.brandName },
+      merchant: { id: a.program.merchantId, brandName: names.get(a.program.merchantId) ?? '' },
       balance: a.balanceCached,
       pendingPoints: pending.find((p) => p.accountId === a.id)?.points ?? 0,
       pointsPerEuro: a.program.earnRule.pointsPerEuro,
@@ -303,7 +303,7 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
     tx: Tx,
     merchantId: string,
     userId: string,
-  ): Promise<CouponView[]> {
+  ): Promise<{ views: CouponView[]; rows: IssuedCoupon[] }> {
     const active = await tx
       .select()
       .from(promotions)
@@ -314,10 +314,11 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
           eq(promotions.status, 'ACTIVE'),
         ),
       );
-    const merchant = active.length
-      ? await tx.query.merchants.findFirst({ where: eq(merchants.id, merchantId) })
-      : null;
+    const brandName = active.length
+      ? ((await this.venues.merchantNames([merchantId])).get(merchantId) ?? '')
+      : '';
     const issued: CouponView[] = [];
+    const rows: IssuedCoupon[] = [];
     for (const promo of active) {
       const coupon = await this.coupons.issue(tx, {
         merchantId,
@@ -328,10 +329,13 @@ export class LoyaltyService implements OnModuleInit, OnApplicationBootstrap {
         validDays: promo.rules.validDays,
         promotionId: promo.id,
       });
-      if (coupon) issued.push(this.coupons.toView(coupon, merchant?.brandName ?? ''));
+      if (coupon) {
+        issued.push(this.coupons.toView(coupon, brandName));
+        rows.push(coupon);
+      }
     }
     if (issued.length)
       this.logger.log(`Cupones de bienvenida para el usuario ${userId}: ${issued.length}`);
-    return issued;
+    return { views: issued, rows };
   }
 }

@@ -13,9 +13,9 @@ import * as s from '../src/db/schema/index.js';
 import {
   FAKE_PSP_SIGNATURE_HEADER,
   signFakePspPayload,
-} from '../src/payments/fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../src/payments/fake-psp/fake-psp.service.js';
-import { QrService } from '../src/qr/qr.service.js';
+} from '../src/fake-psp/fake-psp-signature.js';
+import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 
 const suffix = Date.now().toString(36);
 const guest = `guest-p2-${suffix}-000000`;

@@ -6,12 +6,13 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { hashPassword } from '../src/auth/passwords.js';
+import { hashPassword } from '../src/identity/auth/passwords.js';
 import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { QrService } from '../src/qr/qr.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
+import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 describe('Comercio: autenticación, mesas y QR (E2E)', () => {
   let app: INestApplication;
@@ -43,7 +44,7 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
         })
         .returning();
       await tx.insert(s.merchantUsers).values([
-        { merchantId: m!.id, email: owner, passwordHash, role: 'OWNER' },
+        { merchantId: m!.id, email: owner, passwordHash, role: 'OWNER', ...testMfaColumns(env) },
         { merchantId: m!.id, email: staff, passwordHash, role: 'STAFF' },
       ]);
       const [loc] = await tx
@@ -70,12 +71,17 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
     await app?.close();
   });
 
-  const login = async (email: string) =>
-    (
-      await request(app.getHttpServer())
-        .post('/v1/merchant/auth/login')
-        .send({ email, password: 'secreto123' })
-    ).body.accessToken as string;
+  // Una sesión por usuario: el mismo código TOTP no vale dos veces.
+  const sessions = new Map<string, Promise<string>>();
+  const login = (email: string) => {
+    if (!sessions.has(email)) {
+      sessions.set(
+        email,
+        merchantLogin((path) => request(app.getHttpServer()).post(path), email),
+      );
+    }
+    return sessions.get(email)!;
+  };
 
   it('rechaza credenciales incorrectas con problem+json', async () => {
     const res = await request(app.getHttpServer())

@@ -5,29 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792251448166,
-      "tag": "0000_init",
+      "when": 1794516142621,
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1792337756796,
-      "tag": "0001_payments",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1792339795078,
-      "tag": "0002_split_payments",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1792343792464,
-      "tag": "0003_loyalty_coupons",
+      "when": 1794516404079,
+      "tag": "0001_outbox_trace_context",
       "breakpoints": true
     }
   ]

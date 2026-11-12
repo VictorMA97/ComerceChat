@@ -129,7 +129,7 @@
 <a id="adr-009"></a>
 ## ADR-009: monolito modular, no microservicios
 
-- **Estado:** Aceptada
+- **Estado:** Sustituida por [ADR-029](#adr-029) (12-nov-2026)
 - **Decisión:**
   - Una sola aplicación NestJS con módulos de fronteras estrictas (ARCHITECTURE §5).
   - Patrón outbox para los eventos de dominio.
@@ -154,7 +154,7 @@
 <a id="adr-011"></a>
 ## ADR-011: AWS en región UE (eu-south-2, España)
 
-- **Estado:** Aceptada
+- **Estado:** Sustituida por [ADR-030](#adr-030) (12-nov-2026). El proveedor de nube, la región y el CDN/WAF pasan a la decisión abierta [D-07](#d-07)
 - **Decisión:**
   - Infraestructura en AWS eu-south-2, con copias de seguridad en otra región de la UE.
   - Terraform y ECS Fargate (sin Kubernetes en el MVP).
@@ -187,6 +187,7 @@
   - Coste por SMS o WhatsApp.
   - Bloqueo de números VoIP y desechables.
   - Menor riesgo de robo de cuentas.
+- **Implementación del doble factor de comercios:** [ADR-025](#adr-025) (TOTP propio, independiente de D-03).
 
 <a id="adr-014"></a>
 ## ADR-014: Alipay+/WeChat Pay y carta multiidioma solo en fase 2 y solo vía PSP
@@ -388,11 +389,179 @@
     - Recarga los datos de prueba.
 - **Consecuencias:** el opcional de `StripeConnectProvider` queda para después de la PoC.
 
+<a id="adr-025"></a>
+## ADR-025: doble factor de los comercios con TOTP propio y alta de comercio, locales y mesas (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** [ADR-013](#adr-013) exige doble factor a OWNER y MANAGER, y la condición de «hecho» de M0 es que un comercio se registre con doble factor y cree un local con mesas. El proveedor de autenticación sigue abierto ([D-03](#d-03)): la prueba técnica de los gestionados no debe bloquear el alta.
+- **Decisión:**
+  - **Factor:** TOTP (RFC 6238: SHA-1, 6 dígitos, pasos de 30 s) con cualquier app de autenticación, implementado en la API (`auth/totp.ts`, probado con los vectores del RFC). Sin SMS: es más barato y no depende de D-04. Las passkeys para comercios se evalúan con D-03.
+  - **Quién:** obligatorio para OWNER y MANAGER; STAFF solo si lo activa. Una sesión de OWNER o MANAGER sin doble factor se rechaza aunque el JWT sea válido, así que los tokens emitidos antes de M0 dejan de valer.
+  - **Login en dos pasos:**
+    - La contraseña correcta devuelve `MFA_REQUIRED` o `MFA_SETUP_REQUIRED` con un `mfaToken`, en lugar de la sesión.
+    - El `mfaToken` es un JWT de 5 minutos con audiencia `merchant-mfa`. No vale como sesión y es de un solo uso: se revoca su `jti`.
+    - El panel lo guarda en una cookie httpOnly (`cc_mfa`), nunca en el HTML.
+  - **Alta del factor:**
+    - El secreto, de 160 bits, se guarda cifrado con AES-256-GCM (`merchant_users.mfa_secret_enc`).
+    - Mientras no se confirma con un código, queda pendiente en Redis 10 minutos.
+    - Al activarlo se emiten **10 códigos de recuperación** de un solo uso. Solo se guarda su HMAC (`merchant_user_recovery_codes`) y se marcan como usados de forma atómica (`UPDATE … WHERE used_at IS NULL RETURNING`).
+  - **Protección del segundo paso:**
+    - Se admite ±1 paso de desfase de reloj.
+    - Un mismo código no vale dos veces: `SET NX` por usuario y paso.
+    - 5 fallos bloquean la cuenta 15 minutos.
+    - Hay límite por IP (`merchantMfa`).
+    - Activaciones, fallos y usos de códigos de recuperación quedan en auditoría.
+  - **Registro (FR-MER-01):**
+    - `POST /merchant/auth/register` crea el comercio en `ONBOARDING` y su OWNER (contraseña ≥ 10 caracteres). No abre sesión hasta activar el doble factor.
+    - Un comercio en `ONBOARDING` no acepta pagos por QR.
+    - En la PoC, el OWNER completa un **alta simulada ante el PSP** (`POST /merchant/psp/onboarding/simulate`, solo con `PAYMENT_PROVIDER=fake`), que lo pasa a `ACTIVE`. Con un PSP real lo hará el webhook de verificación (FR-MER-02, M1).
+  - **Locales y mesas (FR-MER-03/04):**
+    - OWNER y MANAGER dan de alta locales y mesas en bloque.
+    - Las mesas se numeran a continuación de las existentes («Mesa N»), con el local bloqueado (`FOR UPDATE`), y cada una nace con su QR estático firmado.
+    - `PosConnector.linkNewTables` (opcional) enlaza las mesas nuevas con la caja. El simulador crea su propia mesa y carga la carta por defecto. Con una caja real el emparejamiento es manual (FR-POS-05, M2).
+  - **Cuentas de prueba:** los OWNER del seed tienen el doble factor activado con un secreto público y conocido (`JBSWY3DPEHPK3PXP`). `pnpm poc:totp` imprime el código del momento.
+- **Alternativas descartadas:**
+  - **OTP por SMS o email para comercios:** depende de D-04 y es vulnerable al SIM swapping.
+  - **Esperar a D-03 para el doble factor:** bloquearía M0. El TOTP es estándar y portable a cualquier proveedor.
+  - **Librería externa de TOTP:** son unas 60 líneas con `node:crypto`, verificables con los vectores del RFC.
+  - **Saltarse el doble factor en local:** escondería errores de flujo y no probaría la condición de «hecho».
+- **Consecuencias:**
+  - Los E2E entran con el secreto de prueba: helper `test/merchant-session.ts` en la API y paso del código en Playwright.
+  - La resolución del QR se cachea 30 s, así que un QR consultado mientras el comercio estaba en `ONBOARDING` puede tardar hasta 30 s en aceptar pagos.
+  - Falta recuperar la cuenta sin códigos (reinicio del doble factor por soporte, FR-ADM) y gestionar los usuarios del comercio (FR-MER-05).
+
+<a id="adr-026"></a>
+## ADR-026: colas de trabajo en SQS detrás de `QueueService`; tareas periódicas en BullMQ (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** ARCHITECTURE prevé outbox → worker → SQS en el MVP; la PoC usaba BullMQ para todo ([ADR-018](#adr-018)). Hacía falta pasar a SQS sin tocar el dominio ni perder la PoC local.
+- **Decisión:**
+  - `QueueService` es una fachada con dos transportes (`queue/bullmq.transport.ts`, `queue/sqs.transport.ts`). `QUEUE_DRIVER=bullmq|sqs` elige el de las **colas de trabajo**: eventos del PSP, eventos de dominio del outbox y entrega del PSP simulado.
+  - Las **tareas periódicas** (caducidad de sesiones, purga de claves, liberación de puntos) van siempre en BullMQ (`SCHEDULED_QUEUES`): SQS no programa tareas, y Redis ya está en la arquitectura.
+  - **SQS:**
+    - Colas estándar `<QUEUE_PREFIX>-<cola>` con su `-dlq`. Entrega «al menos una vez» y sin orden, cubierto por la regla de que todo procesador es idempotente.
+    - El `jobId` de BullMQ no tiene equivalente: con SQS la deduplicación la garantizan los propios procesadores (`psp_event_id`, índices únicos).
+    - Reintentos: el mensaje fallido se aplaza `backoffMs · 2^(n−1)` cambiando su visibilidad. Al agotar los intentos del trabajo se copia a la DLQ con el motivo y se borra.
+    - La redrive policy de la cola (25 recepciones) es la red de seguridad si el proceso muere antes de moverlo.
+    - Long polling (`SQS_WAIT_SECONDS`, 20 s por defecto). Los consumidores se cortan con `AbortController` al apagar.
+  - **Local:** ElasticMQ (servicio `sqs` de docker compose, también en CI) y `SQS_CREATE_QUEUES=on` para crear colas y DLQ al arrancar.
+  - **Producción:** se exige `QUEUE_DRIVER=sqs`, y `SQS_CREATE_QUEUES=on` está prohibido: las colas las crea Terraform. Ver `productionViolations` en `config/env.ts`. *(Con [ADR-030](#adr-030), quién crea las colas en un entorno de producción queda pendiente de [D-07](#d-07).)*
+- **Alternativas descartadas:**
+  - **LocalStack:** más pesado, y su imagen gratuita ha cambiado de condiciones. ElasticMQ solo hace SQS y es suficiente.
+  - **Colas FIFO:** deduplicarían, pero limitan el rendimiento y no hacen falta con procesadores idempotentes.
+  - **EventBridge Scheduler para las tareas periódicas:** otra pieza más sin beneficio mientras haya Redis.
+- **Consecuencias:**
+  - Test de integración `queue-sqs.e2e-spec`: reintentos, DLQ y un cobro completo pasando por las tres colas de trabajo.
+  - `pnpm poc:up` sigue con BullMQ por defecto.
+  - El contexto de traza no viaja aún en los mensajes: cada trabajo es una traza propia ([ADR-027](#adr-027)).
+
+<a id="adr-027"></a>
+## ADR-027: trazas con OpenTelemetry, redactadas y solo con padre (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Decisión:**
+  - **SDK y arranque:** OpenTelemetry Node SDK con `TELEMETRY=on`, exportando OTLP/HTTP (variables estándar `OTEL_*`). `main.ts` arranca la telemetría y **después** importa la app (`server.ts`), porque los hooks de ESM solo instrumentan lo que se importa tras registrarlos.
+  - **Instrumentación:** HTTP, Express, Postgres e ioredis. La de `nestjs-core` no se usa porque no cubre Nest 12; las rutas ya salen de Express.
+  - **Cada trabajo de cola abre su span** (`process <cola> <trabajo>`, `QueueService`), así que las consultas de los workers se ven aunque no vengan de una petición.
+  - **Sin ruido:** Postgres, Redis y las peticiones HTTP salientes solo generan spans dentro de otro span. Así, el sondeo del outbox (cada 300 ms) y el long polling de SQS no crean trazas sueltas.
+  - **Privacidad:** las trazas salen del sistema, así que:
+    - se redacta la query de las URL (el token de estado del pago va en `?t=`);
+    - Postgres sin parámetros (`enhancedDatabaseReporting: false`);
+    - Redis solo con el nombre del comando, porque sus argumentos incluyen claves con hashes y valores como el secreto TOTP pendiente cifrado.
+  - **Local:** Jaeger opcional (`docker compose --profile observability up -d`, http://localhost:16686).
+- **Verificado:** un cobro completo genera 7 trazas (3 peticiones, 3 trabajos de cola y la tarea de mantenimiento), sin trazas sueltas y sin el token en ningún atributo.
+- **Pendiente:**
+  - **Sentry:** requiere cuenta; se conectará al mismo SDK.
+  - ~~**Propagar el contexto de traza en los mensajes de cola**~~ *Hecho en MS F1.7 (12-nov-2026): cada trabajo y cada evento del outbox llevan `traceparent`, y webhook, captura y eventos de dominio forman una sola traza (comprobado en Jaeger). Ver [MIGRACION.md](MIGRACION.md).*
+  - **Métricas y logs estructurados.**
+
+<a id="adr-028"></a>
+## ADR-028: auditoría de solo inserción forzada en la base de datos y ligada al comercio (M0)
+
+- **Estado:** Aceptada (19-oct-2026)
+- **Contexto:** `audit_logs` y `user_consents` eran de solo inserción por convención del código. El comercio no podía ver quién había entrado en su cuenta ni qué había cambiado, que es lo primero que se mira ante un acceso sospechoso, ahora que hay doble factor.
+- **Decisión:**
+  - **Solo inserción en la base de datos:** triggers `BEFORE UPDATE OR DELETE` que lanzan un error en `audit_logs` y `user_consents` (migración `0005`, añadido a mano como en [ADR-019](#adr-019)).
+    - `TRUNCATE` no dispara triggers de fila; solo lo usa el seed local.
+    - En producción el rol de la aplicación no tendrá permiso de `TRUNCATE`.
+    - `points_ledger_entries` no entra aún, porque la liberación `PENDING → AVAILABLE` actualiza el estado; se revisará con FR-LOY en M3.
+  - **Ligada al comercio:** `audit_logs.merchant_id`, sin clave foránea porque es histórico, con índice `(merchant_id, id)`. Todas las acciones del panel, del doble factor y los avisos de pago lo rellenan. El login fallido no, porque no se sabe de qué comercio es.
+  - **Nuevo evento:** se audita también el cierre de sesión.
+  - **Registro de actividad:**
+    - `GET /merchant/audit`, solo para el OWNER, con paginación por cursor sobre el id (UUIDv7) y la IP recortada (`a.b.c.x`).
+    - En el panel, página **Actividad**, con los fallos de doble factor y las anomalías de pago resaltados.
+- **Consecuencias:** el visor completo del backoffice interno (FR-ADM-05) sigue en M5. La retención de 6 años (NFR-09) se aplicará con la política de copias en AWS.
+- **Actualización (MS F1.5, [ADR-029](#adr-029)):** los contextos ya no escriben en `audit_logs`. `AuditEmitter` guarda `AuditRecorded.v1` en el outbox dentro de la transacción del cambio y el contexto audit lo inserta con su id (idempotente); los triggers siguen en `audit.audit_logs` e `identity.user_consents`. La entrada nunca se pierde; aparece en el registro con menos de un segundo de retraso.
+
+<a id="adr-029"></a>
+## ADR-029: microservicios dentro del monorepo, como base para experimentos DevOps
+
+- **Estado:** Aceptada (12-nov-2026). Sustituye a [ADR-009](#adr-009). Plan de ejecución en [MIGRACION.md](MIGRACION.md).
+- **Contexto:**
+  - El proyecto es un portfolio y se quiere una base de microservicios sobre la que hacer experimentos DevOps.
+  - ADR-009 descartó los microservicios por el coste operativo con un equipo pequeño. Ese coste se asume a propósito: es justo lo que se quiere practicar.
+  - No hay datos de producción [HECHO], así que mover tablas y rehacer migraciones no exige migrar datos en vivo.
+  - El código actual no cumple la regla de ARCHITECTURE §5 de no acceder a tablas de otro módulo [HECHO] (MIGRACION §2.3).
+- **Decisión:**
+  - **Monorepo:** se mantiene pnpm + Turborepo. Los servicios viven en `services/*` y se construyen y despliegan por separado.
+  - **Servicios:** `identity`, `merchant-venues`, `table-payments`, `loyalty`, `realtime`, `audit`, `analytics`, y los simuladores `fake-psp` y `fake-pos`. Delante, un gateway (nginx, [ADR-030](#adr-030)).
+  - **El núcleo del dinero no se parte.** `table-payments` agrupa pago, cuenta de la mesa, reparto, QR dinámico y ciclo de vida del cupón, con las mismas transacciones ACID que hoy (ADR-015, ADR-022, ADR-024). No hay sagas en el camino del dinero.
+  - **Datos:** un clúster PostgreSQL con una base de datos y un esquema y un rol por servicio, sin claves foráneas entre esquemas. Redis compartido con prefijo por servicio.
+  - **Comunicación:**
+    - síncrona en REST/JSON, por rutas `/internal/*` que el gateway no expone;
+    - asíncrona con el outbox de cada servicio y una cola por consumidor;
+    - los eventos son versionados y llevan los datos que necesitan sus consumidores.
+  - **Auditoría:** cada servicio la escribe en su outbox dentro de su transacción, y `audit` la inserta de forma idempotente.
+  - **Fronteras verificadas en CI** con dependency-cruiser antes de extraer ningún servicio (fase F1).
+  - **DevOps:** queda fuera de la migración salvo lo mínimo para desplegar ([ADR-030](#adr-030)). El resto son recomendaciones (MIGRACION §9).
+- **Alternativas descartadas:**
+  - **Seguir con el monolito modular (ADR-009):** no sirve para el objetivo del portfolio.
+  - **Un repositorio por servicio:** obliga a versionar y publicar los paquetes compartidos y complica los cambios que tocan varios servicios.
+  - **Partir pagos, reparto y cupones en servicios distintos con sagas:** el canje del cupón y la protección contra cobrar dos veces dejarían de ser atómicos.
+  - **Una base de datos física por servicio:** más coste local sin ganancia para el objetivo; el rol por esquema ya impone la frontera.
+  - **gRPC:** se mantiene REST/JSON, como hoy.
+- **Consecuencias:**
+  - El trabajo funcional se para hasta terminar la migración, que va antes de M1 (ROADMAP, hito MS).
+  - La aparición en `audit_logs` y el modelo de lectura de `analytics` pasan a ser eventuales.
+  - La validación de sesiones se hace con una llamada a `identity`, lo que añade latencia de red (NFR-03).
+  - **Cupones (concretado en F1):** loyalty los emite (`coupon_issuances`) en la misma transacción que su apunte de puntos y publica `CouponIssued.v1`; table-payments crea el cupón con ese id y guarda su estado (reserva y canje atómicos en la transacción del pago). Tras el commit, loyalty lo entrega también directamente, de forma idempotente, para que se vea al momento; el evento es la garantía.
+  - **Registro de comercio (concretado en F1):** en dos pasos; merchant-venues crea el comercio en `ONBOARDING` e identity, su OWNER. Si falla el segundo, queda un comercio sin usuarios que no acepta pagos.
+  - **Roles de base de datos por servicio:** llegan al extraer cada servicio (F3–F6). En F1 los esquemas ya están separados y sin claves foráneas entre ellos, y el outbox y la idempotencia viven en un esquema común `platform`.
+  - Los simuladores se convierten en servicios HTTP, como lo serán los adaptadores reales. Esto resuelve la separación de las tablas `fake_*` (ARCHITECTURE §16.7).
+
+<a id="adr-030"></a>
+## ADR-030: despliegue del MVP en Kubernetes local (k3d) con nginx como gateway
+
+- **Estado:** Aceptada (12-nov-2026). Sustituye a [ADR-011](#adr-011).
+- **Contexto:**
+  - Con [ADR-029](#adr-029) hay varios servicios que desplegar y el objetivo es experimentar con DevOps sobre Kubernetes.
+  - ADR-011 fijaba AWS eu-south-2, Terraform y ECS Fargate sin Kubernetes, y Cloudflare como CDN/WAF. Ninguna de esas piezas tiene cuenta todavía [HECHO] (ROADMAP M0).
+- **Decisión:**
+  - **El MVP se despliega en Kubernetes local con k3d.** Además se mantienen `pnpm dev` y docker compose para el desarrollo.
+  - **Gateway:** nginx con configuración declarativa (`deploy/gateway/nginx.conf`), el mismo fichero en docker compose y en Kubernetes. Enruta `/v1` por ruta concreta, no expone `/internal/*`, desactiva el buffer en las rutas SSE y deja pasar intactos el cuerpo de los webhooks (ADR-015) y las cabeceras de IP de los BFF (ADR-021).
+  - **Clúster k3d:**
+    - registro de imágenes propio de k3d;
+    - Traefik desactivado;
+    - solo `web-qr` y `merchant-panel` publicados en `127.0.0.1`. La API no se publica (ADR-021).
+  - **Manifiestos:** Kustomize con base y overlay `local`. Cada servicio tiene un `Deployment` HTTP, otro para workers si los tiene y un `Job` de migración. La infraestructura (Postgres+PostGIS, Redis, ElasticMQ, Mailpit) va dentro del clúster en el overlay local.
+  - **El overlay local usa los simuladores** (ADR-018), así que no es un entorno de producción: las comprobaciones de `NODE_ENV=production` siguen como están.
+  - **Nube:** el proveedor, la región, la infraestructura como código y el CDN/WAF quedan abiertos en [D-07](#d-07).
+- **Alternativas descartadas:**
+  - **ECS Fargate (ADR-011):** sin Kubernetes no sirve para el objetivo.
+  - **kind o minikube:** k3d es más ligero y trae registro de imágenes y balanceador integrados.
+  - **Gateway propio en Node:** más código que mantener. nginx resuelve el enrutado por configuración.
+  - **Traefik (el ingress por defecto de k3d):** se elige nginx.
+- **Consecuencias:**
+  - La condición de «hecho» de M0 pasa de «en staging en AWS» a «en el despliegue en k3d».
+  - Terraform y el despliegue en ECS salen de M0.
+  - Lo que ARCHITECTURE §14 atribuía a AWS (RDS Multi-AZ, KMS, Secrets Manager, copias en otra región, WAF) queda pendiente de D-07. En local, los secretos van en `Secret` de Kubernetes generados desde `.env.local`.
+  - NFR-06 (datos en la UE) se mantiene como requisito; la región concreta depende de D-07.
+
 ---
 
 ## Decisiones abiertas
 
-> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 se resuelve en M0; la PoC usa autenticación local. D-06 está cerrada (ADR-019).
+> **Impacto en la PoC:** D-01, D-02, D-04 y D-05 **no bloquean** la PoC (se simulan). D-03 se resuelve en M0; la PoC usa autenticación local. D-06 está cerrada (ADR-019). D-07 no bloquea la migración a microservicios, que se despliega en k3d (ADR-030).
 
 <a id="d-01"></a>
 ### D-01: qué PSP usar en el MVP
@@ -465,3 +634,21 @@
   2. Calidad de las migraciones.
   3. Rendimiento.
 - **Se desbloquea con:** prueba técnica en la primera semana de la PoC (ADR-017).
+
+<a id="d-07"></a>
+### D-07: nube, región y CDN/WAF fuera del entorno local
+
+- **Contexto:** [ADR-030](#adr-030) sustituye a ADR-011. El MVP se despliega en Kubernetes local (k3d) y no hay elegido destino en la nube.
+- **Qué hay que decidir:**
+  - el proveedor de nube y su Kubernetes gestionado;
+  - la región (NFR-06: datos en la UE);
+  - la infraestructura como código;
+  - los servicios gestionados (base de datos, Redis, colas, secretos y claves);
+  - el CDN/WAF.
+- **Criterios:**
+  1. Residencia de datos en la UE (NFR-06).
+  2. Kubernetes gestionado compatible con los manifiestos de `deploy/k8s`.
+  3. Base de datos con recuperación a un punto en el tiempo y copias en otra región de la UE.
+  4. Colas compatibles con `QueueService` (ADR-026).
+  5. Coste para un portfolio.
+- **Se desbloquea con:** la decisión del propietario de desplegar fuera del entorno local. Mientras tanto no bloquea ningún hito.

@@ -17,7 +17,7 @@
 | Fase | Entregables técnicos | Criterio técnico de salida |
 |---|---|---|
 | **Semanas 1–4** · PoC local (ADR-017) | Hitos **P1–P4** (§2): monorepo, simuladores de PSP y de caja, web QR, dividir cuenta, puntos, cupones, panel básico | Criterios 1–5 de [SPEC §3.3](SPEC.md#poc) ✅ |
-| **0–3 meses** · MVP base | Hitos **M0–M1**: staging en AWS, CI completa, PSP real (D-01), web QR con importe manual, panel mínimo | Un pago en el modo en vivo del PSP se liquida con la comisión de plataforma descontada y la conciliación cuadra; D-01 y D-02 cerradas |
+| **0–3 meses** · MVP base | Hitos **M0, MS y M1**: despliegue en Kubernetes local (k3d, ADR-030), CI completa, migración a microservicios (ADR-029), PSP real (D-01), web QR con importe manual, panel mínimo | Un pago en el modo en vivo del PSP se liquida con la comisión de plataforma descontada y la conciliación cuadra; D-01 y D-02 cerradas |
 | **3–6 meses** · MVP completo | Hitos **M2–M5**: integración con el software de caja, dividir cuenta y propinas, puntos y cupones, CRM y analítica, endurecimiento y pentest | Pentest sin hallazgos críticos abiertos; NFR-01 y NFR-04 cumplidos; 2 semanas en producción sin incidentes de severidad 1 |
 | **6–12 meses** · Ampliación | **App nativa** (Expo); campañas por WhatsApp; **2.ª integración** con software de caja; **Tap to Pay**; **carta multiidioma + Alipay+/WeChat Pay vía PSP** (ADR-014); App Clip / Instant App (evaluar); segundo PSP preparado | Segundo PSP y segunda caja funcionando detrás de `PaymentProvider` y `PosConnector` sin cambios en el dominio; app publicada en las tiendas |
 | **12–24 meses** · Escala | **Coalición de puntos** (tras opinión legal, ADR-005); descubrimiento "Cerca"; motor de campañas; soporte multi-ciudad; almacén de datos (BigQuery o ClickHouse); despliegue blue/green | Despliegue blue/green en producción; la analítica se sirve desde el almacén de datos sin consultas a la BD principal |
@@ -75,13 +75,49 @@ Alcance en [SPEC §3.3](SPEC.md#poc) y arquitectura en [ARCHITECTURE §16](ARCHI
 
 Cada hito termina con una demostración en staging y una lista de requisitos de SPEC cubiertos. **Parten del código de la PoC**: los simuladores se mantienen como dobles de prueba.
 
-### M0: de la PoC a staging (semanas 1–2 tras la PoC)
-- Terraform para staging en AWS, CI completa (Semgrep, gitleaks, Dependabot), despliegue en ECS.
+<a id="m0"></a>
+### M0: de la PoC a un entorno desplegado (semanas 1–2 tras la PoC)
+- ~~Terraform para staging en AWS, despliegue en ECS.~~ *Sustituido por [ADR-030](DECISIONS.md#adr-030): el despliegue es en Kubernetes local (k3d) y llega con la fase F7 del hito [MS](#ms). La nube queda en [D-07](DECISIONS.md#d-07).*
+- CI completa (Semgrep, gitleaks, Dependabot).
 - Doble factor para comercios, módulo `audit` completo, outbox → SQS.
 - Observabilidad mínima (Sentry + OpenTelemetry).
 - Prueba técnica para cerrar **D-03** (autenticación definitiva).
 - Modelado de amenazas STRIDE del flujo de pago.
-- **Hecho cuando:** un comercio de pruebas se registra con doble factor y crea un local con mesas en staging.
+- **Hecho cuando:** un comercio de pruebas se registra con doble factor y crea un local con mesas en el despliegue en k3d (antes: «en staging», [ADR-030](DECISIONS.md#adr-030)).
+- **Progreso (19-oct-2026):**
+  - ✅ Registro del comercio, doble factor TOTP obligatorio para OWNER y MANAGER con códigos de recuperación, y alta de locales y mesas con QR desde el panel ([ADR-025](DECISIONS.md#adr-025)). La condición de «hecho» se cumple **en local**: test E2E de la API (`merchant-onboarding`) y recorrido en navegador (`e2e/tests/alta-comercio.spec.ts`).
+  - ✅ CI: Gitleaks y Semgrep en el workflow; Dependabot (`.github/dependabot.yml`).
+  - ✅ Outbox → SQS: colas de trabajo con `QUEUE_DRIVER=sqs`, reintentos con espera creciente y DLQ; probado contra ElasticMQ en local y en CI ([ADR-026](DECISIONS.md#adr-026)).
+  - ✅ OpenTelemetry: trazas de HTTP, Postgres, Redis y cada trabajo de cola, con redacción de tokens; Jaeger opcional en local ([ADR-027](DECISIONS.md#adr-027)).
+  - ✅ Auditoría: solo inserción forzada en la base de datos (también `user_consents`), entradas ligadas al comercio y registro de actividad para el OWNER ([ADR-028](DECISIONS.md#adr-028)). El visor del backoffice (FR-ADM-05) sigue en M5.
+  - ✅ Modelado de amenazas STRIDE del flujo de pago ([STRIDE.md](STRIDE.md)).
+  - ⏳ Pendiente: Sentry (requiere cuenta; se conectará a las trazas de OpenTelemetry) y prueba técnica de D-03. El despliegue en k3d llega con MS F7. ~~Terraform y despliegue en ECS (requiere cuenta de AWS)~~ *sustituido por [ADR-030](DECISIONS.md#adr-030) (12-nov-2026).*
+
+<a id="ms"></a>
+### MS: migración a microservicios (antes de M1)
+- **Motivo:** [ADR-029](DECISIONS.md#adr-029) (portfolio y base para experimentos DevOps) y [ADR-030](DECISIONS.md#adr-030) (Kubernetes local con k3d y nginx como gateway). Plan completo en [MIGRACION.md](MIGRACION.md).
+- **El trabajo funcional se para** mientras dura. No añade requisitos de SPEC: el comportamiento visible no cambia.
+- **Fases:**
+  - F0 decisión y documentación;
+  - F1 fronteras dentro del monolito;
+  - F2 paquetes compartidos y gateway;
+  - F3 simuladores;
+  - F4 `realtime`, `audit` y `analytics`;
+  - F5 `identity` y `merchant-venues`;
+  - F6 `loyalty` y `table-payments`;
+  - F7 Kubernetes local con k3d.
+- **Al terminar cada fase:** `pnpm lint`, `typecheck`, `test:unit`, `test:integration` y `pnpm e2e` en verde, y los criterios 2–4 de [SPEC §3.3](SPEC.md#poc) (pagadores simultáneos, webhook ×10, 100 canjes paralelos).
+- **Hecho cuando:** `apps/api` ya no existe, `pnpm e2e` pasa contra el despliegue en k3d y se cumple la condición de «hecho» de M0 en k3d.
+- **Progreso:**
+  - ✅ F0 (12-nov-2026): ADR-029, ADR-030 y D-07; documentación actualizada.
+  - ✅ F1 (12-nov-2026): fronteras dentro del monolito.
+    - dependency-cruiser con 0 violaciones;
+    - fachadas públicas por contexto;
+    - eventos versionados con una cola por consumidor;
+    - auditoría por outbox;
+    - un esquema de Postgres por contexto sin claves foráneas entre ellos;
+    - traza de punta a punta.
+    Detalle en [MIGRACION.md §4](MIGRACION.md#4-fases).
 
 ### M1: QR y pago con importe manual (semanas 3–7)
 - **Requiere D-01 (PSP) cerrada.** Parte de lo que la PoC ya tiene (QR, web QR, webhooks, propina, justificante); el trabajo principal es el adaptador real del PSP y su alta de comercios.
@@ -131,6 +167,7 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 Semana:  1    3    5    7    9   11   13   15   17   19   21   23   25   27
 PoC      ████████
 M0               ████
+MS                   ████   (migración a microservicios; desplaza M1–M5 unas 4–5 semanas [HIPÓTESIS])
 M1                    ████████
 M2                              ██████████
 M3                                   ██████████

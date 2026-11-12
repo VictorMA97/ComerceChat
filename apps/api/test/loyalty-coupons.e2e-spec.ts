@@ -7,7 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { hashPassword } from '../src/auth/passwords.js';
+import { hashPassword } from '../src/identity/auth/passwords.js';
 import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
@@ -15,10 +15,11 @@ import * as s from '../src/db/schema/index.js';
 import {
   FAKE_PSP_SIGNATURE_HEADER,
   signFakePspPayload,
-} from '../src/payments/fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../src/payments/fake-psp/fake-psp.service.js';
-import { QrService } from '../src/qr/qr.service.js';
-import { OTP_SENDER } from '../src/users/otp-sender.js';
+} from '../src/fake-psp/fake-psp-signature.js';
+import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { QrService } from '../src/merchant-venues/qr/qr.service.js';
+import { OTP_SENDER } from '../src/identity/users/otp-sender.js';
+import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 const suffix = Date.now().toString(36);
 const rnd = () => String(Math.floor(1_000_000 + Math.random() * 8_999_999));
@@ -140,12 +141,9 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       email: `puntos-${suffix}@e2e.test`,
       passwordHash: await hashPassword('secreto123'),
       role: 'OWNER',
+      ...testMfaColumns(env),
     });
-    merchantToken = (
-      await http()
-        .post('/v1/merchant/auth/login')
-        .send({ email: `puntos-${suffix}@e2e.test`, password: 'secreto123' })
-    ).body.accessToken;
+    merchantToken = await merchantLogin((path) => http().post(path), `puntos-${suffix}@e2e.test`);
     const promo = await http()
       .post('/v1/merchant/promotions')
       .set('authorization', `Bearer ${merchantToken}`)
@@ -235,10 +233,13 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
 
   it('pago identificado con cupón: descuento, puntos automáticos y un solo apunte aunque el webhook llegue 10 veces (criterio 3)', async () => {
     const t = await tableWithBill('L2', [['Cena', 1, 2_500]]);
-    const [coupon] = (await asUser('/v1/me/coupons').query({ merchantId: '' })).body as {
-      id: string;
-      title: string;
-    }[];
+    // El cupón de bienvenida lo emite loyalty y llega a table-payments por CouponIssued.v1 (ADR-029).
+    const [coupon] = (
+      await until(
+        () => asUser('/v1/me/coupons').query({ merchantId: '' }),
+        (r) => r.body.length > 0,
+      )
+    ).body as { id: string; title: string }[];
     expect(coupon!.title).toBe('Vuelve y te invitamos');
 
     const session = await pay(
@@ -312,20 +313,67 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     expect(loyalty[0]).toMatchObject({ balance: 50 });
   });
 
-  it('canjear puntos por una recompensa emite un cupón y descuenta el saldo', async () => {
+  it('canjear sin Idempotency-Key es un error RFC 9457 y no toca el saldo (ADR-015)', async () => {
     const reward = (await asUser('/v1/me/loyalty')).body[0].rewards[0];
-    const coupon = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post');
-    expect(coupon.body).toMatchObject({
+    const r = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post');
+    expect(r.status).toBe(400);
+    expect(r.headers['content-type']).toContain('application/problem+json');
+    expect(r.body).toMatchObject({ status: 400, code: 'IDEMPOTENCY_KEY_REQUIRED' });
+    expect((await asUser('/v1/me/loyalty')).body[0].balance).toBe(50);
+  });
+
+  it('canjear dos veces con la misma clave emite un solo cupón y un solo REDEEM', async () => {
+    const reward = (await asUser('/v1/me/loyalty')).body[0].rewards[0];
+    const key = `redeem-${suffix}-1`;
+    const first = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post').set(
+      'Idempotency-Key',
+      key,
+    );
+    expect(first.status).toBe(201);
+    expect(first.body).toMatchObject({
       title: 'Postre gratis',
       discountCents: 600,
       status: 'ACTIVE',
     });
+    const again = await asUser(`/v1/me/rewards/${reward.id}/redeem`, 'post').set(
+      'Idempotency-Key',
+      key,
+    );
+    expect(again.status).toBe(201);
+    expect(again.body).toEqual(first.body);
+
     expect((await asUser('/v1/me/loyalty')).body[0].balance).toBe(30);
+    const redeems = await db
+      .select()
+      .from(s.pointsLedgerEntries)
+      .where(
+        and(
+          eq(s.pointsLedgerEntries.type, 'REDEEM'),
+          eq(s.pointsLedgerEntries.couponId, first.body.id),
+        ),
+      );
+    expect(redeems).toHaveLength(1);
+    // La recompensa es de un comercio creado solo para este test: cualquier segundo canje se vería aquí.
+    const issued = await db
+      .select()
+      .from(s.couponIssuances)
+      .where(eq(s.couponIssuances.rewardId, reward.id));
+    expect(issued.map((c) => c.id)).toEqual([first.body.id]);
+    // table-payments lo crea con el mismo id al recibir CouponIssued.v1, una sola vez.
+    await until(
+      () => db.select().from(s.coupons).where(eq(s.coupons.id, first.body.id)),
+      (rows) => rows.length === 1,
+    );
   });
 
   it('100 peticiones paralelas con el mismo cupón: exactamente un canje (criterio 4)', async () => {
     const t = await tableWithBill('L3', [['Banquete', 1, 100_000]]);
-    const [coupon] = (await asUser('/v1/me/coupons')).body as { id: string; title: string }[];
+    const [coupon] = (
+      await until(
+        () => asUser('/v1/me/coupons'),
+        (r) => r.body.length > 0,
+      )
+    ).body as { id: string; title: string }[];
     expect(coupon!.title).toBe('Postre gratis');
 
     const results = await Promise.all(
@@ -365,9 +413,14 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
   }, 60_000);
 
   it('el comercio ve ventas, descuentos, propinas, clientes identificados y su promoción', async () => {
-    const a = await http()
-      .get('/v1/merchant/analytics?period=today')
-      .set('authorization', `Bearer ${merchantToken}`);
+    // La analítica y los contadores de la promoción se alimentan por eventos (ADR-029).
+    const a = await until(
+      () =>
+        http()
+          .get('/v1/merchant/analytics?period=today')
+          .set('authorization', `Bearer ${merchantToken}`),
+      (r) => r.body.current?.payments === 3 && r.body.current?.identifiedCustomers === 1,
+    );
     expect(a.body.current).toMatchObject({
       payments: 3,
       identifiedCustomers: 1,
@@ -375,9 +428,10 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       tipsCents: 200,
     });
     expect(a.body.current.volumeCents).toBe(3_000 + 2_000 + 400);
-    const promos = await http()
-      .get('/v1/merchant/promotions')
-      .set('authorization', `Bearer ${merchantToken}`);
+    const promos = await until(
+      () => http().get('/v1/merchant/promotions').set('authorization', `Bearer ${merchantToken}`),
+      (r) => r.body[0]?.redeemed === 1,
+    );
     expect(promos.body[0]).toMatchObject({
       name: 'Vuelve y te invitamos',
       status: 'ACTIVE',

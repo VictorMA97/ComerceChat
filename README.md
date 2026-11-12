@@ -23,10 +23,12 @@ pnpm poc:up
 
 | App | URL | Notas |
 |---|---|---|
-| Panel del comercio | http://localhost:3001 | `owner@casapepe.test` / `poc1234` (también `staff@casapepe.test`, `owner@tascadeana.test`) |
+| Panel del comercio | http://localhost:3001 | `owner@casapepe.test` / `poc1234` + código de `pnpm poc:totp` (también `staff@casapepe.test`, sin doble factor, y `owner@tascadeana.test`). Comercios nuevos: `/registro` |
 | Web QR | http://localhost:3000/t/{código} | Escanea un QR del panel |
 | API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
+| ElasticMQ (SQS) | http://localhost:9325 | Colas SQS en local; se usan con `QUEUE_DRIVER=sqs` (ADR-026) |
+| Jaeger (opcional) | http://localhost:16686 | Trazas con `TELEMETRY=on` y `docker compose --profile observability up -d` (ADR-027) |
 
 ### Probar un pago (P2)
 
@@ -78,9 +80,11 @@ Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y
 | `pnpm db:generate` | Genera una migración SQL a partir de cambios en `apps/api/src/db/schema` |
 | `pnpm db:migrate` | Aplica las migraciones |
 | `pnpm db:seed` | **Borra** y recrea los datos de prueba |
+| `pnpm db:reset` | **Borra** la base de datos local entera, migra y carga el seed. Necesario una vez si tu base es anterior a la migración F1.6 (un esquema de Postgres por contexto) |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
 | `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4000 |
+| `pnpm poc:totp` | Código actual del doble factor de los OWNER de prueba (ADR-025) |
 | `pnpm e2e` | Recorrido completo en navegador (Playwright). **Recarga los datos de prueba.** La primera vez: `pnpm --filter @comercechat/e2e e2e:install` |
 
 ## Estructura
@@ -92,4 +96,6 @@ apps/merchant-panel  Next.js 16 · panel del comercio
 packages/shared-types  enums y contratos de la API compartidos
 ```
 
-Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md).
+Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md) · [STRIDE](docs/STRIDE.md) · [MIGRACION](docs/MIGRACION.md).
+
+**Migración a microservicios en curso** ([ADR-029](docs/DECISIONS.md#adr-029), [ADR-030](docs/DECISIONS.md#adr-030)): el backend se parte en servicios dentro de `services/`, desplegables en Kubernetes local con k3d detrás de un gateway nginx. Mientras dura, los comandos y la estructura de arriba siguen valiendo; el plan y su avance están en [docs/MIGRACION.md](docs/MIGRACION.md).

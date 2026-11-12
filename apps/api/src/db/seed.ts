@@ -2,11 +2,13 @@
 // Uso: pnpm db:seed. Crece con cada hito (P2: caja simulada con carta y cuentas abiertas;
 // P4: fidelización, recompensas, promoción «Vuelve y te invitamos», cupones e historial de pagos).
 import { sql } from 'drizzle-orm';
-import { hashPassword } from '../auth/passwords.js';
+import { hashPassword } from '../identity/auth/passwords.js';
+import { POC_TOTP_SECRET } from '../identity/auth/poc-mfa.js';
 import { newId } from '../common/ids.js';
 import { encryptPii, hashPii } from '../common/pii.js';
 import { loadEnv } from '../config/env.js';
-import { generateShortCode, qrUrl, signQr } from '../qr/qr-signature.js';
+import { FAKE_POS_MENU } from '../fake-pos/fake-pos-menu.js';
+import { generateShortCode, qrUrl, signQr } from '../common/qr-signature.js';
 import { createDatabase } from './client.js';
 import * as s from './schema/index.js';
 
@@ -16,29 +18,7 @@ if (env.NODE_ENV === 'production') throw new Error('El seed no puede ejecutarse 
 const PASSWORD = 'poc1234';
 const TABLES_PER_LOCATION = 8;
 
-/** Carta del TPV simulado (céntimos). */
-const MENU: { category: string; name: string; priceCents: number }[] = [
-  { category: 'Bebidas', name: 'Caña', priceCents: 250 },
-  { category: 'Bebidas', name: 'Copa de vino tinto', priceCents: 380 },
-  { category: 'Bebidas', name: 'Vermut de grifo', priceCents: 350 },
-  { category: 'Bebidas', name: 'Agua mineral', priceCents: 200 },
-  { category: 'Bebidas', name: 'Refresco', priceCents: 280 },
-  { category: 'Bebidas', name: 'Café', priceCents: 180 },
-  { category: 'Para compartir', name: 'Patatas bravas', priceCents: 650 },
-  { category: 'Para compartir', name: 'Croquetas de jamón (6 uds.)', priceCents: 900 },
-  { category: 'Para compartir', name: 'Pimientos de Padrón', priceCents: 750 },
-  { category: 'Para compartir', name: 'Tortilla de patata', priceCents: 850 },
-  { category: 'Para compartir', name: 'Ensaladilla rusa', priceCents: 800 },
-  { category: 'Para compartir', name: 'Jamón ibérico (ración)', priceCents: 1900 },
-  { category: 'Principales', name: 'Huevos rotos con jamón', priceCents: 1250 },
-  { category: 'Principales', name: 'Calamares a la romana', priceCents: 1300 },
-  { category: 'Principales', name: 'Secreto ibérico', priceCents: 1650 },
-  { category: 'Principales', name: 'Bacalao confitado', priceCents: 1750 },
-  { category: 'Principales', name: 'Hamburguesa de ternera', priceCents: 1400 },
-  { category: 'Postres', name: 'Tarta de queso', priceCents: 600 },
-  { category: 'Postres', name: 'Torrija', priceCents: 550 },
-  { category: 'Postres', name: 'Flan casero', priceCents: 450 },
-];
+const MENU = FAKE_POS_MENU;
 
 /** Cuentas abiertas al cargar los datos: [número de mesa, platos (nombre, cantidad)]. */
 const OPEN_BILLS: [number, [string, number][]][] = [
@@ -120,11 +100,19 @@ try {
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`
-      truncate table audit_logs, outbox_events, idempotency_keys, psp_webhook_events, transactions,
-        coupon_redemptions, coupons, promotions, points_ledger_entries, loyalty_accounts, loyalty_rewards,
-        loyalty_programs, order_allocations, payments, order_items, orders, fake_psp_sessions, fake_pos_payments, fake_pos_bill_items,
-        fake_pos_bills, fake_pos_menu_items, fake_pos_locations, user_consents, users, qr_codes,
-        tables, merchant_locations, merchant_users, merchants restart identity cascade
+      truncate table platform.outbox_events, platform.idempotency_keys, audit.audit_logs,
+        analytics.payment_facts,
+        payments.psp_webhook_events, payments.transactions, payments.coupon_redemptions,
+        payments.coupons, payments.order_allocations, payments.payments, payments.payment_qr_codes,
+        payments.order_items, payments.orders,
+        loyalty.coupon_issuances, loyalty.promotions, loyalty.points_ledger_entries,
+        loyalty.loyalty_accounts, loyalty.loyalty_rewards, loyalty.loyalty_programs,
+        fake_psp.fake_psp_sessions, fake_pos.fake_pos_payments, fake_pos.fake_pos_bill_items,
+        fake_pos.fake_pos_bills, fake_pos.fake_pos_menu_items, fake_pos.fake_pos_locations,
+        identity.user_consents, identity.users, identity.merchant_user_recovery_codes,
+        identity.merchant_users, venues.qr_codes, venues.tables, venues.merchant_locations,
+        venues.merchants
+        restart identity cascade
     `);
 
     for (const m of MERCHANTS) {
@@ -141,9 +129,21 @@ try {
         })
         .returning();
 
-      await tx
-        .insert(s.merchantUsers)
-        .values(m.users.map((u) => ({ ...u, merchantId: merchant!.id, passwordHash })));
+      await tx.insert(s.merchantUsers).values(
+        m.users.map((u) => ({
+          ...u,
+          merchantId: merchant!.id,
+          passwordHash,
+          // OWNER y MANAGER entran con doble factor (ADR-025): secreto de prueba, ver `pnpm poc:totp`.
+          ...(u.role === 'OWNER'
+            ? {
+                mfaEnabled: true,
+                mfaSecretEnc: encryptPii(POC_TOTP_SECRET, env.PII_ENCRYPTION_KEY),
+                mfaEnabledAt: new Date(),
+              }
+            : {}),
+        })),
+      );
 
       const [location] = await tx
         .insert(s.merchantLocations)
@@ -271,16 +271,23 @@ try {
         createdBy: 'seed',
       });
     }
-    await tx.insert(s.coupons).values({
+    // El cupón lo emite loyalty y lo materializa table-payments con el mismo id (ADR-029): el seed
+    // escribe los dos lados a la vez en lugar de esperar al evento CouponIssued.v1.
+    const luciaCoupon = {
+      id: newId(),
       merchantId: casaPepe.merchantId,
       userId: lucia,
-      promotionId: casaPepe.promotionId,
       code: 'CC-LUCIA500',
       title: 'Vuelve y te invitamos: 5 € en tu próxima visita',
       discountCents: 500,
       minSpendCents: 2_000,
+      validFrom: new Date(),
       validTo: new Date(Date.now() + 30 * 24 * 3600 * 1000),
-    });
+    };
+    await tx
+      .insert(s.couponIssuances)
+      .values({ ...luciaCoupon, promotionId: casaPepe.promotionId });
+    await tx.insert(s.coupons).values(luciaCoupon);
 
     // Historial de pagos de los últimos 7 días, para que la analítica no aparezca vacía.
     let n = 0;
@@ -301,26 +308,39 @@ try {
               totalCents: amountCents,
             })
             .returning();
-          await tx.insert(s.payments).values({
-            orderId: order!.id,
-            locationId: c.locationId,
-            merchantId: c.merchantId,
-            tableId: c.tableIds[n % c.tableIds.length],
-            userId: c === casaPepe && n % 4 === 0 ? (n % 8 === 0 ? lucia : marcos) : null,
-            psp: 'fake',
-            pspPaymentId: `fps_seed_${n}`,
-            method: 'CARD',
-            cardLast4: '4242',
-            amountCents,
-            tipCents,
-            platformFeeCents: Math.round(amountCents * 0.005),
-            status: 'CAPTURED',
-            statementDescriptor: 'COMERCECHAT*SEED',
-            splitMode: 'FULL',
-            expiresAt: capturedAt,
+          const [payment] = await tx
+            .insert(s.payments)
+            .values({
+              orderId: order!.id,
+              locationId: c.locationId,
+              merchantId: c.merchantId,
+              tableId: c.tableIds[n % c.tableIds.length],
+              userId: c === casaPepe && n % 4 === 0 ? (n % 8 === 0 ? lucia : marcos) : null,
+              psp: 'fake',
+              pspPaymentId: `fps_seed_${n}`,
+              method: 'CARD',
+              cardLast4: '4242',
+              amountCents,
+              tipCents,
+              platformFeeCents: Math.round(amountCents * 0.005),
+              status: 'CAPTURED',
+              statementDescriptor: 'COMERCECHAT*SEED',
+              splitMode: 'FULL',
+              expiresAt: capturedAt,
+              capturedAt,
+              posRegisteredAt: capturedAt,
+              createdAt: capturedAt,
+            })
+            .returning();
+          // Modelo de lectura de la analítica, que en marcha alimenta PaymentCaptured.v1 (ADR-029).
+          await tx.insert(s.paymentFacts).values({
+            paymentId: payment!.id,
+            merchantId: payment!.merchantId,
+            userId: payment!.userId,
+            amountCents: payment!.amountCents,
+            discountCents: payment!.discountCents,
+            tipCents: payment!.tipCents,
             capturedAt,
-            posRegisteredAt: capturedAt,
-            createdAt: capturedAt,
           });
         }
       }
@@ -329,6 +349,7 @@ try {
 
   console.log(`Seed completado.
   Panel: owner@casapepe.test · staff@casapepe.test · owner@tascadeana.test (contraseña: ${PASSWORD})
+  Doble factor de los OWNER: pnpm poc:totp da el código actual (secreto ${POC_TOTP_SECRET})
   Cuentas abiertas en las mesas ${OPEN_BILLS.map(([n]) => n).join(', ')} de cada local.
   Comensales: ${DINERS.map((d) => d.phone).join(', ')} (Lucía tiene 60 puntos y un cupón en Casa Pepe)
   Número de demo para darse de alta: +34600000000 (código 000000)
