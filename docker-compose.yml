@@ -51,7 +51,7 @@ services:
   # Visor de trazas opcional (ADR-027): docker compose --profile observability up -d y TELEMETRY=on.
   # Recibe OTLP en 4318 y se consulta en http://localhost:16686. En memoria.
   jaeger:
-    image: jaegertracing/jaeger:2.11.0
+    image: jaegertracing/jaeger:2.23.0
     profiles: [observability]
     ports:
       - '127.0.0.1:16686:16686'
