@@ -14,7 +14,8 @@ export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
-  API_PORT: z.coerce.number().int().positive().default(4000),
+  /** Puerto HTTP del servicio. Se le llama a través del gateway (:4000, ADR-030). */
+  API_PORT: z.coerce.number().int().positive().default(4100),
   /** all = HTTP + workers en el mismo proceso (PoC); http / worker para separarlos (ARCHITECTURE §2). */
   PROCESS_ROLE: z.enum(['all', 'http', 'worker']).default('all'),
   /** Prefijo de las colas en Redis: permite que los tests no compartan colas con `pnpm dev`. */

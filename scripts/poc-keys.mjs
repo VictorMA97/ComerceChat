@@ -1,5 +1,6 @@
 // Genera .env.local a partir de .env.example con secretos aleatorios.
-// Si ya existe, solo añade los secretos que le falten (p. ej. los que llegan en una versión nueva).
+// Si ya existe, solo añade los secretos que le falten (p. ej. los que llegan en una versión nueva) y
+// aplica los cambios de valores por defecto que lo requieran (MIGRATIONS).
 // Uso: pnpm poc:keys [--force]
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -22,8 +23,23 @@ const secrets = {
   INTERNAL_PROXY_SECRET: randomBytes(32).toString('base64url'),
 };
 
+/**
+ * Valores de un .env.local antiguo que ya no sirven. F2 (ADR-030): el gateway nginx ocupa el 4000 y
+ * la API pasa al 4100; API_BASE_URL sigue en el 4000, porque se llama a través del gateway.
+ */
+const MIGRATIONS = [
+  { from: /^API_PORT=4000$/m, to: 'API_PORT=4100', why: 'el gateway nginx ocupa el 4000' },
+];
+
 if (existsSync(target) && !force) {
-  const current = readFileSync(target, 'utf8');
+  let current = readFileSync(target, 'utf8');
+  for (const m of MIGRATIONS) {
+    if (m.from.test(current)) {
+      current = current.replace(m.from, m.to);
+      writeFileSync(target, current, { mode: 0o600 });
+      console.log(`.env.local: ${m.to} (${m.why}).`);
+    }
+  }
   const missing = Object.keys(secrets).filter(
     (key) => !new RegExp(`^${key}=.+$`, 'm').test(current),
   );

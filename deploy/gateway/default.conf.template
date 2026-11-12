@@ -1,0 +1,98 @@
+# Gateway de la API (ADR-030, MIGRACION §3.5). Enruta cada ruta de /v1 al servicio que la posee
+# (MIGRACION §3.1). Las rutas comparten prefijos entre servicios (/v1/qr, /v1/me, /v1/merchant), así
+# que se enruta por ruta concreta, nunca por prefijo de módulo. Lo que no está aquí devuelve 404: las
+# rutas /internal/* entre servicios no pasan por el gateway.
+#
+# Las URL de los servicios llegan por variables de entorno (la imagen oficial de nginx sustituye
+# ${VARIABLE} en las plantillas de /etc/nginx/templates al arrancar). Hasta separar los servicios
+# (F3–F6), todas apuntan a apps/api.
+#
+# La petición pasa tal cual: la IP del comensal viaja en x-cc-client-ip con el secreto de los BFF
+# (ADR-021), traceparent continúa la traza (ADR-027) y el cuerpo de los webhooks llega intacto para
+# verificar su firma (ADR-015). Cada respuesta lleva X-CC-Upstream con el servicio que la atendió.
+
+server {
+  listen 4000;
+  server_name _;
+
+  client_max_body_size 1m;
+  proxy_http_version 1.1;
+  proxy_read_timeout 30s;
+  proxy_intercept_errors off;
+
+  # Servicio caído o sin arrancar: problem+json como el resto de errores de la API (RFC 9457).
+  error_page 502 503 504 = @unavailable;
+  location @unavailable {
+    default_type application/problem+json;
+    add_header X-CC-Upstream none always;
+    return 503 '{"type":"about:blank","title":"Servicio no disponible","status":503,"code":"SERVICE_UNAVAILABLE"}';
+  }
+
+  # --- identity ---------------------------------------------------------------------------------
+  location /v1/auth/ { add_header X-CC-Upstream identity always; proxy_pass ${IDENTITY_URL}; }
+  location /v1/merchant/auth/ { add_header X-CC-Upstream identity always; proxy_pass ${IDENTITY_URL}; }
+  location = /v1/me { add_header X-CC-Upstream identity always; proxy_pass ${IDENTITY_URL}; }
+  location = /v1/me/consents { add_header X-CC-Upstream identity always; proxy_pass ${IDENTITY_URL}; }
+
+  # --- merchant-venues --------------------------------------------------------------------------
+  location = /v1/merchant/auth/register { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+  location = /v1/merchant/me { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+  location = /v1/merchant/psp/onboarding/simulate { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+  location /v1/merchant/locations { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+  location ~ ^/v1/merchant/tables/[^/]+/qr/regenerate$ { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+  location ~ ^/v1/qr/[^/]+$ { add_header X-CC-Upstream merchant-venues always; proxy_pass ${MERCHANT_VENUES_URL}; }
+
+  # --- table-payments ---------------------------------------------------------------------------
+  location = /v1/payment-sessions { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location /v1/payments/ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location /v1/webhooks/psp/ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location = /v1/me/coupons { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location = /v1/merchant/floor { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location /v1/merchant/dynamic-qr/ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  # ^~: un token de QR dinámico nunca debe caer en las expresiones de /v1/qr/<código>/… de abajo.
+  location ^~ /v1/qr/dynamic/ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location ~ ^/v1/qr/[^/]+/bill$ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+  location ~ ^/v1/merchant/tables/[^/]+/payment-qr$ { add_header X-CC-Upstream table-payments always; proxy_pass ${TABLE_PAYMENTS_URL}; }
+
+  # --- loyalty ----------------------------------------------------------------------------------
+  location = /v1/me/loyalty { add_header X-CC-Upstream loyalty always; proxy_pass ${LOYALTY_URL}; }
+  location = /v1/me/claim { add_header X-CC-Upstream loyalty always; proxy_pass ${LOYALTY_URL}; }
+  location /v1/me/rewards/ { add_header X-CC-Upstream loyalty always; proxy_pass ${LOYALTY_URL}; }
+  location /v1/merchant/promotions { add_header X-CC-Upstream loyalty always; proxy_pass ${LOYALTY_URL}; }
+
+  # --- realtime (SSE: sin buffer y con conexiones largas) ---------------------------------------
+  location ~ ^/v1/qr/[^/]+/events$ {
+    add_header X-CC-Upstream realtime always;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 1h;
+    proxy_set_header Connection '';
+    proxy_pass ${REALTIME_URL};
+  }
+  location = /v1/merchant/events {
+    add_header X-CC-Upstream realtime always;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 1h;
+    proxy_set_header Connection '';
+    proxy_pass ${REALTIME_URL};
+  }
+
+  # --- audit y analytics ------------------------------------------------------------------------
+  location = /v1/merchant/audit { add_header X-CC-Upstream audit always; proxy_pass ${AUDIT_URL}; }
+  location = /v1/merchant/analytics { add_header X-CC-Upstream analytics always; proxy_pass ${ANALYTICS_URL}; }
+
+  # --- simuladores (nunca en producción, ADR-018) -----------------------------------------------
+  location /v1/fake-psp/sessions/ { add_header X-CC-Upstream fake-psp always; proxy_pass ${FAKE_PSP_URL}; }
+  location /v1/merchant/fake-pos { add_header X-CC-Upstream fake-pos always; proxy_pass ${FAKE_POS_URL}; }
+
+  # --- salud y documentación de la API (Swagger solo existe fuera de producción) ----------------
+  location = /v1/health { add_header X-CC-Upstream api always; proxy_pass ${API_URL}; }
+  location /docs { add_header X-CC-Upstream api always; proxy_pass ${API_URL}; }
+
+  location / {
+    default_type application/problem+json;
+    add_header X-CC-Upstream none always;
+    return 404 '{"type":"about:blank","title":"Ruta no encontrada","status":404,"code":"ROUTE_NOT_FOUND"}';
+  }
+}
