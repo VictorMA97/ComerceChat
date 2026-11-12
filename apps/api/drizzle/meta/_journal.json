@@ -8,6 +8,13 @@
       "when": 1794516142621,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794516404079,
+      "tag": "0001_outbox_trace_context",
+      "breakpoints": true
     }
   ]
 }

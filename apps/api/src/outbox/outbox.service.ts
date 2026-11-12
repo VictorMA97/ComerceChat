@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { DomainEvents, DomainEventType } from '../contracts/events.js';
 import type { Database } from '../db/client.js';
 import { outboxEvents } from '../db/schema/platform.js';
+import { traceCarrier } from '../queue/trace-context.js';
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {
   aggregate: string;
@@ -21,6 +22,8 @@ export class OutboxService {
     tx: Pick<Database, 'insert'>,
     event: DomainEvent<T>,
   ): Promise<void> {
-    await tx.insert(outboxEvents).values({ ...event, payload: event.payload as object });
+    await tx
+      .insert(outboxEvents)
+      .values({ ...event, payload: event.payload as object, traceContext: traceCarrier() ?? null });
   }
 }

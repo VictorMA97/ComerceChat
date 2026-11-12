@@ -5,7 +5,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
-import { SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
+import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 import { ENV, type Env } from '../config/env.js';
 import { BullMqTransport } from './bullmq.transport.js';
 import {
@@ -18,6 +18,7 @@ import {
   type WorkerRegistration,
 } from './queue.types.js';
 import { SqsTransport } from './sqs.transport.js';
+import { contextFrom, traceCarrier } from './trace-context.js';
 
 export { QueueName } from './queue.types.js';
 export type { EnqueueOptions, QueueJob } from './queue.types.js';
@@ -25,10 +26,11 @@ export type { EnqueueOptions, QueueJob } from './queue.types.js';
 const tracer = trace.getTracer('comercechat-queue');
 
 /**
- * Cada trabajo abre su propio span (ADR-027): así las consultas que hace el worker aparecen en las
- * trazas aunque no vengan de una petición HTTP. Sin TELEMETRY=on, la API de OpenTelemetry no hace nada.
+ * Cada trabajo abre su propio span (ADR-027), hijo del contexto de quien lo encoló si el mensaje lo
+ * trae: así una petición y los trabajos que provoca (webhook → captura → eventos → caja) forman una
+ * sola traza. Sin TELEMETRY=on, la API de OpenTelemetry no hace nada.
  */
-function traced(queue: QueueName, driver: string, processor: JobProcessor): JobProcessor {
+export function traced(queue: QueueName, driver: string, processor: JobProcessor): JobProcessor {
   return (job) =>
     tracer.startActiveSpan(
       `process ${queue} ${job.name}`,
@@ -41,6 +43,7 @@ function traced(queue: QueueName, driver: string, processor: JobProcessor): JobP
           'messaging.message.delivery_attempt': job.attemptsMade + 1,
         },
       },
+      contextFrom(job.trace) ?? context.active(),
       async (span) => {
         try {
           return await processor(job);
@@ -91,11 +94,16 @@ export class QueueService implements OnApplicationBootstrap, OnApplicationShutdo
   }
 
   add(name: QueueName, jobName: string, data: unknown, opts?: EnqueueOptions): Promise<void> {
-    return this.transport(name).add(name, { name: jobName, data, opts });
+    return this.transport(name).add(name, { name: jobName, data, opts, trace: traceCarrier() });
   }
 
   addBulk(name: QueueName, jobs: NewJob[]): Promise<void> {
-    return jobs.length ? this.transport(name).addBulk(name, jobs) : Promise.resolve();
+    if (jobs.length === 0) return Promise.resolve();
+    const current = traceCarrier();
+    return this.transport(name).addBulk(
+      name,
+      jobs.map((j) => ({ ...j, trace: j.trace ?? current })),
+    );
   }
 
   /** Tarea periódica (solo colas de `SCHEDULED_QUEUES`). Llamar en el bootstrap si `runsWorkers`. */

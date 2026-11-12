@@ -1,4 +1,5 @@
 import { CONSUMERS, type Consumer, domainEventsQueue } from '../contracts/events.js';
+import type { TraceCarrier } from './trace-context.js';
 
 export const QueueName = {
   /** Webhooks del PSP ya guardados, pendientes de procesar. */
@@ -32,6 +33,8 @@ export interface QueueJob {
   data: unknown;
   /** Intentos fallidos anteriores a este. */
   attemptsMade: number;
+  /** Contexto de traza de quien lo encoló: el span del trabajo es su hijo (ADR-027). */
+  trace?: TraceCarrier;
 }
 
 export type JobProcessor = (job: QueueJob) => Promise<unknown>;
@@ -54,6 +57,8 @@ export interface NewJob {
   name: string;
   data: unknown;
   opts?: EnqueueOptions;
+  /** Si no se indica, `QueueService` usa el contexto de traza activo al encolar. */
+  trace?: TraceCarrier;
 }
 
 export interface WorkerRegistration {

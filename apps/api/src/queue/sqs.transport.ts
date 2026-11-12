@@ -14,6 +14,7 @@ import {
 import { Logger } from '@nestjs/common';
 import { safeErrorForLog } from '../common/safe-error.js';
 import type { NewJob, QueueName, QueueTransport, WorkerRegistration } from './queue.types.js';
+import type { TraceCarrier } from './trace-context.js';
 
 /** Tiempo que un mensaje recibido queda oculto a otros consumidores mientras se procesa. */
 const VISIBILITY_TIMEOUT_SECONDS = 60;
@@ -27,6 +28,8 @@ interface Envelope {
   data: unknown;
   attempts: number;
   backoffMs: number;
+  /** Contexto de traza de quien lo encoló (ADR-027). */
+  trace?: TraceCarrier;
 }
 
 export interface SqsTransportOptions {
@@ -115,6 +118,7 @@ export class SqsTransport implements QueueTransport {
       data: job.data,
       attempts: Math.max(1, job.opts?.attempts ?? 1),
       backoffMs: job.opts?.backoffMs ?? 1_000,
+      trace: job.trace,
     };
     const delayMs = job.opts?.delayMs ?? 0;
     return {
@@ -171,6 +175,7 @@ export class SqsTransport implements QueueTransport {
         name: envelope.name,
         data: envelope.data,
         attemptsMade: receiveCount - 1,
+        trace: envelope.trace,
       });
       await this.client.send(
         new DeleteMessageCommand({ QueueUrl: url, ReceiptHandle: m.ReceiptHandle }),

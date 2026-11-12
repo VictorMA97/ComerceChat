@@ -17,6 +17,8 @@ export const outboxEvents = platformSchema.table(
     aggregateId: text('aggregate_id').notNull(),
     type: text('type').notNull(),
     payload: jsonb('payload').notNull(),
+    /** Contexto de traza (W3C) de la operación que creó el evento, para seguirlo de punta a punta. */
+    traceContext: jsonb('trace_context').$type<Record<string, string>>(),
     createdAt: createdAt(),
     publishedAt: timestamp('published_at', { withTimezone: true }),
   },

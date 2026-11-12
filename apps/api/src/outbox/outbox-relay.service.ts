@@ -117,6 +117,8 @@ export class OutboxRelayService implements OnApplicationBootstrap, OnApplication
                 name: e.type,
                 data,
                 opts: { jobId: `${e.id}-${consumer}`, attempts: 10, backoffMs: 2_000 },
+                // El trabajo continúa la traza de quien creó el evento, no la del relé.
+                trace: e.traceContext ?? undefined,
               },
             ]);
           }

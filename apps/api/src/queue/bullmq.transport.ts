@@ -2,6 +2,22 @@ import { Logger } from '@nestjs/common';
 import { type ConnectionOptions, type JobsOptions, Queue, Worker } from 'bullmq';
 import { safeErrorForLog } from '../common/safe-error.js';
 import type { NewJob, QueueName, QueueTransport, WorkerRegistration } from './queue.types.js';
+import type { TraceCarrier } from './trace-context.js';
+
+/**
+ * Lo que se guarda en BullMQ: los datos del trabajo y su contexto de traza. Los trabajos de las
+ * tareas periódicas no llevan datos; los encolados antes de este formato tampoco llevan `cc`.
+ */
+interface StoredJob {
+  cc: 1;
+  data: unknown;
+  trace?: TraceCarrier;
+}
+const store = (j: NewJob): StoredJob => ({ cc: 1, data: j.data, trace: j.trace });
+const unwrap = (raw: unknown): { data: unknown; trace?: TraceCarrier } =>
+  raw && typeof raw === 'object' && (raw as StoredJob).cc === 1
+    ? (raw as StoredJob)
+    : { data: raw };
 
 const toBullOptions = (opts: NewJob['opts'] = {}): JobsOptions => ({
   jobId: opts.jobId,
@@ -44,12 +60,12 @@ export class BullMqTransport implements QueueTransport {
   }
 
   async add(queue: QueueName, job: NewJob): Promise<void> {
-    await this.queue(queue).add(job.name, job.data, toBullOptions(job.opts));
+    await this.queue(queue).add(job.name, store(job), toBullOptions(job.opts));
   }
 
   async addBulk(queue: QueueName, jobs: NewJob[]): Promise<void> {
     await this.queue(queue).addBulk(
-      jobs.map((j) => ({ name: j.name, data: j.data, opts: toBullOptions(j.opts) })),
+      jobs.map((j) => ({ name: j.name, data: store(j), opts: toBullOptions(j.opts) })),
     );
   }
 
@@ -59,11 +75,18 @@ export class BullMqTransport implements QueueTransport {
   }
 
   startWorker(r: WorkerRegistration): void {
-    const worker = new Worker(r.name, r.processor, {
-      connection: this.connection,
-      prefix: this.prefix,
-      concurrency: r.concurrency,
-    });
+    const worker = new Worker(
+      r.name,
+      (job) => {
+        const { data, trace } = unwrap(job.data);
+        return r.processor({ name: job.name, data, attemptsMade: job.attemptsMade, trace });
+      },
+      {
+        connection: this.connection,
+        prefix: this.prefix,
+        concurrency: r.concurrency,
+      },
+    );
     worker.on('failed', (job, err) =>
       this.logger.warn(`Job ${r.name}/${job?.name} (${job?.id}) falló: ${safeErrorForLog(err)}`),
     );
