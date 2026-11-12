@@ -43,7 +43,7 @@ services:
   # al arrancar la API (SQS_CREATE_QUEUES=on) y desaparecen al recrear el contenedor.
   # Interfaz de consulta en http://localhost:9325.
   sqs:
-    image: softwaremill/elasticmq-native:1.6.14
+    image: softwaremill/elasticmq-native:1.7.1
     ports:
       - '127.0.0.1:9324:9324'
       - '127.0.0.1:9325:9325'
