@@ -1,10 +1,11 @@
-import { bigint, index, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { analyticsSchema } from './pg-schema.js';
+import { bigint, index, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * Modelo de lectura de la analítica del comercio (FR-ANA-01), alimentado por `PaymentCaptured.v1` y
  * `PaymentUserAssigned.v1` (ADR-029). Una fila por pago capturado; los importes son los del pago.
  */
-export const paymentFacts = pgTable(
+export const paymentFacts = analyticsSchema.table(
   'payment_facts',
   {
     paymentId: uuid('payment_id').primaryKey(),

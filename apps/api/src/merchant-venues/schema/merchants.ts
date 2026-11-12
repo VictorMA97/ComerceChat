@@ -1,18 +1,10 @@
+import { venuesSchema } from './pg-schema.js';
 import { relations } from 'drizzle-orm';
-import {
-  boolean,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, geographyPoint, id, updatedAt } from '../../db/schema/columns.js';
-import { merchantStatus } from '../../db/schema/enums.js';
+import { merchantStatus } from './enums.js';
 
-export const merchants = pgTable('merchants', {
+export const merchants = venuesSchema.table('merchants', {
   id: id(),
   legalName: text('legal_name').notNull(),
   taxId: text('tax_id').notNull(),
@@ -33,7 +25,7 @@ export interface TipConfig {
   percentages: number[];
 }
 
-export const merchantLocations = pgTable(
+export const merchantLocations = venuesSchema.table(
   'merchant_locations',
   {
     id: id(),
@@ -61,7 +53,7 @@ export const merchantLocations = pgTable(
   ],
 );
 
-export const tables = pgTable(
+export const tables = venuesSchema.table(
   'tables',
   {
     id: id(),

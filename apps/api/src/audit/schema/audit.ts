@@ -1,8 +1,9 @@
-import { index, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { auditSchema } from './pg-schema.js';
+import { index, jsonb, text, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from '../../db/schema/columns.js';
 
 /** Registro de auditoría de solo-inserción. */
-export const auditLogs = pgTable(
+export const auditLogs = auditSchema.table(
   'audit_logs',
   {
     id: id(),

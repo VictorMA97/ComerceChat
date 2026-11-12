@@ -1,43 +1,28 @@
+import { fakePosSchema } from './pg-schema.js';
 // Tablas de los simuladores de la PoC (ARCHITECTURE §16.3). Hacen de "sistemas externos":
 // el software de caja (fake_pos_*) y el PSP (fake_psp_*). No deben existir en producción (ADR-018).
-import {
-  boolean,
-  bigint,
-  index,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { boolean, bigint, index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id } from '../../db/schema/columns.js';
-import { merchantLocations } from '../../merchant-venues/schema/merchants.js';
 
-export const fakePosMenuItems = pgTable('fake_pos_menu_items', {
+export const fakePosMenuItems = fakePosSchema.table('fake_pos_menu_items', {
   id: id(),
-  locationId: uuid('location_id')
-    .notNull()
-    .references(() => merchantLocations.id),
+  locationId: uuid('location_id').notNull(),
   name: text('name').notNull(),
   category: text('category').notNull(),
   priceCents: bigint('price_cents', { mode: 'number' }).notNull(),
 });
 
-export const fakePosLocations = pgTable('fake_pos_locations', {
-  locationId: uuid('location_id')
-    .primaryKey()
-    .references(() => merchantLocations.id),
+export const fakePosLocations = fakePosSchema.table('fake_pos_locations', {
+  locationId: uuid('location_id').primaryKey(),
   /** Permite simular la caída del TPV desde el simulador (FR-POS-06). */
   healthy: boolean('healthy').notNull().default(true),
 });
 
-export const fakePosBills = pgTable(
+export const fakePosBills = fakePosSchema.table(
   'fake_pos_bills',
   {
     id: id(),
-    locationId: uuid('location_id')
-      .notNull()
-      .references(() => merchantLocations.id),
+    locationId: uuid('location_id').notNull(),
     externalTableId: text('external_table_id').notNull(),
     status: text('status').$type<'OPEN' | 'CLOSED'>().notNull().default('OPEN'),
     openedAt: createdAt(),
@@ -46,7 +31,7 @@ export const fakePosBills = pgTable(
   (t) => [index('fake_pos_bills_table_idx').on(t.locationId, t.externalTableId, t.status)],
 );
 
-export const fakePosBillItems = pgTable('fake_pos_bill_items', {
+export const fakePosBillItems = fakePosSchema.table('fake_pos_bill_items', {
   id: id(),
   billId: uuid('bill_id')
     .notNull()
@@ -58,7 +43,7 @@ export const fakePosBillItems = pgTable('fake_pos_bill_items', {
 });
 
 /** Pagos registrados en el TPV simulado. `reference` = id del pago de ComerceChat (idempotente). */
-export const fakePosPayments = pgTable(
+export const fakePosPayments = fakePosSchema.table(
   'fake_pos_payments',
   {
     id: id(),

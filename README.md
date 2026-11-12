@@ -80,6 +80,7 @@ Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y
 | `pnpm db:generate` | Genera una migración SQL a partir de cambios en `apps/api/src/db/schema` |
 | `pnpm db:migrate` | Aplica las migraciones |
 | `pnpm db:seed` | **Borra** y recrea los datos de prueba |
+| `pnpm db:reset` | **Borra** la base de datos local entera, migra y carga el seed. Necesario una vez si tu base es anterior a la migración F1.6 (un esquema de Postgres por contexto) |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
 | `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4000 |

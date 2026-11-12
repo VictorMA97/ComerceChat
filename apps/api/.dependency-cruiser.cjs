@@ -22,6 +22,7 @@ const COMPOSITION_ROOTS = [
   '^src/db/client\\.ts$',
   '^src/db/seed\\.ts$',
   '^src/db/migrate\\.ts$',
+  '^src/db/reset\\.ts$',
 ];
 
 /** @type {import('dependency-cruiser').IConfiguration} */

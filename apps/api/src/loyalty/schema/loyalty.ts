@@ -1,3 +1,4 @@
+import { loyaltySchema } from './pg-schema.js';
 import { relations, sql } from 'drizzle-orm';
 import {
   bigint,
@@ -5,24 +6,17 @@ import {
   index,
   integer,
   jsonb,
-  pgTable,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import { users } from '../../identity/schema/users.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
-import { payments } from '../../table-payments/schema/payments.js';
 
 /** Programa de fidelización de un comercio (FR-LOY-01). En el MVP, uno por comercio (ADR-005). */
-export const loyaltyPrograms = pgTable('loyalty_programs', {
+export const loyaltyPrograms = loyaltySchema.table('loyalty_programs', {
   id: id(),
-  merchantId: uuid('merchant_id')
-    .notNull()
-    .unique()
-    .references(() => merchants.id),
+  merchantId: uuid('merchant_id').notNull().unique(),
   type: text('type').$type<'POINTS' | 'STAMPS'>().notNull().default('POINTS'),
   /** `{ pointsPerEuro }`: puntos por euro pagado sin propina. */
   earnRule: jsonb('earn_rule').$type<{ pointsPerEuro: number }>().notNull(),
@@ -35,7 +29,7 @@ export const loyaltyPrograms = pgTable('loyalty_programs', {
 });
 
 /** Recompensa canjeable por puntos: al canjearla se emite un cupón de un solo uso (FR-LOY-03). */
-export const loyaltyRewards = pgTable('loyalty_rewards', {
+export const loyaltyRewards = loyaltySchema.table('loyalty_rewards', {
   id: id(),
   programId: uuid('program_id')
     .notNull()
@@ -48,13 +42,11 @@ export const loyaltyRewards = pgTable('loyalty_rewards', {
   createdAt: createdAt(),
 });
 
-export const loyaltyAccounts = pgTable(
+export const loyaltyAccounts = loyaltySchema.table(
   'loyalty_accounts',
   {
     id: id(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id),
+    userId: uuid('user_id').notNull(),
     programId: uuid('program_id')
       .notNull()
       .references(() => loyaltyPrograms.id),
@@ -67,7 +59,7 @@ export const loyaltyAccounts = pgTable(
 );
 
 /** Registro contable de puntos, de solo inserción salvo PENDING → AVAILABLE | VOID (ADR-012). */
-export const pointsLedgerEntries = pgTable(
+export const pointsLedgerEntries = loyaltySchema.table(
   'points_ledger_entries',
   {
     id: id(),
@@ -77,7 +69,7 @@ export const pointsLedgerEntries = pgTable(
     type: text('type').$type<'EARN' | 'REDEEM' | 'EXPIRE' | 'REVERSE' | 'ADJUST'>().notNull(),
     points: integer('points').notNull(),
     status: text('status').$type<'PENDING' | 'AVAILABLE' | 'VOID'>().notNull(),
-    paymentId: uuid('payment_id').references(() => payments.id),
+    paymentId: uuid('payment_id'),
     couponId: uuid('coupon_id'),
     reason: text('reason'),
     createdBy: text('created_by'),
@@ -94,11 +86,9 @@ export const pointsLedgerEntries = pgTable(
 );
 
 /** Promoción del comercio (FR-CPN-01). En la PoC solo la plantilla COMEBACK («Vuelve y te invitamos»). */
-export const promotions = pgTable('promotions', {
+export const promotions = loyaltySchema.table('promotions', {
   id: id(),
-  merchantId: uuid('merchant_id')
-    .notNull()
-    .references(() => merchants.id),
+  merchantId: uuid('merchant_id').notNull(),
   template: text('template').$type<'COMEBACK'>().notNull(),
   name: text('name').notNull(),
   /** `{ discountCents, minSpendCents, validDays }`. */
@@ -116,7 +106,7 @@ export const promotions = pgTable('promotions', {
  * Cupones emitidos por loyalty (FR-CPN-01, FR-LOY-03). El id es el del cupón en table-payments, que
  * lo crea al recibir `CouponIssued.v1` y avisa del canje con `CouponRedeemed.v1` (ADR-029).
  */
-export const couponIssuances = pgTable(
+export const couponIssuances = loyaltySchema.table(
   'coupon_issuances',
   {
     id: uuid('id').primaryKey(),

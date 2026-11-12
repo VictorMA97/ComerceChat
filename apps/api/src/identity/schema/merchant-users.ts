@@ -1,13 +1,11 @@
-import { boolean, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { identitySchema } from './pg-schema.js';
+import { boolean, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import { merchantUserRole } from '../../db/schema/enums.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { merchantUserRole } from './enums.js';
 
-export const merchantUsers = pgTable('merchant_users', {
+export const merchantUsers = identitySchema.table('merchant_users', {
   id: id(),
-  merchantId: uuid('merchant_id')
-    .notNull()
-    .references(() => merchants.id),
+  merchantId: uuid('merchant_id').notNull(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: merchantUserRole('role').notNull(),
@@ -24,7 +22,7 @@ export const merchantUsers = pgTable('merchant_users', {
  * Códigos de recuperación del doble factor: cada uno vale una sola vez. Se guarda su HMAC, nunca el
  * código en claro (ADR-025).
  */
-export const merchantUserRecoveryCodes = pgTable(
+export const merchantUserRecoveryCodes = identitySchema.table(
   'merchant_user_recovery_codes',
   {
     id: id(),

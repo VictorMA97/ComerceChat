@@ -1,9 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { bigint, index, jsonb, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { bigint, index, jsonb, pgSchema, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from './columns.js';
 
+/**
+ * Tablas de infraestructura compartida (outbox e Idempotency-Key). En la PoC son comunes a todos los
+ * contextos; al separar los servicios, cada uno tendrá las suyas en su esquema (MIGRACION §3.4).
+ */
+export const platformSchema = pgSchema('platform');
+
 /** Patrón outbox: los eventos de dominio se escriben en la misma transacción (ARCHITECTURE §5). */
-export const outboxEvents = pgTable(
+export const outboxEvents = platformSchema.table(
   'outbox_events',
   {
     id: id(),
@@ -22,7 +28,7 @@ export const outboxEvents = pgTable(
 );
 
 /** Respuestas guardadas por Idempotency-Key durante 24 h (ARCHITECTURE §11). */
-export const idempotencyKeys = pgTable(
+export const idempotencyKeys = platformSchema.table(
   'idempotency_keys',
   {
     id: id(),

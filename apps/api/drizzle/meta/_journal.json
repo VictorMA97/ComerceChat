@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792251448166,
-      "tag": "0000_init",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1792337756796,
-      "tag": "0001_payments",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1792339795078,
-      "tag": "0002_split_payments",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1792343792464,
-      "tag": "0003_loyalty_coupons",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1792430455022,
-      "tag": "0004_merchant_mfa",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1792431992629,
-      "tag": "0005_audit_append_only",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1794515407263,
-      "tag": "0006_events_read_models",
+      "when": 1794516142621,
+      "tag": "0000_baseline",
       "breakpoints": true
     }
   ]

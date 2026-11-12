@@ -1,43 +1,32 @@
+import { paymentsSchema } from './pg-schema.js';
 import { relations } from 'drizzle-orm';
 import {
   bigint,
   char,
   index,
   jsonb,
-  pgTable,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import {
-  allocationStatus,
-  paymentMethod,
-  paymentStatus,
-  transactionType,
-} from '../../db/schema/enums.js';
-import { merchantLocations, merchants, tables } from '../../merchant-venues/schema/merchants.js';
 import { orders } from './orders.js';
-import { qrCodes } from '../../merchant-venues/schema/qr.js';
-import { users } from '../../identity/schema/users.js';
+import { paymentQrCodes } from './payment-qr.js';
+import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { allocationStatus, paymentMethod, paymentStatus, transactionType } from './enums.js';
 
 /** Pago. Refleja el estado del PSP, que es la fuente de verdad del dinero (ARCHITECTURE §10). */
-export const payments = pgTable(
+export const payments = paymentsSchema.table(
   'payments',
   {
     id: id(),
     orderId: uuid('order_id').references(() => orders.id),
-    locationId: uuid('location_id')
-      .notNull()
-      .references(() => merchantLocations.id),
-    merchantId: uuid('merchant_id')
-      .notNull()
-      .references(() => merchants.id),
-    tableId: uuid('table_id').references(() => tables.id),
+    locationId: uuid('location_id').notNull(),
+    merchantId: uuid('merchant_id').notNull(),
+    tableId: uuid('table_id'),
     /** QR de cobro generado desde la caja que originó el pago (FR-QR-03). */
-    qrCodeId: uuid('qr_code_id').references(() => qrCodes.id),
-    userId: uuid('user_id').references(() => users.id),
+    qrCodeId: uuid('qr_code_id').references(() => paymentQrCodes.id),
+    userId: uuid('user_id'),
     psp: text('psp').notNull(),
     pspPaymentId: text('psp_payment_id').unique(),
     method: paymentMethod('method'),
@@ -74,7 +63,7 @@ export const payments = pgTable(
  * una línea del TPV (kind=ITEM). Invariante: lo cobrado + lo reservado nunca supera el total; se
  * garantiza creando las asignaciones con el pedido bloqueado (FOR UPDATE).
  */
-export const orderAllocations = pgTable(
+export const orderAllocations = paymentsSchema.table(
   'order_allocations',
   {
     id: id(),
@@ -100,7 +89,7 @@ export const orderAllocations = pgTable(
 );
 
 /** Espejo contable de los movimientos del PSP. Solo inserción. */
-export const transactions = pgTable('transactions', {
+export const transactions = paymentsSchema.table('transactions', {
   id: id(),
   paymentId: uuid('payment_id')
     .notNull()
@@ -113,7 +102,7 @@ export const transactions = pgTable('transactions', {
 });
 
 /** Webhooks del PSP recibidos. La unicidad de (psp, psp_event_id) los deduplica (ADR-015). */
-export const pspWebhookEvents = pgTable(
+export const pspWebhookEvents = paymentsSchema.table(
   'psp_webhook_events',
   {
     id: id(),

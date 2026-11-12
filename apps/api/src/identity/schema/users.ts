@@ -1,9 +1,9 @@
-import { boolean, date, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { identitySchema } from './pg-schema.js';
+import { boolean, date, index, integer, text, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import { consentType, userStatus } from '../../db/schema/enums.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { consentType, userStatus } from './enums.js';
 
-export const users = pgTable('users', {
+export const users = identitySchema.table('users', {
   id: id(),
   phoneE164Enc: text('phone_e164_enc').notNull(),
   phoneHash: text('phone_hash').notNull().unique(),
@@ -18,7 +18,7 @@ export const users = pgTable('users', {
 });
 
 /** Consentimientos de solo-inserción y versionados: el último registro manda (ADR-016). */
-export const userConsents = pgTable(
+export const userConsents = identitySchema.table(
   'user_consents',
   {
     id: id(),
@@ -26,7 +26,7 @@ export const userConsents = pgTable(
       .notNull()
       .references(() => users.id),
     type: consentType('type').notNull(),
-    merchantId: uuid('merchant_id').references(() => merchants.id),
+    merchantId: uuid('merchant_id'),
     granted: boolean('granted').notNull(),
     version: text('version').notNull(),
     source: text('source').notNull(),

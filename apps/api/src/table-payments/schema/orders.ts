@@ -1,32 +1,20 @@
+import { paymentsSchema } from './pg-schema.js';
 import { relations, sql } from 'drizzle-orm';
-import {
-  bigint,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { bigint, index, integer, jsonb, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import { orderSource, orderStatus } from '../../db/schema/enums.js';
-import { merchantLocations, tables } from '../../merchant-venues/schema/merchants.js';
-import { users } from '../../identity/schema/users.js';
+import { orderSource, orderStatus } from './enums.js';
 
 /**
  * Pedido o cuenta. Con software de caja, es un espejo de la cuenta abierta en el TPV
  * (source=POS, pos_external_id = id de la cuenta en el TPV). Los totales son la última foto leída.
  */
-export const orders = pgTable(
+export const orders = paymentsSchema.table(
   'orders',
   {
     id: id(),
-    locationId: uuid('location_id')
-      .notNull()
-      .references(() => merchantLocations.id),
-    tableId: uuid('table_id').references(() => tables.id),
-    userId: uuid('user_id').references(() => users.id),
+    locationId: uuid('location_id').notNull(),
+    tableId: uuid('table_id'),
+    userId: uuid('user_id'),
     source: orderSource('source').notNull(),
     status: orderStatus('status').notNull().default('OPEN'),
     subtotalCents: bigint('subtotal_cents', { mode: 'number' }).notNull().default(0),
@@ -44,7 +32,7 @@ export const orders = pgTable(
   ],
 );
 
-export const orderItems = pgTable('order_items', {
+export const orderItems = paymentsSchema.table('order_items', {
   id: id(),
   orderId: uuid('order_id')
     .notNull()

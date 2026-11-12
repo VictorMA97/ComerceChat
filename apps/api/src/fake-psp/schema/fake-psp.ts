@@ -1,8 +1,9 @@
-import { bigint, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { fakePspSchema } from './pg-schema.js';
+import { bigint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { createdAt } from '../../db/schema/columns.js';
 
 /** Sesiones de pago del PSP simulado. */
-export const fakePspSessions = pgTable('fake_psp_sessions', {
+export const fakePspSessions = fakePspSchema.table('fake_psp_sessions', {
   id: text('id').primaryKey(),
   paymentId: uuid('payment_id').notNull(),
   merchantName: text('merchant_name').notNull(),

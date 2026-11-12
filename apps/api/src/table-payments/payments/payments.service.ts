@@ -22,7 +22,7 @@ import { DB, type Database, type Tx } from '../../db/client.js';
 import { coupons } from '../schema/coupons.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orderAllocations, payments } from '../schema/payments.js';
-import { qrCodes } from '../../merchant-venues/schema/qr.js';
+import { paymentQrCodes } from '../schema/payment-qr.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { RealtimeService } from '../../realtime/public/realtime.js';
@@ -193,7 +193,11 @@ export class PaymentsService implements OnApplicationBootstrap {
     }
 
     const { payment, superseded } = await this.db.transaction(async (tx) => {
-      const [qr] = await tx.select().from(qrCodes).where(eq(qrCodes.id, dq.qrId)).for('update');
+      const [qr] = await tx
+        .select()
+        .from(paymentQrCodes)
+        .where(eq(paymentQrCodes.id, dq.qrId))
+        .for('update');
       if (!qr || qr.status !== 'ACTIVE') {
         throw new AppError(
           'QR_INVALID',

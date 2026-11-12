@@ -4,7 +4,7 @@ import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database } from '../../db/client.js';
 import { orderAllocations, payments, pspWebhookEvents, transactions } from '../schema/payments.js';
-import { qrCodes } from '../../merchant-venues/schema/qr.js';
+import { paymentQrCodes } from '../schema/payment-qr.js';
 import { OutboxService } from '../../outbox/outbox.service.js';
 import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { CouponsService } from '../coupons/coupons.service.js';
@@ -166,9 +166,11 @@ export class PaymentEventsService {
         if (payment.qrCodeId) {
           // QR dinámico de un solo uso: queda consumido (FR-QR-03).
           await tx
-            .update(qrCodes)
+            .update(paymentQrCodes)
             .set({ status: 'CONSUMED' })
-            .where(and(eq(qrCodes.id, payment.qrCodeId), eq(qrCodes.status, 'ACTIVE')));
+            .where(
+              and(eq(paymentQrCodes.id, payment.qrCodeId), eq(paymentQrCodes.status, 'ACTIVE')),
+            );
         }
         await tx
           .update(payments)

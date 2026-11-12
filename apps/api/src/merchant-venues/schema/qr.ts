@@ -1,22 +1,13 @@
+import { venuesSchema } from './pg-schema.js';
 import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import {
-  bigint,
-  char,
-  index,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from 'drizzle-orm/pg-core';
-import { createdAt, id } from '../../db/schema/columns.js';
-import { qrCodeStatus, qrCodeType } from '../../db/schema/enums.js';
-import { merchantUsers } from '../../identity/schema/merchant-users.js';
+import { char, index, integer, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { merchantLocations, tables } from './merchants.js';
+import { createdAt, id } from '../../db/schema/columns.js';
+import { qrCodeStatus, qrCodeType } from './enums.js';
 
-export const qrCodes = pgTable(
+/** QR estáticos de mesa (FR-QR-01). Los de cobro desde la caja están en payments.payment_qr_codes. */
+export const qrCodes = venuesSchema.table(
   'qr_codes',
   {
     id: id(),
@@ -28,13 +19,11 @@ export const qrCodes = pgTable(
     shortCode: text('short_code').notNull().unique(),
     // HMAC-SHA256(secret, id‖location‖table‖version): detecta manipulación de la BD (ARCHITECTURE §8).
     signature: text('signature').notNull(),
-    amountCents: bigint('amount_cents', { mode: 'number' }),
     currency: char('currency', { length: 3 }).notNull().default('EUR'),
-    nonce: text('nonce'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     status: qrCodeStatus('status').notNull().default('ACTIVE'),
     version: integer('version').notNull().default(1),
-    createdBy: uuid('created_by').references(() => merchantUsers.id),
+    createdBy: uuid('created_by'),
     createdAt: createdAt(),
   },
   (t) => [

@@ -1,22 +1,19 @@
-import { bigint, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
-import { users } from '../../identity/schema/users.js';
-import { merchants } from '../../merchant-venues/schema/merchants.js';
+import { paymentsSchema } from './pg-schema.js';
+import { bigint, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { payments } from './payments.js';
+import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
 
 /**
  * Cupón de un solo uso vinculado a un usuario (FR-CPN-04). Lo financia el comercio (REG-04). Lo emite
  * loyalty (`coupon_issuances`) y llega por `CouponIssued.v1` con el mismo id; aquí vive su estado
  * para reservarlo y canjearlo en la transacción del pago (ADR-029).
  */
-export const coupons = pgTable(
+export const coupons = paymentsSchema.table(
   'coupons',
   {
     id: id(),
-    merchantId: uuid('merchant_id')
-      .notNull()
-      .references(() => merchants.id),
-    userId: uuid('user_id').references(() => users.id),
+    merchantId: uuid('merchant_id').notNull(),
+    userId: uuid('user_id'),
     code: text('code').notNull().unique(),
     title: text('title').notNull(),
     discountCents: bigint('discount_cents', { mode: 'number' }).notNull(),
@@ -36,7 +33,7 @@ export const coupons = pgTable(
 );
 
 /** Canje de un cupón. La unicidad de coupon_id impide canjearlo dos veces (FR-CPN-06). */
-export const couponRedemptions = pgTable('coupon_redemptions', {
+export const couponRedemptions = paymentsSchema.table('coupon_redemptions', {
   id: id(),
   couponId: uuid('coupon_id')
     .notNull()

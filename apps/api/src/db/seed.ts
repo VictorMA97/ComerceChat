@@ -100,11 +100,18 @@ try {
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`
-      truncate table audit_logs, outbox_events, idempotency_keys, psp_webhook_events, transactions,
-        coupon_redemptions, coupons, coupon_issuances, payment_facts, promotions, points_ledger_entries, loyalty_accounts, loyalty_rewards,
-        loyalty_programs, order_allocations, payments, order_items, orders, fake_psp_sessions, fake_pos_payments, fake_pos_bill_items,
-        fake_pos_bills, fake_pos_menu_items, fake_pos_locations, user_consents, users, qr_codes,
-        tables, merchant_locations, merchant_user_recovery_codes, merchant_users, merchants
+      truncate table platform.outbox_events, platform.idempotency_keys, audit.audit_logs,
+        analytics.payment_facts,
+        payments.psp_webhook_events, payments.transactions, payments.coupon_redemptions,
+        payments.coupons, payments.order_allocations, payments.payments, payments.payment_qr_codes,
+        payments.order_items, payments.orders,
+        loyalty.coupon_issuances, loyalty.promotions, loyalty.points_ledger_entries,
+        loyalty.loyalty_accounts, loyalty.loyalty_rewards, loyalty.loyalty_programs,
+        fake_psp.fake_psp_sessions, fake_pos.fake_pos_payments, fake_pos.fake_pos_bill_items,
+        fake_pos.fake_pos_bills, fake_pos.fake_pos_menu_items, fake_pos.fake_pos_locations,
+        identity.user_consents, identity.users, identity.merchant_user_recovery_codes,
+        identity.merchant_users, venues.qr_codes, venues.tables, venues.merchant_locations,
+        venues.merchants
         restart identity cascade
     `);
 

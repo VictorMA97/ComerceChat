@@ -9,10 +9,9 @@ import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { payments } from '../schema/payments.js';
-import { qrCodes } from '../../merchant-venues/schema/qr.js';
+import { paymentQrCodes } from '../schema/payment-qr.js';
 import { RealtimeService } from '../../realtime/public/realtime.js';
 import { DynamicQrKeys, signDynamicQr, verifyDynamicQr } from './dynamic-qr-token.js';
-import { generateShortCode, signQr } from '../../common/qr-signature.js';
 
 /** El simulador sigue mostrando el QR de cobro de una mesa durante este tiempo tras crearlo. */
 const SHOW_RECENT_MS = 30 * 60 * 1000;
@@ -27,7 +26,7 @@ export interface DynamicQrContext {
   resolution: DynamicQrResolution;
 }
 
-type QrRow = typeof qrCodes.$inferSelect;
+type QrRow = typeof paymentQrCodes.$inferSelect;
 type PaymentRow = typeof payments.$inferSelect;
 
 const invalid = () =>
@@ -66,29 +65,15 @@ export class DynamicQrService {
     );
     const qr = await this.db.transaction(async (tx) => {
       await tx
-        .update(qrCodes)
+        .update(paymentQrCodes)
         .set({ status: 'REVOKED' })
-        .where(
-          and(
-            eq(qrCodes.tableId, table.id),
-            eq(qrCodes.type, 'DYNAMIC_AMOUNT'),
-            eq(qrCodes.status, 'ACTIVE'),
-          ),
-        );
+        .where(and(eq(paymentQrCodes.tableId, table.id), eq(paymentQrCodes.status, 'ACTIVE')));
       const [row] = await tx
-        .insert(qrCodes)
+        .insert(paymentQrCodes)
         .values({
           id,
-          type: 'DYNAMIC_AMOUNT',
           locationId: table.locationId,
           tableId: table.id,
-          shortCode: generateShortCode(),
-          signature: signQr(this.env.QR_HMAC_SECRET, {
-            id,
-            locationId: table.locationId,
-            tableId: table.id,
-            version: 1,
-          }),
           amountCents,
           nonce: randomBase62(16),
           expiresAt,
@@ -130,16 +115,15 @@ export class DynamicQrService {
     if (tableIds.length === 0) return result;
     const rows = await this.db
       .select()
-      .from(qrCodes)
+      .from(paymentQrCodes)
       .where(
         and(
-          inArray(qrCodes.tableId, tableIds),
-          eq(qrCodes.type, 'DYNAMIC_AMOUNT'),
-          inArray(qrCodes.status, ['ACTIVE', 'CONSUMED']),
-          gt(qrCodes.createdAt, new Date(Date.now() - SHOW_RECENT_MS)),
+          inArray(paymentQrCodes.tableId, tableIds),
+          inArray(paymentQrCodes.status, ['ACTIVE', 'CONSUMED']),
+          gt(paymentQrCodes.createdAt, new Date(Date.now() - SHOW_RECENT_MS)),
         ),
       )
-      .orderBy(desc(qrCodes.createdAt));
+      .orderBy(desc(paymentQrCodes.createdAt));
     for (const qr of rows) {
       if (!qr.tableId || result.has(qr.tableId)) continue;
       result.set(qr.tableId, this.toView(qr, await this.latestPayment(qr.id)));
@@ -150,9 +134,9 @@ export class DynamicQrService {
   async revoke(p: MerchantPrincipal, qrId: string): Promise<void> {
     const qr = await this.ownQr(p, qrId);
     await this.db
-      .update(qrCodes)
+      .update(paymentQrCodes)
       .set({ status: 'REVOKED' })
-      .where(and(eq(qrCodes.id, qrId), eq(qrCodes.status, 'ACTIVE')));
+      .where(and(eq(paymentQrCodes.id, qrId), eq(paymentQrCodes.status, 'ACTIVE')));
     await this.realtime.publish({
       type: 'table.updated',
       locationId: qr.locationId,
@@ -166,10 +150,11 @@ export class DynamicQrService {
   async resolve(token: string): Promise<DynamicQrContext> {
     const payload = verifyDynamicQr(this.keys, token);
     if (!payload || payload.exp * 1000 <= Date.now()) throw invalid();
-    const qr = await this.db.query.qrCodes.findFirst({ where: eq(qrCodes.id, payload.qrId) });
+    const qr = await this.db.query.paymentQrCodes.findFirst({
+      where: eq(paymentQrCodes.id, payload.qrId),
+    });
     if (
       !qr ||
-      qr.type !== 'DYNAMIC_AMOUNT' ||
       qr.status !== 'ACTIVE' ||
       qr.nonce !== payload.nonce ||
       qr.amountCents !== payload.amountCents ||
@@ -220,10 +205,7 @@ export class DynamicQrService {
   }
 
   private async ownQr(p: MerchantPrincipal, qrId: string): Promise<QrRow> {
-    const [qr] = await this.db
-      .select()
-      .from(qrCodes)
-      .where(and(eq(qrCodes.id, qrId), eq(qrCodes.type, 'DYNAMIC_AMOUNT')));
+    const [qr] = await this.db.select().from(paymentQrCodes).where(eq(paymentQrCodes.id, qrId));
     const location = qr ? await this.venues.location(qr.locationId) : null;
     if (!qr || location?.merchantId !== p.merchantId) {
       throw new AppError('QR_NOT_FOUND', HttpStatus.NOT_FOUND, 'QR no encontrado');
@@ -232,24 +214,23 @@ export class DynamicQrService {
   }
 
   private toView(qr: QrRow, payment: PaymentRow | null): DynamicQrView {
-    const expired =
-      qr.status === 'ACTIVE' && qr.expiresAt !== null && qr.expiresAt.getTime() <= Date.now();
+    const expired = qr.status === 'ACTIVE' && qr.expiresAt.getTime() <= Date.now();
     const token = signDynamicQr(this.keys, {
       qrId: qr.id,
       locationId: qr.locationId,
-      tableId: qr.tableId ?? '',
-      amountCents: qr.amountCents ?? 0,
-      exp: Math.floor((qr.expiresAt?.getTime() ?? 0) / 1000),
-      nonce: qr.nonce ?? '',
+      tableId: qr.tableId,
+      amountCents: qr.amountCents,
+      exp: Math.floor(qr.expiresAt.getTime() / 1000),
+      nonce: qr.nonce,
     });
     return {
       id: qr.id,
       locationId: qr.locationId,
-      tableId: qr.tableId ?? '',
-      amountCents: qr.amountCents ?? 0,
+      tableId: qr.tableId,
+      amountCents: qr.amountCents,
       status: expired ? 'EXPIRED' : qr.status,
       url: `${webQrBaseUrl(this.env).replace(/\/$/, '')}/d/${token}`,
-      expiresAt: qr.expiresAt!.toISOString(),
+      expiresAt: qr.expiresAt.toISOString(),
       payment: payment
         ? {
             status: payment.status,

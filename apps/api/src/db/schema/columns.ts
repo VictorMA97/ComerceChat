@@ -26,3 +26,7 @@ export const geographyPoint = customType<{ data: GeoPoint; driverData: string }>
   dataType: () => 'geography(Point, 4326)',
   toDriver: ({ lng, lat }) => `SRID=4326;POINT(${lng} ${lat})`,
 });
+
+/** Valores de un enum de shared-types en el formato de `pgEnum` / `pgSchema().enum`. */
+export const enumValues = <T extends Record<string, string>>(e: T) =>
+  Object.values(e) as [T[keyof T], ...T[keyof T][]];
