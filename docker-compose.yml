@@ -61,7 +61,7 @@ services:
   # Expone SOLO la web QR (puerto 3000) en una URL aleatoria *.trycloudflare.com que cambia
   # cada vez que se recrea el contenedor. La API y el panel siguen siendo solo locales.
   tunnel:
-    image: cloudflare/cloudflared:2026.9.3
+    image: cloudflare/cloudflared:2026.10.7
     profiles: [tunnel]
     command: tunnel --no-autoupdate --url http://host.docker.internal:3000
     extra_hosts:
