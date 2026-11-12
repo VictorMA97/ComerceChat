@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { LoginResponse, MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { AuditService } from '../../audit/public/audit.js';
+import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { hashPii } from '../../common/pii.js';
@@ -44,7 +44,7 @@ export class AuthService {
     @Inject(REDIS) private readonly redis: Redis,
     @Inject(DB) private readonly db: Database,
     private readonly jwt: JwtService,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
     private readonly revocations: TokenRevocationService,
     private readonly mfa: MerchantMfaService,
   ) {}

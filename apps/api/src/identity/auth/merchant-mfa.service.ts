@@ -4,7 +4,7 @@ import type { MfaSetupResponse } from '@comercechat/shared-types';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { randomBytes } from 'node:crypto';
-import { AuditService } from '../../audit/public/audit.js';
+import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import { AppError } from '../../common/app-error.js';
 import { newId } from '../../common/ids.js';
 import { decryptPii, encryptPii, hashPii } from '../../common/pii.js';
@@ -64,7 +64,7 @@ export class MerchantMfaService {
     @Inject(REDIS) private readonly redis: Redis,
     @Inject(ENV) private readonly env: Env,
     private readonly jwt: JwtService,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
     private readonly revocations: TokenRevocationService,
   ) {}
 

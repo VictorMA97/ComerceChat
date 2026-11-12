@@ -63,12 +63,32 @@ export interface QrRevokedV1 {
   replacedBy: string;
 }
 
+/**
+ * Entrada del registro de auditoría (ADR-028). Cada contexto la escribe en su outbox dentro de la
+ * transacción del cambio que registra; audit la inserta con `entryId` (idempotente).
+ */
+export interface AuditRecordedV1 {
+  entryId: string;
+  actorType: 'MERCHANT_USER' | 'USER' | 'ADMIN' | 'SYSTEM';
+  actorId?: string;
+  action: string;
+  entity: string;
+  entityId?: string;
+  before?: unknown;
+  after?: unknown;
+  ip?: string;
+  /** Comercio afectado: la entrada aparece en su registro de actividad (GET /merchant/audit). */
+  merchantId?: string;
+  at: string;
+}
+
 export interface DomainEvents {
   'PaymentCaptured.v1': PaymentCapturedV1;
   'PaymentUserAssigned.v1': PaymentUserAssignedV1;
   'CouponIssued.v1': CouponIssuedV1;
   'CouponRedeemed.v1': CouponRedeemedV1;
   'QrRevoked.v1': QrRevokedV1;
+  'AuditRecorded.v1': AuditRecordedV1;
 }
 export type DomainEventType = keyof DomainEvents;
 
@@ -82,6 +102,7 @@ export const SUBSCRIPTIONS: { readonly [T in DomainEventType]: readonly Consumer
   'CouponIssued.v1': ['table-payments'],
   'CouponRedeemed.v1': ['loyalty'],
   'QrRevoked.v1': [],
+  'AuditRecorded.v1': ['audit'],
 };
 
 export const domainEventsQueue = (consumer: Consumer) => `domain-events-${consumer}` as const;

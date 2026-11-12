@@ -245,19 +245,8 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
 
   it('registro de actividad: solo el OWNER lo ve, paginado y de solo inserción (ADR-028)', async () => {
     const auth = { authorization: `Bearer ${session}` };
-    const all: { action: string; actor: { email: string | null }; id: string }[] = [];
-    let cursor: string | null = null;
-    do {
-      const res: request.Response = await http()
-        .get(`/v1/merchant/audit?limit=5${cursor ? `&before=${cursor}` : ''}`)
-        .set(auth);
-      expect(res.status).toBe(200);
-      expect(res.body.items.length).toBeLessThanOrEqual(5);
-      all.push(...res.body.items);
-      cursor = res.body.nextCursor;
-    } while (cursor);
-    const actions = all.map((e) => e.action);
-    for (const a of [
+    type Entry = { action: string; actor: { email: string | null }; id: string };
+    const expected = [
       'merchant.registered',
       'merchant_user.mfa_enabled',
       'merchant_user.mfa_failed',
@@ -266,7 +255,30 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
       'location.created',
       'tables.created',
       'merchant.psp_onboarding_simulated',
-    ]) {
+    ];
+    const readAll = async () => {
+      const all: Entry[] = [];
+      let cursor: string | null = null;
+      do {
+        const res: request.Response = await http()
+          .get(`/v1/merchant/audit?limit=5${cursor ? `&before=${cursor}` : ''}`)
+          .set(auth);
+        expect(res.status).toBe(200);
+        expect(res.body.items.length).toBeLessThanOrEqual(5);
+        all.push(...res.body.items);
+        cursor = res.body.nextCursor;
+      } while (cursor);
+      return all;
+    };
+    // Las entradas llegan a audit por AuditRecorded.v1 (ADR-029): se espera a que estén todas.
+    let all: Entry[] = [];
+    for (let i = 0; i < 100; i++) {
+      all = await readAll();
+      if (expected.every((a) => all.some((e) => e.action === a))) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    const actions = all.map((e) => e.action);
+    for (const a of expected) {
       expect(actions).toContain(a);
     }
     // De la más reciente a la más antigua, sin repetidos entre páginas.

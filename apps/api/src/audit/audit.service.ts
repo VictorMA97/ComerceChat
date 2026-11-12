@@ -1,33 +1,30 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { and, desc, eq, lt } from 'drizzle-orm';
-import { DB, type Database, type Tx } from '../db/client.js';
+import { DB, type Database } from '../db/client.js';
+import { OutboxRelayService } from '../outbox/outbox-relay.service.js';
 import { auditLogs } from './schema/audit.js';
-
-export interface AuditEntry {
-  actorType: 'MERCHANT_USER' | 'USER' | 'ADMIN' | 'SYSTEM';
-  actorId?: string;
-  action: string;
-  entity: string;
-  entityId?: string;
-  before?: unknown;
-  after?: unknown;
-  ip?: string;
-  /** Comercio afectado: la entrada aparece en su registro de actividad (GET /merchant/audit). */
-  merchantId?: string;
-}
 
 export type AuditRow = typeof auditLogs.$inferSelect;
 
 /**
- * Registro de auditoría de solo inserción (ADR-028): la base de datos rechaza UPDATE y DELETE.
- * Acepta una transacción para que la entrada sea atómica con el cambio que registra.
+ * Registro de auditoría de solo inserción (ADR-028): la base de datos rechaza UPDATE y DELETE. Las
+ * entradas llegan de todos los contextos por `AuditRecorded.v1` (ADR-029); se insertan con su id,
+ * así que un evento repetido no duplica nada.
  */
 @Injectable()
-export class AuditService {
-  constructor(@Inject(DB) private readonly db: Database) {}
+export class AuditService implements OnModuleInit {
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly relay: OutboxRelayService,
+  ) {}
 
-  async record(entry: AuditEntry, tx?: Tx): Promise<void> {
-    await (tx ?? this.db).insert(auditLogs).values(entry);
+  onModuleInit(): void {
+    this.relay.on('audit', 'AuditRecorded.v1', async ({ payload: { entryId, at, ...entry } }) => {
+      await this.db
+        .insert(auditLogs)
+        .values({ ...entry, id: entryId, createdAt: new Date(at) })
+        .onConflictDoNothing({ target: auditLogs.id });
+    });
   }
 
   /** Entradas de un comercio, de la más reciente a la más antigua. Cursor: id (UUIDv7, ordenable). */

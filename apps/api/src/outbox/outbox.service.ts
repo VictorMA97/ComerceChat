@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { DomainEvents, DomainEventType } from '../contracts/events.js';
-import type { Tx } from '../db/client.js';
+import type { Database } from '../db/client.js';
 import { outboxEvents } from '../db/schema/platform.js';
 
 export interface DomainEvent<T extends DomainEventType = DomainEventType> {
@@ -16,7 +16,11 @@ export interface DomainEvent<T extends DomainEventType = DomainEventType> {
  */
 @Injectable()
 export class OutboxService {
-  async enqueue<T extends DomainEventType>(tx: Tx, event: DomainEvent<T>): Promise<void> {
+  /** `tx`: la transacción del cambio. Sin cambio que acompañar, vale la conexión directa. */
+  async enqueue<T extends DomainEventType>(
+    tx: Pick<Database, 'insert'>,
+    event: DomainEvent<T>,
+  ): Promise<void> {
     await tx.insert(outboxEvents).values({ ...event, payload: event.payload as object });
   }
 }

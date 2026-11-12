@@ -231,9 +231,14 @@ describe('Seguridad (E2E)', () => {
       });
       expect(r.status).toBe(429);
       expect(r.body.code).toBe('LOGIN_LOCKED');
-      // En la auditoría no queda el email en claro.
+      // En la auditoría no queda el email en claro: ni en audit_logs ni en los eventos que la llevan.
       const audits = await db.select().from(s.auditLogs);
       expect(JSON.stringify(audits)).not.toContain(u.email);
+      const pending = await db
+        .select()
+        .from(s.outboxEvents)
+        .where(eq(s.outboxEvents.type, 'AuditRecorded.v1'));
+      expect(JSON.stringify(pending)).not.toContain(u.email);
     });
   });
 

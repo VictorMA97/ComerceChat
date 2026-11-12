@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { DynamicQrResolution, DynamicQrView } from '@comercechat/shared-types';
 import { and, desc, eq, gt, inArray } from 'drizzle-orm';
-import { AuditService } from '../../audit/public/audit.js';
+import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { AppError } from '../../common/app-error.js';
 import { newId, randomBase62 } from '../../common/ids.js';
@@ -44,7 +44,7 @@ export class DynamicQrService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
     private readonly realtime: RealtimeService,
     private readonly venues: VenuesDirectory,
   ) {

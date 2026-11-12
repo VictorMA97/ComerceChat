@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { CreatePromotionRequest, PromotionView } from '@comercechat/shared-types';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { AuditService } from '../audit/public/audit.js';
+import { AuditEmitter } from '../outbox/audit-emitter.js';
 import type { MerchantPrincipal } from '../identity/public/session.js';
 import { AppError } from '../common/app-error.js';
 import { DB, type Database } from '../db/client.js';
@@ -12,7 +12,7 @@ import { couponIssuances, promotions } from './schema/loyalty.js';
 export class PromotionsService {
   constructor(
     @Inject(DB) private readonly db: Database,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
   ) {}
 
   async list(merchantId: string): Promise<PromotionView[]> {

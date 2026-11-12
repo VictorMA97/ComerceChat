@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { LocationView } from '@comercechat/shared-types';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { AuditService } from '../../audit/public/audit.js';
+import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
@@ -24,7 +24,7 @@ export class VenuesService {
     @Inject(DB) private readonly db: Database,
     @Inject(POS_CONNECTOR) private readonly pos: PosConnector,
     private readonly qr: QrService,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
   ) {}
 
   /** Alta de un local (FR-MER-03) y, opcionalmente, de sus primeras mesas con QR. */

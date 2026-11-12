@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { AuditService } from '../../audit/public/audit.js';
+import { AuditEmitter } from '../../outbox/audit-emitter.js';
 import { AppError } from '../../common/app-error.js';
 import { DB, type Database } from '../../db/client.js';
 import { orderAllocations, payments, pspWebhookEvents, transactions } from '../schema/payments.js';
@@ -30,7 +30,7 @@ export class PaymentEventsService {
     @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProvider,
     private readonly queues: QueueService,
     private readonly outbox: OutboxService,
-    private readonly audit: AuditService,
+    private readonly audit: AuditEmitter,
     private readonly realtime: RealtimeService,
   ) {
     this.queues.registerWorker(QueueName.PSP_EVENTS, (job) =>
