@@ -129,9 +129,9 @@ comercechat/
 
 **Servicio de destino de cada módulo (hito MS, [ADR-029](DECISIONS.md#adr-029)):** `auth` y `users` → `identity`; `merchants`, `venues` y los QR estáticos de `qr` → `merchant-venues`; `orders`, `payments`, los QR dinámicos y la reserva y el canje de `coupons` → `table-payments`; `loyalty` y las promociones de `coupons` → `loyalty`; `realtime`, `audit` y `analytics` → servicios del mismo nombre. `pos-integrations` pasa a ser una librería (`packages/pos-connectors`) y sus simuladores, el servicio `fake-pos`. Los módulos aún no construidos (`catalog`, `campaigns`, `crm`, `notifications`, `risk`, `admin`) se asignarán cuando entren por su hito. Reparto completo en [MIGRACION.md §3.1](MIGRACION.md#servicios).
 
-**Reglas entre módulos:**
+**Reglas entre módulos** (desde MS F1 las comprueba dependency-cruiser en `pnpm lint`; cada contexto expone su API en `src/<contexto>/public/` y sus tablas están en su propio esquema de Postgres, sin claves foráneas hacia otros):
 - Un módulo solo accede a las tablas de otro a través de su servicio público. Prohibido hacer joins entre tablas de módulos distintos desde fuera del módulo propietario; la excepción son las vistas de `analytics` sobre la réplica.
-- Los eventos de dominio (`PaymentCaptured`, `PaymentRefunded`, `PaymentDisputed`, `CouponRedeemed`…) se publican en un bus interno con patrón **outbox** (tabla `outbox_events` + worker → SQS). Así no se pierden eventos si el proceso cae entre el commit y la publicación.
+- Los eventos de dominio se publican con patrón **outbox** (tabla `outbox_events` + worker → SQS). Así no se pierden eventos si el proceso cae entre el commit y la publicación. Desde MS F1 son versionados (`PaymentCaptured.v1`, `CouponIssued.v1`, `CouponRedeemed.v1`, `AuditRecorded.v1`…, en `apps/api/src/contracts/events.ts`), llevan los datos que necesita cada consumidor y van a una cola por contexto consumidor (`domain-events-<contexto>`). Los futuros `PaymentRefunded` y `PaymentDisputed` entrarán en el mismo catálogo.
 
 ## 6. Abstracciones de proveedores
 
@@ -255,6 +255,7 @@ web-qr                     api                          PSP                     
 ## 10. Modelo de datos
 
 Convenciones:
+- Desde MS F1, cada contexto tiene su esquema de Postgres (`identity`, `venues`, `payments`, `loyalty`, `audit`, `analytics`, `fake_pos`, `fake_psp`; outbox e idempotencia en `platform`) y no hay claves foráneas entre esquemas. El diagrama de abajo es lógico: las flechas entre contextos son ids sin referencia. Cambios respecto a él: los QR de cobro están en `payments.payment_qr_codes`; la emisión de cupones, en `loyalty.coupon_issuances`; la analítica, en `analytics.payment_facts` (ver [MIGRACION.md §3](MIGRACION.md#arquitectura-objetivo)).
 - Identificadores `uuid` (v7).
 - Importes en `*_cents BIGINT` + `currency CHAR(3)`.
 - Columnas `created_at` y `updated_at` en todas las tablas.

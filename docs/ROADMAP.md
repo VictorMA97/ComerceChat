@@ -110,6 +110,14 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 - **Hecho cuando:** `apps/api` ya no existe, `pnpm e2e` pasa contra el despliegue en k3d y se cumple la condición de «hecho» de M0 en k3d.
 - **Progreso:**
   - ✅ F0 (12-nov-2026): ADR-029, ADR-030 y D-07; documentación actualizada.
+  - ✅ F1 (12-nov-2026): fronteras dentro del monolito.
+    - dependency-cruiser con 0 violaciones;
+    - fachadas públicas por contexto;
+    - eventos versionados con una cola por consumidor;
+    - auditoría por outbox;
+    - un esquema de Postgres por contexto sin claves foráneas entre ellos;
+    - traza de punta a punta.
+    Detalle en [MIGRACION.md §4](MIGRACION.md#4-fases).
 
 ### M1: QR y pago con importe manual (semanas 3–7)
 - **Requiere D-01 (PSP) cerrada.** Parte de lo que la PoC ya tiene (QR, web QR, webhooks, propina, justificante); el trabajo principal es el adaptador real del PSP y su alta de comercios.

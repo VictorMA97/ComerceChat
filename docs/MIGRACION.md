@@ -1,6 +1,6 @@
 # MIGRACIÓN: del monolito modular a microservicios
 
-> **Estado:** v0.3 (12-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0 hecha**; la siguiente fase es F1.
+> **Estado:** v0.4 (12-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0 y F1 hechas** (rama `ms/f1-fronteras`); la siguiente fase es F2.
 > **Documentos relacionados:** [ARCHITECTURE.md](ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) · [ROADMAP.md](ROADMAP.md) · [STRIDE.md](STRIDE.md)
 >
 > Las afirmaciones sobre el código actual llevan `[HECHO]` (comprobadas en el repositorio a fecha de este documento). Las estimaciones y elecciones de diseño de este plan, `[HIPÓTESIS]`.
@@ -92,8 +92,8 @@ Decisiones tomadas con el propietario del proyecto (12-nov-2026):
 | **gateway** (nginx) | nuevo: `deploy/gateway/nginx.conf` | — | todas: enruta por ruta concreta (`location` exactas o con regex, por los prefijos compartidos de [§2.3](#23-lo-que-hay-que-resolver-hecho)), deja pasar sin tocar las cabeceras de IP que reenvían los BFF (ADR-021) y `traceparent`, y no expone `/internal/*` |
 | **identity** | `auth`, `users` (OTP, sesión, consentimientos), `token-revocation` | `merchant_users`, `merchant_user_recovery_codes`, `users`, `user_consents` | `merchant/auth/*` (login, MFA, logout), `auth/otp/*`, `auth/logout`, `me`, `me/consents` |
 | **merchant-venues** | `merchants`, `venues`, `qr` (estáticos) | `merchants`, `merchant_locations`, `tables`, `qr_codes` (solo estáticos), `pos_integrations` cuando exista | `merchant/auth/register`, `merchant/me`, `merchant/psp/onboarding/simulate`, `merchant/locations/*`, `merchant/tables/:id/qr/regenerate`, `qr/:code` |
-| **table-payments** | `payments`, `tables` (cuenta, sala), QR dinámico, `pos-sync`, cupones (reserva, canje, listado) | `orders`, `order_items`, `order_allocations`, `payments`, `transactions`, `psp_webhook_events`, `idempotency_keys`, `payment_qr_codes` (QR dinámicos), `coupons`, `coupon_redemptions` | `qr/:code/bill`, `payment-sessions`, `payments/*`, `webhooks/psp/:provider`, `merchant/tables/:id/payment-qr`, `merchant/dynamic-qr/*`, `qr/dynamic/*`, `merchant/floor`, `me/coupons` |
-| **loyalty** | `loyalty` (programas, puntos, recompensas, promociones) | `loyalty_programs`, `loyalty_rewards`, `loyalty_accounts`, `points_ledger_entries`, `promotions`, `idempotency_keys` | `me/loyalty`, `me/rewards/:id/redeem`, `me/claim`, `merchant/promotions/*` |
+| **table-payments** | `payments`, `tables` (cuenta, sala), QR dinámico, `pos-sync`, cupones (reserva, canje, listado) | `orders`, `order_items`, `order_allocations`, `payments`, `transactions`, `psp_webhook_events`, `idempotency_keys`, `payment_qr_codes` (QR dinámicos), `coupons` (estado: reserva y canje), `coupon_redemptions` | `qr/:code/bill`, `payment-sessions`, `payments/*`, `webhooks/psp/:provider`, `merchant/tables/:id/payment-qr`, `merchant/dynamic-qr/*`, `qr/dynamic/*`, `merchant/floor`, `me/coupons` |
+| **loyalty** | `loyalty` (programas, puntos, recompensas, promociones) | `loyalty_programs`, `loyalty_rewards`, `loyalty_accounts`, `points_ledger_entries`, `promotions`, `coupon_issuances` (emisión de cupones), `idempotency_keys` | `me/loyalty`, `me/rewards/:id/redeem`, `me/claim`, `merchant/promotions/*` |
 | **realtime** | `realtime` + rutas `@Sse` de `tables` | — (Redis pub/sub) | `qr/:code/events`, `merchant/events` |
 | **audit** | `audit` + `merchants/audit.controller` | `audit_logs` (con los triggers de ADR-028) | `merchant/audit` |
 | **analytics** | `analytics` | modelo de lectura `payment_facts` alimentado por eventos | `merchant/analytics/*` |
@@ -113,7 +113,7 @@ Notas de diseño:
 |---|---|
 | `packages/service-kit` | arranque (telemetría antes de importar la app, ADR-027), `configureApp` (prefijo, helmet, `ProblemFilter`, validación), `AppError`, base de configuración zod con `productionViolations`, cliente Drizzle por esquema, Redis con prefijo, `QueueService` + transportes, `OutboxService` + relé con tabla de enrutado, throttling, `client-ip`, `ids`, `pii`, `safe-error`, `IdempotencyService` (cada servicio con su tabla), health, `InternalAuthGuard`, cliente HTTP interno (timeout + problem RFC 9457), `AuditEmitter`, `RealtimePublisher` |
 | `packages/auth-client` | `MerchantAuthGuard`, `UserAuthGuard`, `@CurrentMerchant`, `@MerchantRoles`: delegan la validación en `identity` |
-| `packages/contracts` | catálogo de eventos versionados (`PaymentCaptured.v1`…), tabla de suscripciones y DTO de las rutas `/internal/*`. Lo que hoy es contrato público sigue en `packages/shared-types` |
+| `packages/contracts` | catálogo de eventos versionados (`PaymentCaptured.v1`…), tabla de suscripciones y DTO de las rutas `/internal/*`. Lo que hoy es contrato público sigue en `packages/shared-types`. **[HECHO] en F1** como `apps/api/src/contracts/events.ts`; pasa a paquete en F2 |
 | `packages/pos-connectors` | `PosConnector`, `ManualPosConnector`, cliente HTTP de `fake-pos` |
 
 Estructura del monorepo resultante:
@@ -139,7 +139,7 @@ e2e/         Playwright (sin cambios) + pruebas de sistema contra el gateway
 | todos los que tienen panel o comensal | `identity` `POST /internal/sessions/merchant` y `/user` | Validar la sesión con los mismos criterios que hoy (rol, estado y doble factor leídos al momento) |
 | `table-payments`, `realtime` | `merchant-venues` `GET /internal/qr/:code`, `/internal/tables/:id/context` | Contexto de mesa: local, comercio, estado `ACTIVE`/`ONBOARDING`, propinas. Se mantiene la cache de 30 s (ADR-025) |
 | `loyalty` | `table-payments` `POST /internal/payments/:id/claim` | Reclamar los puntos: asigna el usuario de forma atómica (`UPDATE … WHERE user_id IS NULL OR user_id = $u RETURNING`) y devuelve importes y comercio |
-| `loyalty` | `table-payments` `POST /internal/coupons` | Emitir un cupón (idempotente por `source_ref`) |
+| `loyalty` | `table-payments` `POST /internal/coupons` | Entrega directa, tras el commit, del cupón que loyalty acaba de emitir (idempotente por id; si falla, llega por `CouponIssued.v1`). En F1: `PaymentsDirectory.materializeCoupon` |
 | `table-payments` | `loyalty` `GET /internal/payments/:id/points` | Puntos del justificante |
 | `audit` | `identity` `GET /internal/merchant-users?ids=` | Emails de los actores del registro de actividad |
 | `fake-pos` | `table-payments` `GET /internal/tables/payment-qr-state` | Último QR de cada mesa en el simulador (ADR-023) |
@@ -152,15 +152,22 @@ e2e/         Playwright (sin cambios) + pruebas de sistema contra el gateway
 | Evento | Productor | Consumidores |
 |---|---|---|
 | `PaymentCaptured.v1` `{paymentId, merchantId, locationId, tableId, userId?, amountCents, discountCents, tipCents, platformFeeCents, currency, capturedAt}` | table-payments | table-payments (registro en caja), loyalty (puntos), analytics |
+| `PaymentUserAssigned.v1` `{paymentId, merchantId, userId}` | table-payments (al reclamar puntos) | analytics |
+| `CouponIssued.v1` `{couponId, code, merchantId, userId, title, discountCents, minSpendCents, validFrom, validTo}` | loyalty | table-payments (crea el cupón con ese id) |
 | `CouponRedeemed.v1` | table-payments | loyalty (contadores de promociones) |
-| `QrRevoked.v1` | merchant-venues | table-payments (invalidar la cache de contexto) |
+| `QrRevoked.v1` | merchant-venues | ninguno de momento (la cache de resolución caduca en 30 s, ADR-025) |
 | `AuditRecorded.v1` | todos | audit |
+
+**Cupones** (decidido en F1): loyalty los emite en `coupon_issuances`, en la misma transacción que su apunte de puntos, y publica `CouponIssued.v1`; table-payments crea el cupón con ese id y guarda su estado (reserva y canje en la transacción del pago). Nunca hay cupón sin puntos ni puntos sin cupón. Para que el comensal lo vea al momento, loyalty lo entrega también directamente tras el commit (idempotente); el evento es la garantía si esa entrega falla.
+
+**Registro de comercio** (decidido en F1): en dos pasos. merchant-venues crea el comercio en `ONBOARDING` (con la auditoría del alta) e identity crea el OWNER con el id ya auditado. Si el segundo paso falla, queda un comercio en `ONBOARDING` sin usuarios, que no acepta pagos.
 
 **Auditoría:** `AuditService.record(…, tx)` pasa a ser `AuditEmitter.record(…, tx)`, que escribe un `AuditRecorded` en el outbox **dentro de la misma transacción**. La entrada sigue siendo atómica con el cambio que audita; lo que pasa a ser eventual es que aparezca en `audit_logs`. `audit` inserta de forma idempotente por el id del evento.
 
 ### 3.4 Datos
 
-- Una base de datos `comercechat` con un esquema por servicio (`identity`, `venues`, `payments`, `loyalty`, `audit`, `analytics`, `fake_psp`, `fake_pos`). Cada servicio tiene su rol, con permisos solo sobre su esquema: la frontera la impone la base de datos, no la disciplina.
+- Una base de datos `comercechat` con un esquema por servicio (`identity`, `venues`, `payments`, `loyalty`, `audit`, `analytics`, `fake_psp`, `fake_pos`). Cada servicio tiene su rol, con permisos solo sobre su esquema: la frontera la impone la base de datos, no la disciplina. **[HECHO] en F1** los esquemas; **los roles llegan al extraer cada servicio** (F3–F6), cuando tenga su propia `DATABASE_URL`: con un solo proceso habría que abrir un pool por contexto.
+- En F1, `outbox_events` e `idempotency_keys` siguen en un esquema común `platform`: al extraer cada servicio, tendrá las suyas en su esquema.
 - Sin claves foráneas entre esquemas: los ids de otros servicios son columnas `uuid` sin referencia (como ya hace `audit_logs.merchant_id`, ADR-028).
 - PostGIS: la extensión se crea una vez en el arranque del clúster; `merchant_locations.geo` mantiene la corrección manual de ADR-019.
 - Migraciones: cada servicio tiene su `drizzle.config.ts`, su carpeta `drizzle/` y su tabla de control en su esquema (`migrationsSchema`). Como no hay datos de producción, se **rehace la línea base**: una migración inicial por servicio en lugar de mover las `0000`–`0005`. Los triggers de solo inserción de ADR-028 se mantienen en `audit.audit_logs` e `identity.user_consents`.
@@ -215,8 +222,22 @@ Las duraciones son orientativas `[HIPÓTESIS]`.
 - **No se tocan** §5 (reglas), §10, §12, §13 ni §16 de ARCHITECTURE: describen el código actual y se reescriben en la fase que lo cambie.
 - **Hecho cuando:** los documentos están aprobados y enlazados por ID.
 
-### F1. Fronteras dentro del monolito (4–5 días)
+### F1. Fronteras dentro del monolito (4–5 días) · ✅ hecha el 12-nov-2026
 Todo sigue en `apps/api` y desplegado como uno. Es la fase de más riesgo y la que más vale.
+
+**Resultado** (rama `ms/f1-fronteras`, un commit por sub-paso):
+- F1.1: cada carpeta de `apps/api/src` es un contexto; los movimientos se hicieron antes que las reglas para que estas fueran por carpeta.
+- F1.2: dependency-cruiser en `pnpm lint`, con 93 violaciones de partida y el esquema Drizzle repartido por contexto.
+- F1.3: fachadas `public/` (`IdentityDirectory`, `VenuesDirectory`, `PaymentsDirectory`, `LoyaltyDirectory`), registro en dos pasos y rutas SSE en realtime.
+- F1.4: catálogo de eventos (`src/contracts/events.ts`), una cola por consumidor, cupones por evento y modelo de lectura de analítica.
+- F1.5: `AuditEmitter` por outbox.
+- F1.6: un esquema de Postgres por contexto, sin claves foráneas entre ellos, `payments.payment_qr_codes` y nueva línea base de migraciones (`pnpm db:reset` para las bases locales anteriores).
+- F1.7: contexto de traza en colas y outbox, comprobado en Jaeger.
+- Cero violaciones de dependencias. Verde en cada paso: lint, typecheck, 99 tests unitarios y de integración, y `pnpm e2e`.
+
+**Lo que cambia para quien usa la app:** el cupón llega a table-payments por evento (con entrega directa para que se vea al momento); el registro de actividad, la analítica y los contadores de promociones se actualizan con un retraso de menos de un segundo [HIPÓTESIS: medido solo en local].
+
+**Plan original:**
 1. dependency-cruiser con las reglas de [§3.1](#31-servicios-y-lo-que-poseen-hipótesis): un módulo solo importa la API pública de otro.
 2. Reagrupar los módulos según los servicios de destino (por ejemplo, `tables` y `payments` en `table-payments`; cupones a `table-payments`).
 3. Sustituir cada acceso cruzado de [§2.3](#23-lo-que-hay-que-resolver-hecho) por una llamada a un servicio público con la misma forma que la futura ruta `/internal/*`, o por un evento.

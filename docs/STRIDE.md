@@ -128,8 +128,8 @@ Fuera de alcance: el alta del comercio y el panel (cubiertos por [ADR-025](DECIS
 | Amenaza | Mitigación prevista | Estado |
 |---|---|---|
 | Llamar a `/internal/*` desde fuera, o saltarse el gateway y llegar directo a un servicio | El gateway no enruta `/internal/*`; secreto compartido `INTERNAL_SERVICE_SECRET` en cada llamada interna; los servicios no se publican fuera del clúster | `[PENDIENTE]` MS F2–F7. Recomendado: `NetworkPolicy` y mTLS (MIGRACION §9) |
-| Un servicio comprometido lee o modifica datos de otro | Un rol de Postgres por servicio con permisos solo sobre su esquema | `[PENDIENTE]` MS F1 |
-| Evento falso o duplicado en una cola (puntos o cupones de más) | Solo los servicios escriben en las colas; procesadores idempotentes (`psp_event_id`, índice único de `EARN`, `source_ref` de los cupones) | `[PARCIAL]`: idempotencia `[HECHO]` (criterio 3); escritura restringida `[PENDIENTE]` |
-| Perder entradas de auditoría al separar `audit` | Se escriben en el outbox dentro de la transacción del cambio y se insertan de forma idempotente | `[PENDIENTE]` MS F1/F4 |
+| Un servicio comprometido lee o modifica datos de otro | Un rol de Postgres por servicio con permisos solo sobre su esquema | `[PARCIAL]`: esquemas separados y sin claves foráneas entre ellos `[HECHO]` (MS F1.6); roles `[PENDIENTE]` al extraer cada servicio (F3–F6) |
+| Evento falso o duplicado en una cola (puntos o cupones de más) | Solo los servicios escriben en las colas; procesadores idempotentes (`psp_event_id`, índice único de `EARN`, id del cupón en `CouponIssued.v1`, id de la entrada en `AuditRecorded.v1`) | `[PARCIAL]`: idempotencia `[HECHO]` (criterio 3); escritura restringida `[PENDIENTE]` |
+| Perder entradas de auditoría al separar `audit` | Se escriben en el outbox dentro de la transacción del cambio y se insertan de forma idempotente | `[HECHO]` MS F1.5 (`merchant-onboarding.e2e-spec`, `security.e2e-spec`) |
 | Rol o baja del comercio que no se aplican en otros servicios | Todos validan la sesión contra `identity` en cada petición, con los mismos criterios que hoy (rol actual, estado y doble factor) | `[PENDIENTE]` MS F5 |
 | Secretos en los manifiestos de Kubernetes | `Secret` generados desde `.env.local`, nunca en el repositorio | `[PENDIENTE]` MS F7. Recomendado: External Secrets o Sealed Secrets |

@@ -472,7 +472,7 @@
 - **Verificado:** un cobro completo genera 7 trazas (3 peticiones, 3 trabajos de cola y la tarea de mantenimiento), sin trazas sueltas y sin el token en ningún atributo.
 - **Pendiente:**
   - **Sentry:** requiere cuenta; se conectará al mismo SDK.
-  - **Propagar el contexto de traza en los mensajes de cola**, para unir petición y trabajo en una sola traza.
+  - ~~**Propagar el contexto de traza en los mensajes de cola**~~ *Hecho en MS F1.7 (12-nov-2026): cada trabajo y cada evento del outbox llevan `traceparent`, y webhook, captura y eventos de dominio forman una sola traza (comprobado en Jaeger). Ver [MIGRACION.md](MIGRACION.md).*
   - **Métricas y logs estructurados.**
 
 <a id="adr-028"></a>
@@ -491,6 +491,7 @@
     - `GET /merchant/audit`, solo para el OWNER, con paginación por cursor sobre el id (UUIDv7) y la IP recortada (`a.b.c.x`).
     - En el panel, página **Actividad**, con los fallos de doble factor y las anomalías de pago resaltados.
 - **Consecuencias:** el visor completo del backoffice interno (FR-ADM-05) sigue en M5. La retención de 6 años (NFR-09) se aplicará con la política de copias en AWS.
+- **Actualización (MS F1.5, [ADR-029](#adr-029)):** los contextos ya no escriben en `audit_logs`. `AuditEmitter` guarda `AuditRecorded.v1` en el outbox dentro de la transacción del cambio y el contexto audit lo inserta con su id (idempotente); los triggers siguen en `audit.audit_logs` e `identity.user_consents`. La entrada nunca se pierde; aparece en el registro con menos de un segundo de retraso.
 
 <a id="adr-029"></a>
 ## ADR-029: microservicios dentro del monorepo, como base para experimentos DevOps
@@ -523,7 +524,9 @@
   - El trabajo funcional se para hasta terminar la migración, que va antes de M1 (ROADMAP, hito MS).
   - La aparición en `audit_logs` y el modelo de lectura de `analytics` pasan a ser eventuales.
   - La validación de sesiones se hace con una llamada a `identity`, lo que añade latencia de red (NFR-03).
-  - Los cupones los posee `table-payments`; `loyalty` los pide por `/internal/coupons`.
+  - **Cupones (concretado en F1):** loyalty los emite (`coupon_issuances`) en la misma transacción que su apunte de puntos y publica `CouponIssued.v1`; table-payments crea el cupón con ese id y guarda su estado (reserva y canje atómicos en la transacción del pago). Tras el commit, loyalty lo entrega también directamente, de forma idempotente, para que se vea al momento; el evento es la garantía.
+  - **Registro de comercio (concretado en F1):** en dos pasos; merchant-venues crea el comercio en `ONBOARDING` e identity, su OWNER. Si falla el segundo, queda un comercio sin usuarios que no acepta pagos.
+  - **Roles de base de datos por servicio:** llegan al extraer cada servicio (F3–F6). En F1 los esquemas ya están separados y sin claves foráneas entre ellos, y el outbox y la idempotencia viven en un esquema común `platform`.
   - Los simuladores se convierten en servicios HTTP, como lo serán los adaptadores reales. Esto resuelve la separación de las tablas `fake_*` (ARCHITECTURE §16.7).
 
 <a id="adr-030"></a>
