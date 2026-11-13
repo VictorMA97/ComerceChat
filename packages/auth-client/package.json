@@ -21,14 +21,14 @@
     "@comercechat/shared-types": "workspace:*"
   },
   "peerDependencies": {
-    "@nestjs/common": "^12.1.3",
-    "@nestjs/core": "^12.1.3",
+    "@nestjs/common": "^12.4.2",
+    "@nestjs/core": "^12.4.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@nestjs/common": "^12.1.3",
-    "@nestjs/core": "^12.1.3",
+    "@nestjs/common": "^12.4.2",
+    "@nestjs/core": "^12.4.2",
     "reflect-metadata": "^0.2.2",
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.5",
