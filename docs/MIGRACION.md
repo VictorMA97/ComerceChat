@@ -1,6 +1,6 @@
 # MIGRACIÓN: del monolito modular a microservicios
 
-> **Estado:** v0.4 (12-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0 y F1 hechas** (rama `ms/f1-fronteras`); la siguiente fase es F2.
+> **Estado:** v0.5 (13-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0, F1 y F2 hechas** (F2 en la rama `ms/f2-paquetes-gateway`); la siguiente fase es F3.
 > **Documentos relacionados:** [ARCHITECTURE.md](ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) · [ROADMAP.md](ROADMAP.md) · [STRIDE.md](STRIDE.md)
 >
 > Las afirmaciones sobre el código actual llevan `[HECHO]` (comprobadas en el repositorio a fecha de este documento). Las estimaciones y elecciones de diseño de este plan, `[HIPÓTESIS]`.
@@ -111,10 +111,10 @@ Notas de diseño:
 
 | Paquete | Contenido (extraído de `apps/api/src`) |
 |---|---|
-| `packages/service-kit` | arranque (telemetría antes de importar la app, ADR-027), `configureApp` (prefijo, helmet, `ProblemFilter`, validación), `AppError`, base de configuración zod con `productionViolations`, cliente Drizzle por esquema, Redis con prefijo, `QueueService` + transportes, `OutboxService` + relé con tabla de enrutado, throttling, `client-ip`, `ids`, `pii`, `safe-error`, `IdempotencyService` (cada servicio con su tabla), health, `InternalAuthGuard`, cliente HTTP interno (timeout + problem RFC 9457), `AuditEmitter`, `RealtimePublisher` |
-| `packages/auth-client` | `MerchantAuthGuard`, `UserAuthGuard`, `@CurrentMerchant`, `@MerchantRoles`: delegan la validación en `identity` |
-| `packages/contracts` | catálogo de eventos versionados (`PaymentCaptured.v1`…), tabla de suscripciones y DTO de las rutas `/internal/*`. Lo que hoy es contrato público sigue en `packages/shared-types`. **[HECHO] en F1** como `apps/api/src/contracts/events.ts`; pasa a paquete en F2 |
-| `packages/pos-connectors` | `PosConnector`, `ManualPosConnector`, cliente HTTP de `fake-pos` |
+| `packages/service-kit` | arranque (telemetría antes de importar la app, ADR-027), `configureApp` (prefijo, helmet, `ProblemFilter`, validación), `AppError`, base de configuración zod con `productionViolations`, cliente Drizzle por esquema, Redis con prefijo, `QueueService` + transportes, `OutboxService` + relé con tabla de enrutado, throttling, `client-ip`, `ids`, `pii`, `safe-error`, `IdempotencyService` (cada servicio con su tabla), health, `InternalAuthGuard`, cliente HTTP interno (timeout + problem RFC 9457), `AuditEmitter`, `RealtimePublisher`. **[HECHO] en F2**, salvo `InternalAuthGuard` y el cliente HTTP interno, que llegan con su primer uso (F3). Subrutas sin Nest: `/config`, `/db` y `/telemetry` |
+| `packages/auth-client` | `MerchantAuthGuard`, `UserAuthGuard`, `@CurrentMerchant`, `@MerchantRoles`: delegan la validación en `identity`. **[HECHO] en F2**, a través de `MerchantSessionVerifier` y `UserSessionVerifier` (hoy en proceso; en F5, HTTP) |
+| `packages/contracts` | catálogo de eventos versionados (`PaymentCaptured.v1`…), tabla de suscripciones y DTO de las rutas `/internal/*`. Lo que hoy es contrato público sigue en `packages/shared-types`. **[HECHO]**: en F1 como `apps/api/src/contracts/events.ts` y en F2 como paquete |
+| `packages/pos-connectors` | `PosConnector`, `ManualPosConnector`, cliente HTTP de `fake-pos`. **[HECHO] en F2** la interfaz; el cliente HTTP llega en F3 y `ManualPosConnector` con D-02 |
 
 Estructura del monorepo resultante:
 
@@ -176,7 +176,7 @@ e2e/         Playwright (sin cambios) + pruebas de sistema contra el gateway
 
 ### 3.5 Despliegue mínimo (lo único de DevOps que entra)
 
-- `pnpm dev`: todos los servicios con Turborepo, en `:4101`–`:4109`.
+- `pnpm dev`: todos los servicios con Turborepo, en `:4101`–`:4109`. **En F2** solo existe `apps/api`, en `:4100`.
 - `docker compose`: la infraestructura actual (Postgres, Redis, ElasticMQ, Mailpit, Jaeger opcional) más el servicio `gateway` (nginx) en `127.0.0.1:4000`, que enruta a los servicios del host por `host.docker.internal`. `API_BASE_URL` y los BFF no cambian.
 - **Configuración de nginx:** un solo `nginx.conf` con los destinos como variables, para servir igual en docker compose y en Kubernetes. En las rutas SSE (`qr/:code/events`, `merchant/events`): `proxy_buffering off` y un `proxy_read_timeout` largo. En los webhooks, el cuerpo pasa intacto, porque la firma se verifica sobre el cuerpo en bruto (ADR-015).
 - Una imagen por servicio, con un Dockerfile común multietapa (`turbo prune` + `pnpm deploy`).
@@ -247,7 +247,15 @@ Todo sigue en `apps/api` y desplegado como uno. Es la fase de más riesgo y la q
 7. Propagar el contexto de traza en los mensajes de cola (pendiente de ADR-027).
 - **Hecho cuando:** dependency-cruiser no da violaciones, ninguna consulta cruza esquemas y todo está en verde.
 
-### F2. Paquetes compartidos y gateway (2–3 días)
+### F2. Paquetes compartidos y gateway (2–3 días) · ✅ hecha el 13-nov-2026
+
+**Resultado** (rama `ms/f2-paquetes-gateway`, un commit por sub-paso):
+- F2.1–F2.4: `packages/contracts`, `packages/pos-connectors`, `packages/service-kit` y `packages/auth-client`. Nest, Drizzle, pg y zod son peerDependencies: una sola copia en el proceso (comprobado).
+- F2.5: gateway nginx (`deploy/gateway/default.conf.template`, servicio `gateway` de docker compose en `:4000`); la API pasa a `:4100` y `pnpm poc:keys` migra los `.env.local` antiguos. Las 47 rutas de la API llegan al servicio dueño de su controlador (cabecera `X-CC-Upstream`); lo demás, 404 en problem+json.
+- Encontrado al comprobar la telemetría: con `TELEMETRY=on`, el hook ESM de OpenTelemetry descarta los nombres que llegan al índice del kit por dos `export *` y la API no arrancaba. Corregido y vigilado por un test.
+- Verde: lint, typecheck, 84 tests de la API y 17 del kit, `pnpm e2e` a través del gateway y trazas completas en Jaeger.
+
+**Plan original:**
 - Extraer `service-kit`, `auth-client`, `contracts` y `pos-connectors`.
 - Crear `deploy/gateway/nginx.conf` con la tabla de rutas y el servicio `gateway` en docker compose. Al principio todas las rutas apuntan a `apps/api`, que pasa a escuchar en otro puerto.
 - **Hecho cuando:** web-qr y panel funcionan a través del gateway y todo está en verde.

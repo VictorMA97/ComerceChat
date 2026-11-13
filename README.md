@@ -25,7 +25,7 @@ pnpm poc:up
 |---|---|---|
 | Panel del comercio | http://localhost:3001 | `owner@casapepe.test` / `poc1234` + código de `pnpm poc:totp` (también `staff@casapepe.test`, sin doble factor, y `owner@tascadeana.test`). Comercios nuevos: `/registro` |
 | Web QR | http://localhost:3000/t/{código} | Escanea un QR del panel |
-| API + Swagger | http://localhost:4000/docs | OpenAPI en `/docs/openapi.json` |
+| API + Swagger | http://localhost:4000/docs | A través del gateway nginx (docker compose); la API escucha en el 4100. OpenAPI en `/docs/openapi.json` |
 | Mailpit | http://localhost:8025 | OTP y emails (a partir de P4) |
 | ElasticMQ (SQS) | http://localhost:9325 | Colas SQS en local; se usan con `QUEUE_DRIVER=sqs` (ADR-026) |
 | Jaeger (opcional) | http://localhost:16686 | Trazas con `TELEMETRY=on` y `docker compose --profile observability up -d` (ADR-027) |
@@ -70,7 +70,7 @@ Arranca un túnel HTTPS de Cloudflare (contenedor `tunnel` de `docker-compose.ym
 
 | Comando | Qué hace |
 |---|---|
-| `pnpm dev` | Arranca API (:4000), web QR (:3000) y panel (:3001) en modo desarrollo |
+| `pnpm dev` | Arranca API (:4100, detrás del gateway del :4000), web QR (:3000) y panel (:3001) en modo desarrollo. El gateway lo levanta `docker compose up -d` |
 | `pnpm lint` · `pnpm typecheck` · `pnpm build` | Calidad y build de todo el monorepo (Turborepo) |
 | `pnpm test` | Todos los tests (Vitest): unitarios + integración. La integración necesita Postgres y Redis arrancados |
 | `pnpm test:unit` · `pnpm test:integration` | Solo unitarios (sin Docker, cacheados por Turbo) · solo integración de la API |
@@ -83,7 +83,7 @@ Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y
 | `pnpm db:reset` | **Borra** la base de datos local entera, migra y carga el seed. Necesario una vez si tu base es anterior a la migración F1.6 (un esquema de Postgres por contexto) |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
-| `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4000 |
+| `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4100 |
 | `pnpm poc:totp` | Código actual del doble factor de los OWNER de prueba (ADR-025) |
 | `pnpm e2e` | Recorrido completo en navegador (Playwright). **Recarga los datos de prueba.** La primera vez: `pnpm --filter @comercechat/e2e e2e:install` |
 
@@ -94,6 +94,9 @@ apps/api             NestJS 12 (ESM) · Drizzle · Postgres/PostGIS · Redis
 apps/web-qr          Next.js 16 · lo que ve el comensal al escanear
 apps/merchant-panel  Next.js 16 · panel del comercio
 packages/shared-types  enums y contratos de la API compartidos
+packages/service-kit   núcleo común de los servicios (colas, outbox, auditoría, telemetría…)
+packages/auth-client   guards de sesión · packages/contracts eventos · packages/pos-connectors caja
+deploy/gateway         gateway nginx de la API (:4000)
 ```
 
 Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md) · [STRIDE](docs/STRIDE.md) · [MIGRACION](docs/MIGRACION.md).

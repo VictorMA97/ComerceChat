@@ -91,6 +91,10 @@ comercechat/
 ├─ packages/
 │  ├─ shared-types/        # DTOs, enums, esquemas zod compartidos
 │  ├─ api-client/          # cliente HTTP de las apps Next (errores RFC 9457, timeout); cliente generado desde OpenAPI pendiente (ADR-020)
+│  ├─ service-kit/         # núcleo común de los servicios: errores, colas, outbox, auditoría, telemetría… (MS F2)
+│  ├─ auth-client/         # guards de sesión del panel y del comensal (MS F2)
+│  ├─ contracts/           # eventos de dominio versionados entre servicios (MS F2)
+│  ├─ pos-connectors/      # interfaz PosConnector (MS F2)
 │  ├─ ui/                  # componentes compartidos web (pendiente)
 │  └─ config/              # eslint, tsconfig, prettier (de momento en la raíz)
 ├─ services/               # microservicios (hito MS, ADR-029): identity · merchant-venues · table-payments ·
@@ -420,7 +424,8 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
  │ pnpm dev (Turborepo)                                      │◄──────┘ http://<IP-LAN>:3000/t/{code}
  │  ├─ apps/web-qr          :3000  (+ /fake-psp/checkout)    │         (o https://<túnel> si se usa
  │  ├─ apps/merchant-panel  :3001  (+ /pos-simulator)        │          Stripe en modo de pruebas)
- │  ├─ apps/api (HTTP)      :4000  (/v1, /docs fuera de prod)│
+ │  ├─ apps/api (HTTP)      :4100  (/v1, /docs fuera de prod)│
+ │  │   detrás del gateway nginx :4000 (docker compose, MS F2) │
  │  └─ apps/api (worker)           (BullMQ)                  │
  │                                                           │
  │ docker compose                                            │
