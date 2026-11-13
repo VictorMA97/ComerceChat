@@ -1,42 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { MerchantStatus, QrResolution } from '@comercechat/shared-types';
+import type { QrResolution } from '@comercechat/shared-types';
+import type {
+  LocationInfo,
+  MerchantInfo,
+  TableInfo,
+  TablePlace,
+  TipConfig,
+} from '@comercechat/contracts';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { DB, type Database } from '../../db/client.js';
 import { QrService } from '../qr/qr.service.js';
-import { merchantLocations, merchants, tables, type TipConfig } from '../schema/merchants.js';
+import { merchantLocations, merchants, tables } from '../schema/merchants.js';
 
-export type { TipConfig };
-
-export interface MerchantInfo {
-  id: string;
-  brandName: string;
-  logoUrl: string | null;
-  status: MerchantStatus;
-  pspAccountId: string | null;
-}
-
-export interface LocationInfo {
-  id: string;
-  merchantId: string;
-  name: string;
-  address: string;
-  tipConfig: TipConfig;
-}
-
-export interface TableInfo {
-  id: string;
-  locationId: string;
-  label: string;
-  /** Id de la mesa en el software de caja; `null` si aún no está enlazada (FR-POS-05). */
-  externalTableId: string | null;
-}
-
-/** Una mesa con su local y su comercio. */
-export interface TablePlace {
-  merchant: MerchantInfo;
-  location: LocationInfo;
-  table: TableInfo;
-}
+// Los tipos viven en @comercechat/contracts: los usan también los servicios que llaman por HTTP.
+export type { LocationInfo, MerchantInfo, TableInfo, TablePlace, TipConfig };
 
 /**
  * API pública de merchant-venues para el resto de contextos (ADR-029): comercios, locales, mesas y

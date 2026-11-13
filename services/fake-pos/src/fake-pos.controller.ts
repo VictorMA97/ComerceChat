@@ -21,18 +21,16 @@ import type { FakePosState } from '@comercechat/shared-types';
 import { IsBoolean, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import { and, asc, desc, eq, gt, inArray, or } from 'drizzle-orm';
 import { AppError } from '@comercechat/service-kit';
-import { ENV, type Env } from '../config/env.js';
-import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
-import { PaymentsDirectory } from '../table-payments/public/payments-directory.js';
+import { PaymentsClient, VenuesClient } from './api-clients.js';
 import { RealtimePublisher } from '@comercechat/service-kit';
-import { DB, type Database } from '../db/client.js';
+import { DB, type Database } from './db/db.module.js';
 import {
   fakePosBillItems,
   fakePosBills,
   fakePosLocations,
   fakePosMenuItems,
   fakePosPayments,
-} from './schema/fake-pos.js';
+} from './db/schema.js';
 
 /** El simulador sigue mostrando una cuenta cerrada durante 30 min, para ver el pago que la cerró. */
 const RECENT_CLOSED_MS = 30 * 60 * 1000;
@@ -53,7 +51,7 @@ class HealthDto {
 
 /**
  * API del simulador de caja (ARCHITECTURE §16.3). Hace de "pantalla del TPV": abrir cuentas,
- * añadir platos, ver los pagos que registra ComerceChat y simular caídas. Solo con POS_CONNECTOR=fake.
+ * añadir platos, ver los pagos que registra ComerceChat y simular caídas.
  */
 @ApiTags('fake-pos (simulador)')
 @ApiBearerAuth()
@@ -62,16 +60,14 @@ class HealthDto {
 export class FakePosController {
   constructor(
     @Inject(DB) private readonly db: Database,
-    @Inject(ENV) private readonly env: Env,
     private readonly realtime: RealtimePublisher,
-    private readonly payments: PaymentsDirectory,
-    private readonly venues: VenuesDirectory,
+    private readonly payments: PaymentsClient,
+    private readonly venues: VenuesClient,
   ) {}
 
   @Get()
   @ApiOperation({ summary: 'Estado del TPV simulado de cada local del comercio' })
   async state(@CurrentMerchant() p: MerchantPrincipal): Promise<FakePosState[]> {
-    this.assertEnabled();
     const locations = await this.venues.locationsOf(p.merchantId);
     return Promise.all(locations.map((l) => this.locationState(l.id, l.name)));
   }
@@ -83,7 +79,6 @@ export class FakePosController {
     @Param('tableId', new ParseUUIDPipe()) tableId: string,
     @Body() dto: AddItemDto,
   ): Promise<void> {
-    this.assertEnabled();
     const table = await this.ownTable(p, tableId);
     const item = await this.db.query.fakePosMenuItems.findFirst({
       where: and(
@@ -124,7 +119,6 @@ export class FakePosController {
     @CurrentMerchant() p: MerchantPrincipal,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
   ): Promise<void> {
-    this.assertEnabled();
     const [row] = await this.db
       .select({ id: fakePosBillItems.id, locationId: fakePosBills.locationId })
       .from(fakePosBillItems)
@@ -147,7 +141,6 @@ export class FakePosController {
     @CurrentMerchant() p: MerchantPrincipal,
     @Param('tableId', new ParseUUIDPipe()) tableId: string,
   ): Promise<void> {
-    this.assertEnabled();
     const table = await this.ownTable(p, tableId);
     await this.db
       .update(fakePosBills)
@@ -170,7 +163,6 @@ export class FakePosController {
     @Param('locationId', new ParseUUIDPipe()) locationId: string,
     @Body() dto: HealthDto,
   ): Promise<void> {
-    this.assertEnabled();
     if (!(await this.ownsLocation(p, locationId))) {
       throw new AppError('LOCATION_NOT_FOUND', HttpStatus.NOT_FOUND, 'Local no encontrado');
     }
@@ -179,12 +171,6 @@ export class FakePosController {
       .values({ locationId, healthy: dto.healthy })
       .onConflictDoUpdate({ target: fakePosLocations.locationId, set: { healthy: dto.healthy } });
     await this.realtime.publishTable(locationId, null, dto.healthy ? 'pos.up' : 'pos.down');
-  }
-
-  private assertEnabled(): void {
-    if (this.env.POS_CONNECTOR !== 'fake') {
-      throw new AppError('NOT_FOUND', HttpStatus.NOT_FOUND, 'Simulador de caja desactivado');
-    }
   }
 
   private async ownsLocation(p: MerchantPrincipal, locationId: string): Promise<boolean> {

@@ -1,6 +1,7 @@
 // Regresiones de la auditoría de seguridad: OTP atómico, límites de peticiones, sesiones revocables,
 // validación de objetos anidados, cupones con la reserva caducada e importe del webhook.
 import 'reflect-metadata';
+import * as pos from '@comercechat/fake-pos/schema';
 import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -89,11 +90,11 @@ describe('Seguridad (E2E)', () => {
       const code = (await app.get(QrService).issueTableQr(tx, { locationId, tableId: t!.id }))
         .shortCode;
       const [bill] = await tx
-        .insert(s.fakePosBills)
+        .insert(pos.fakePosBills)
         .values({ locationId, externalTableId: label })
         .returning();
       await tx
-        .insert(s.fakePosBillItems)
+        .insert(pos.fakePosBillItems)
         .values({ billId: bill!.id, name: 'Menú', qty: 1, unitPriceCents: cents });
       return code;
     });
@@ -136,7 +137,7 @@ describe('Seguridad (E2E)', () => {
       })
       .returning();
     locationId = loc!.id;
-    await db.insert(s.fakePosLocations).values({ locationId, healthy: true });
+    await db.insert(pos.fakePosLocations).values({ locationId, healthy: true });
   });
 
   afterAll(async () => {

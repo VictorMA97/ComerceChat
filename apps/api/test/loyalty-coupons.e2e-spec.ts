@@ -1,6 +1,7 @@
 // P4: registro tras el pago, puntos, recompensas, cupones y analítica (ROADMAP §2, P4;
 // SPEC §3.3 criterios 3 y 4).
 import 'reflect-metadata';
+import * as pos from '@comercechat/fake-pos/schema';
 import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -57,10 +58,10 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
         .returning();
       const code = (await qrService.issueTableQr(tx, { locationId, tableId: t!.id })).shortCode;
       const [bill] = await tx
-        .insert(s.fakePosBills)
+        .insert(pos.fakePosBills)
         .values({ locationId, externalTableId: label })
         .returning();
-      await tx.insert(s.fakePosBillItems).values(
+      await tx.insert(pos.fakePosBillItems).values(
         items.map(([name, qty, unitPriceCents]) => ({
           billId: bill!.id,
           name,
@@ -120,7 +121,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       })
       .returning();
     locationId = loc!.id;
-    await db.insert(s.fakePosLocations).values({ locationId, healthy: true });
+    await db.insert(pos.fakePosLocations).values({ locationId, healthy: true });
     const [program] = await db
       .insert(s.loyaltyPrograms)
       .values({ merchantId: m!.id, earnRule: { pointsPerEuro: 1 }, holdHours: 0 })
@@ -277,7 +278,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     expect(responses.every((r) => r.status === 200)).toBe(true);
 
     await until(
-      () => db.select().from(s.fakePosBills).where(eq(s.fakePosBills.id, t.billId)),
+      () => db.select().from(pos.fakePosBills).where(eq(pos.fakePosBills.id, t.billId)),
       ([b]) => b?.status === 'CLOSED',
     );
     await until(
@@ -296,8 +297,8 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     expect(entries).toMatchObject([{ type: 'EARN', points: 20 }]);
     const [posPayment] = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.billId, t.billId));
+      .from(pos.fakePosPayments)
+      .where(eq(pos.fakePosPayments.billId, t.billId));
     expect(posPayment).toMatchObject({ amountCents: 2_500, discountCents: 500, tipCents: 200 });
     const r = await receipt(session.body.paymentId, session.body.statusToken);
     expect(r).toMatchObject({

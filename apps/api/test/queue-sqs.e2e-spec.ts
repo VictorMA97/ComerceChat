@@ -1,6 +1,7 @@
 // Colas en SQS (ADR-026) contra ElasticMQ (servicio `sqs` de docker compose): reintentos, DLQ y un
 // cobro completo pasando por las tres colas de trabajo (webhook simulado, eventos del PSP, outbox).
 import 'reflect-metadata';
+import * as pos from '@comercechat/fake-pos/schema';
 import { configureApi } from '../src/configure-api.js';
 import { GetQueueUrlCommand, ReceiveMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 import { type INestApplication, Logger } from '@nestjs/common';
@@ -155,18 +156,18 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
         category: 'restaurant',
       })
       .returning();
-    await db.insert(s.fakePosLocations).values({ locationId: loc!.id, healthy: true });
+    await db.insert(pos.fakePosLocations).values({ locationId: loc!.id, healthy: true });
     code = await db.transaction(async (tx) => {
       const [t] = await tx
         .insert(s.tables)
         .values({ locationId: loc!.id, label: 'Q1', externalTableId: 'Q1' })
         .returning();
       const [bill] = await tx
-        .insert(s.fakePosBills)
+        .insert(pos.fakePosBills)
         .values({ locationId: loc!.id, externalTableId: 'Q1' })
         .returning();
       await tx
-        .insert(s.fakePosBillItems)
+        .insert(pos.fakePosBillItems)
         .values({ billId: bill!.id, name: 'Caña', qty: 2, unitPriceCents: 250 });
       return (await app.get(QrService).issueTableQr(tx, { locationId: loc!.id, tableId: t!.id }))
         .shortCode;
@@ -201,8 +202,8 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
     expect(payment!.status).toBe('CAPTURED');
     const posPayments = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.reference, session.body.paymentId));
+      .from(pos.fakePosPayments)
+      .where(eq(pos.fakePosPayments.reference, session.body.paymentId));
     expect(posPayments).toHaveLength(1);
   });
 });

@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ENV, type Env } from '../../config/env.js';
 import { AuthController } from './auth.controller.js';
+import { IdentityInternalController } from './internal.controller.js';
 import { AuthService } from './auth.service.js';
 import { MERCHANT_AUTH_PROVIDER } from './auth.types.js';
 import { LocalMerchantAuthProvider } from './local-merchant-auth.provider.js';
@@ -18,7 +19,7 @@ import { TokenRevocationService } from './token-revocation.service.js';
       useFactory: (env: Env) => ({ secret: env.JWT_SECRET, signOptions: { algorithm: 'HS256' } }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, IdentityInternalController],
   providers: [
     AuthService,
     IdentityDirectory,

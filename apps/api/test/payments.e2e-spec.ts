@@ -1,5 +1,6 @@
 // Flujo de pago de P2 de extremo a extremo con Postgres, Redis y colas reales (ROADMAP §2, P2).
 import 'reflect-metadata';
+import * as pos from '@comercechat/fake-pos/schema';
 import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -50,10 +51,10 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
         .returning();
       const code = (await qrService.issueTableQr(tx, { locationId, tableId: t!.id })).shortCode;
       const [bill] = await tx
-        .insert(s.fakePosBills)
+        .insert(pos.fakePosBills)
         .values({ locationId, externalTableId: label })
         .returning();
-      await tx.insert(s.fakePosBillItems).values(
+      await tx.insert(pos.fakePosBillItems).values(
         items.map(([name, qty, unitPriceCents]) => ({
           billId: bill!.id,
           name,
@@ -104,7 +105,7 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
       })
       .returning();
     locationId = loc!.id;
-    await db.insert(s.fakePosLocations).values({ locationId, healthy: true });
+    await db.insert(pos.fakePosLocations).values({ locationId, healthy: true });
 
     qr.full = await tableWithBill('P1', [
       ['Caña', 2, 1_000],
@@ -176,8 +177,8 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
     expect(bill).toBeNull();
     const posPayments = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.reference, session.body.paymentId));
+      .from(pos.fakePosPayments)
+      .where(eq(pos.fakePosPayments.reference, session.body.paymentId));
     expect(posPayments).toMatchObject([{ amountCents: 2_550, tipCents: 255 }]);
     const txs = await db
       .select()
@@ -231,8 +232,8 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
       .where(eq(s.transactions.paymentId, session.body.paymentId));
     const posPayments = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.reference, session.body.paymentId));
+      .from(pos.fakePosPayments)
+      .where(eq(pos.fakePosPayments.reference, session.body.paymentId));
     expect({ events: events.length, txs: txs.length, posPayments: posPayments.length }).toEqual({
       events: 1,
       txs: 2,
@@ -269,15 +270,15 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
 
   it('si la caja está caída, la web QR pide avisar al personal', async () => {
     await db
-      .update(s.fakePosLocations)
+      .update(pos.fakePosLocations)
       .set({ healthy: false })
-      .where(and(eq(s.fakePosLocations.locationId, locationId)));
+      .where(and(eq(pos.fakePosLocations.locationId, locationId)));
     const res = await http().get(`/v1/qr/${qr.decline}/bill`);
     expect(res.status).toBe(503);
     expect(res.body.code).toBe('POS_UNAVAILABLE');
     await db
-      .update(s.fakePosLocations)
+      .update(pos.fakePosLocations)
       .set({ healthy: true })
-      .where(eq(s.fakePosLocations.locationId, locationId));
+      .where(eq(pos.fakePosLocations.locationId, locationId));
   });
 });

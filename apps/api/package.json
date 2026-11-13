@@ -44,6 +44,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@comercechat/fake-pos": "workspace:*",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/testing": "^12.1.3",
     "@swc/core": "^1.16.18",

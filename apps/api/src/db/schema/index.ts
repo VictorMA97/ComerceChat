@@ -22,5 +22,3 @@ export * from '../../audit/schema/pg-schema.js';
 export * from '../../audit/schema/audit.js';
 export * from '../../analytics/schema/pg-schema.js';
 export * from '../../analytics/schema/analytics.js';
-export * from '../../fake-pos/schema/pg-schema.js';
-export * from '../../fake-pos/schema/fake-pos.js';

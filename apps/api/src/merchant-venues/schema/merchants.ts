@@ -19,11 +19,8 @@ export const merchants = venuesSchema.table('merchants', {
   updatedAt: updatedAt(),
 });
 
-export interface TipConfig {
-  enabled: boolean;
-  /** Porcentajes sugeridos (FR-PAY-03, FR-MER-06). */
-  percentages: number[];
-}
+export type { TipConfig } from '@comercechat/contracts';
+import type { TipConfig } from '@comercechat/contracts';
 
 export const merchantLocations = venuesSchema.table(
   'merchant_locations',

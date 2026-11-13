@@ -2,4 +2,5 @@
 // decoradores que validan el token contra identity a través de MerchantSessionVerifier y
 // UserSessionVerifier. Quien monta el servicio decide la implementación (en proceso o por HTTP).
 export * from './merchant.js';
+export * from './http-verifier.js';
 export * from './user.js';

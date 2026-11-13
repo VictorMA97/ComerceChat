@@ -8,8 +8,7 @@
 // Las violaciones que quedan por resolver en F1 están en .dependency-cruiser-known-violations.json:
 // `pnpm lint` falla con cualquier violación nueva. Al terminar F1 ese fichero queda vacío.
 
-const CONTEXTS =
-  'identity|merchant-venues|table-payments|loyalty|audit|analytics|realtime|fake-pos';
+const CONTEXTS = 'identity|merchant-venues|table-payments|loyalty|audit|analytics|realtime';
 const SHARED = 'config|db|pos';
 
 /** Ficheros que montan la aplicación o el esquema completos: pueden importar cualquier contexto. */

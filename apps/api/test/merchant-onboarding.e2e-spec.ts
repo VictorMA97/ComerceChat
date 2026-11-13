@@ -1,5 +1,6 @@
 // M0: un comercio se registra con doble factor y crea un local con mesas (ROADMAP §3, ADR-025).
 import 'reflect-metadata';
+import { apiPort, fakePos, startSimulators } from './simulators.js';
 import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -16,6 +17,7 @@ import * as s from '../src/db/schema/index.js';
 
 describe('M0: registro del comercio con doble factor y alta de local y mesas (E2E)', () => {
   let app: INestApplication;
+  let simulators: { close: () => Promise<void> } | undefined;
   let db: Database;
   const suffix = Date.now().toString(36);
   const email = `alta-${suffix}@e2e.test`;
@@ -26,15 +28,17 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
   let recoveryCodes: string[];
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const env = loadEnv();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApi(app, env);
-    await app.listen(0);
+    await app.listen(apiPort());
     db = app.get<Database>(DB);
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 
@@ -226,7 +230,7 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
     });
 
     // El simulador de caja tiene el local con su carta y enlaza las mesas nuevas.
-    const pos = await http().get('/v1/merchant/fake-pos').set(auth);
+    const pos = await fakePos().get('/v1/merchant/fake-pos').set(auth);
     const posLoc = pos.body.find((l: { locationId: string }) => l.locationId === created.body.id);
     expect(posLoc.menu.length).toBeGreaterThan(0);
     expect(posLoc.tables.every((t: { externalTableId: string | null }) => t.externalTableId)).toBe(

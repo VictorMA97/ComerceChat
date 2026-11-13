@@ -269,6 +269,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@comercechat/fake-pos':
+        specifier: workspace:*
+        version: link:../../services/fake-pos
       '@nestjs/cli':
         specifier: ^12.0.8
         version: 12.0.8(@swc/core@1.16.18(@swc/helpers@0.5.23))(@types/node@22.20.5)(prettier@3.9.10)(tsconfig-paths-webpack-plugin@4.2.0)
@@ -446,13 +449,33 @@ importers:
         version: 5.9.3
 
   packages/contracts:
+    dependencies:
+      '@comercechat/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
     devDependencies:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
 
   packages/pos-connectors:
+    dependencies:
+      '@comercechat/service-kit':
+        specifier: workspace:*
+        version: link:../service-kit
     devDependencies:
+      '@nestjs/common':
+        specifier: ^12.1.3
+        version: 12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -565,6 +588,94 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  services/fake-pos:
+    dependencies:
+      '@comercechat/auth-client':
+        specifier: workspace:*
+        version: link:../../packages/auth-client
+      '@comercechat/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@comercechat/pos-connectors':
+        specifier: workspace:*
+        version: link:../../packages/pos-connectors
+      '@comercechat/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
+      '@comercechat/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@nestjs/common':
+        specifier: ^12.1.3
+        version: 12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
+      '@nestjs/core':
+        specifier: ^12.1.3
+        version: 12.1.3(@nestjs/common@12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/platform-express@12.1.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^12.1.3
+        version: 12.1.3(@nestjs/common@12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.3)(supports-color@7.2.0)
+      '@nestjs/swagger':
+        specifier: ^12.0.2
+        version: 12.0.2(@nestjs/common@12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.3)(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(typescript@5.9.3)
+      '@nestjs/throttler':
+        specifier: 6.7.1
+        version: 6.7.1(@nestjs/common@12.1.3(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0))(@nestjs/core@12.1.3)(reflect-metadata@0.2.2)
+      class-transformer:
+        specifier: ^0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: ^0.15.1
+        version: 0.15.1
+      dotenv:
+        specifier: ^18.0.8
+        version: 18.0.8
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@nestjs/cli':
+        specifier: ^12.0.8
+        version: 12.0.8(@swc/core@1.16.18(@swc/helpers@0.5.23))(@types/node@22.20.5)(prettier@3.9.10)(tsconfig-paths-webpack-plugin@4.2.0)
+      '@swc/core':
+        specifier: ^1.16.18
+        version: 1.16.18(@swc/helpers@0.5.23)
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
+      drizzle-kit:
+        specifier: ^0.31.11
+        version: 0.31.11
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      unplugin-swc:
+        specifier: ^2.0.0
+        version: 2.0.0(@swc/core@1.16.18(@swc/helpers@0.5.23))(esbuild@0.28.2)(rolldown@1.2.14)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   services/fake-psp:
     dependencies:

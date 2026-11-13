@@ -1,8 +1,18 @@
-import { fakePosSchema } from './pg-schema.js';
-// Tablas de los simuladores de la PoC (ARCHITECTURE §16.3). Hacen de "sistemas externos":
-// el software de caja (fake_pos_*) y el PSP (fake_psp_*). No deben existir en producción (ADR-018).
-import { boolean, bigint, index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+// Tablas del software de caja simulado (ARCHITECTURE §16.3): hace de "sistema externo". Servicio
+// aparte desde MS F3; nunca existe en producción (ADR-018).
+import {
+  bigint,
+  boolean,
+  index,
+  pgSchema,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { createdAt, id } from '@comercechat/service-kit/db';
+
+export const fakePosSchema = pgSchema('fake_pos');
 
 export const fakePosMenuItems = fakePosSchema.table('fake_pos_menu_items', {
   id: id(),

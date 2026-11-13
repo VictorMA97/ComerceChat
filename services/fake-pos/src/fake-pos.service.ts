@@ -1,27 +1,23 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { AppError } from '@comercechat/service-kit';
 import { and, eq, sql } from 'drizzle-orm';
-import { DB, type Database } from '../db/client.js';
+import { DB, type Database } from './db/db.module.js';
 import {
   fakePosBillItems,
   fakePosBills,
   fakePosLocations,
   fakePosMenuItems,
   fakePosPayments,
-} from './schema/fake-pos.js';
-import {
-  type PosBill,
-  type PosConnector,
-  type PosPaymentInput,
-  PosUnavailableError,
-} from '@comercechat/pos-connectors';
+} from './db/schema.js';
+import type { PosBill, PosConnector, PosPaymentInput } from '@comercechat/pos-connectors';
 import { FAKE_POS_MENU } from './fake-pos-menu.js';
 
 /**
- * Software de caja simulado sobre las tablas fake_pos_* (ARCHITECTURE §16.3).
- * Se maneja desde el simulador de caja del panel (/pos-simulator).
+ * Software de caja simulado sobre las tablas fake_pos.* (ARCHITECTURE §16.3). Se maneja desde el
+ * simulador de caja del panel (/pos-simulator) y la API lo usa por HTTP con la interfaz PosConnector.
  */
 @Injectable()
-export class FakePosConnector implements PosConnector {
+export class FakePosService implements PosConnector {
   constructor(@Inject(DB) private readonly db: Database) {}
 
   async health(locationId: string): Promise<'ok' | 'down'> {
@@ -100,7 +96,14 @@ export class FakePosConnector implements PosConnector {
   }
 
   private async assertUp(locationId: string): Promise<void> {
-    if ((await this.health(locationId)) === 'down') throw new PosUnavailableError(locationId);
+    if ((await this.health(locationId)) === 'down') {
+      // La API lo convierte en PosUnavailableError (FakePosHttpConnector, FR-POS-06).
+      throw new AppError(
+        'POS_UNAVAILABLE',
+        HttpStatus.SERVICE_UNAVAILABLE,
+        'Software de caja caído',
+      );
+    }
   }
 
   private async toPosBill(

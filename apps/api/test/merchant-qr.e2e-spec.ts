@@ -1,6 +1,7 @@
 // Prueba E2E contra Postgres y Redis reales (DATABASE_URL / REDIS_URL de .env.local).
 // Crea su propio comercio con emails únicos, así que no interfiere con los datos de `pnpm db:seed`.
 import 'reflect-metadata';
+import { apiPort, startSimulators } from './simulators.js';
 import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -16,6 +17,7 @@ import { merchantLogin, testMfaColumns } from './merchant-session.js';
 
 describe('Comercio: autenticación, mesas y QR (E2E)', () => {
   let app: INestApplication;
+  let simulators: { close: () => Promise<void> } | undefined;
   const suffix = Date.now().toString(36);
   const owner = `owner-${suffix}@e2e.test`;
   const staff = `staff-${suffix}@e2e.test`;
@@ -23,12 +25,13 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
   let shortCode: string;
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const env = loadEnv();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
     configureApi(app, env);
     // Servidor escuchando en un puerto efímero: evita que supertest abra y cierre uno por petición.
-    await app.listen(0);
+    await app.listen(apiPort());
 
     const db = app.get<Database>(DB);
     const qrService = app.get(QrService);
@@ -68,6 +71,7 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 

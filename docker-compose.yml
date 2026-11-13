@@ -57,7 +57,7 @@ services:
       AUDIT_URL: http://host.docker.internal:4100
       ANALYTICS_URL: http://host.docker.internal:4100
       FAKE_PSP_URL: http://host.docker.internal:4108
-      FAKE_POS_URL: http://host.docker.internal:4100
+      FAKE_POS_URL: http://host.docker.internal:4109
     volumes:
       - ./deploy/gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     extra_hosts:

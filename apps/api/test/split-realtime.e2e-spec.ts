@@ -1,6 +1,7 @@
 // P3: dividir la cuenta con varios pagadores a la vez, webhooks en modo caos, tiempo real,
 // QR de cobro de la caja y vista de sala (ROADMAP §2, P3; SPEC §3.3 criterios 2, 3 y 5).
 import 'reflect-metadata';
+import * as posDb from '@comercechat/fake-pos/schema';
 import { configureApi } from '../src/configure-api.js';
 process.env.FAKE_PSP_CHAOS = 'on';
 
@@ -15,7 +16,7 @@ import { hashPassword } from '../src/identity/auth/passwords.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { apiPort, fakePsp, startSimulators } from './simulators.js';
+import { apiPort, fakePos, fakePsp, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { RealtimeService } from '../src/realtime/realtime.service.js';
 
@@ -53,10 +54,10 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
         .returning();
       const code = (await qrService.issueTableQr(tx, { locationId, tableId: t!.id })).shortCode;
       const [bill] = await tx
-        .insert(s.fakePosBills)
+        .insert(posDb.fakePosBills)
         .values({ locationId, externalTableId: label })
         .returning();
-      await tx.insert(s.fakePosBillItems).values(
+      await tx.insert(posDb.fakePosBillItems).values(
         items.map(([name, qty, unitPriceCents]) => ({
           billId: bill!.id,
           name,
@@ -111,7 +112,7 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
       })
       .returning();
     locationId = loc!.id;
-    await db.insert(s.fakePosLocations).values({ locationId, healthy: true });
+    await db.insert(posDb.fakePosLocations).values({ locationId, healthy: true });
     await db.insert(s.merchantUsers).values({
       merchantId: m!.id,
       email: `split-${suffix}@e2e.test`,
@@ -181,13 +182,13 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
     // Pagan los 4 a la vez; los webhooks llegan retrasados, duplicados y desordenados (modo caos).
     await Promise.all([...ok, retry].map((r) => complete(r.body.checkoutUrl)));
     await until(
-      () => db.select().from(s.fakePosBills).where(eq(s.fakePosBills.id, t.billId)),
+      () => db.select().from(posDb.fakePosBills).where(eq(posDb.fakePosBills.id, t.billId)),
       ([row]) => row?.status === 'CLOSED',
     );
     const posPayments = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.billId, t.billId));
+      .from(posDb.fakePosPayments)
+      .where(eq(posDb.fakePosPayments.billId, t.billId));
     expect(posPayments).toHaveLength(4);
     expect(posPayments.reduce((sum, p) => sum + p.amountCents, 0)).toBe(2_650);
     const ids = [...ok, retry].map((r) => r.body.paymentId as string);
@@ -360,7 +361,9 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
     });
 
     // El simulador de caja muestra el QR en la tarjeta de la mesa.
-    const pos = await http().get('/v1/merchant/fake-pos').set('authorization', `Bearer ${token}`);
+    const pos = await fakePos()
+      .get('/v1/merchant/fake-pos')
+      .set('authorization', `Bearer ${token}`);
     const posTable = pos.body[0].tables.find((x: { tableLabel: string }) => x.tableLabel === 'S6');
     expect(posTable.paymentQr).toMatchObject({ id: created.body.id, status: 'ACTIVE' });
 
@@ -399,13 +402,13 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
     expect(view.payment.status).toBe('CAPTURED');
     // El pago se registra en la cuenta de la mesa y la cierra.
     await until(
-      () => db.select().from(s.fakePosBills).where(eq(s.fakePosBills.id, t.billId)),
+      () => db.select().from(posDb.fakePosBills).where(eq(posDb.fakePosBills.id, t.billId)),
       ([row]) => row?.status === 'CLOSED',
     );
     const posPayments = await db
       .select()
-      .from(s.fakePosPayments)
-      .where(eq(s.fakePosPayments.billId, t.billId));
+      .from(posDb.fakePosPayments)
+      .where(eq(posDb.fakePosPayments.billId, t.billId));
     expect(posPayments).toMatchObject([{ amountCents: 1_250, tipCents: 125 }]);
     expect((await http().get(`/v1/qr/dynamic/${dynamicToken}`)).body.code).toBe('QR_INVALID');
 

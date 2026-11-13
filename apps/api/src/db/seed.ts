@@ -6,7 +6,9 @@ import { hashPassword } from '../identity/auth/passwords.js';
 import { POC_TOTP_SECRET } from '../identity/auth/poc-mfa.js';
 import { newId, encryptPii, hashPii } from '@comercechat/service-kit';
 import { loadEnv } from '../config/env.js';
-import { FAKE_POS_MENU } from '../fake-pos/fake-pos-menu.js';
+// El simulador de caja es un servicio aparte (MS F3); el seed local escribe también sus tablas.
+import * as pos from '@comercechat/fake-pos/schema';
+import { FAKE_POS_MENU } from '@comercechat/fake-pos';
 import { generateShortCode, qrUrl, signQr } from '../merchant-venues/qr/qr-signature.js';
 import { createDatabase } from './client.js';
 import * as s from './schema/index.js';
@@ -175,16 +177,16 @@ try {
       await tx.insert(s.qrCodes).values(qrs);
 
       // Software de caja simulado: carta y cuentas abiertas (ARCHITECTURE §16.4).
-      await tx.insert(s.fakePosLocations).values({ locationId: location!.id, healthy: true });
+      await tx.insert(pos.fakePosLocations).values({ locationId: location!.id, healthy: true });
       await tx
-        .insert(s.fakePosMenuItems)
+        .insert(pos.fakePosMenuItems)
         .values(MENU.map((item) => ({ locationId: location!.id, ...item })));
       for (const [tableNumber, items] of OPEN_BILLS) {
         const [bill] = await tx
-          .insert(s.fakePosBills)
+          .insert(pos.fakePosBills)
           .values({ locationId: location!.id, externalTableId: `M${tableNumber}` })
           .returning();
-        await tx.insert(s.fakePosBillItems).values(
+        await tx.insert(pos.fakePosBillItems).values(
           items.map(([name, qty]) => ({
             billId: bill!.id,
             name,
