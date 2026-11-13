@@ -40,7 +40,7 @@
 | «Código incorrecto» al entrar al panel | El código ya se usó (no vale dos veces) o el reloj del equipo va desfasado | Espera al siguiente código (`pnpm poc:totp`) y comprueba la hora del sistema |
 | «Este comercio no acepta pagos por QR ahora» | Comercio recién registrado, aún en `ONBOARDING` | **Completar alta (PSP simulado)** en **Mesas y QR**; el QR puede tardar hasta 30 s en responder |
 | El número de demo ya existe | Se dio de alta en una prueba anterior | `pnpm db:seed` o usa otro número (código en Mailpit) |
-| Puertos 3000/3001/4100 ocupados | Procesos huérfanos de un `pnpm dev` anterior | `pnpm poc:stop` |
+| Puertos 3000/3001/4100/4108/4109 ocupados | Procesos huérfanos de un `pnpm dev` anterior | `pnpm poc:stop` |
 | La web QR o el panel dan «Servicio no disponible» | El gateway (:4000) está arrancado pero la API (:4100) no, o `.env.local` aún tiene `API_PORT=4000` | `pnpm poc:keys` (migra el puerto) y `pnpm dev` |
 | No responde nada en el :4000 | El gateway nginx no está arrancado | `docker compose up -d` |
 | Postgres o Redis rechazan la conexión | Otro servicio ocupa el puerto 5432/6379 y el contenedor arrancó sin publicarlo | Libera el puerto y ejecuta `docker compose up -d --force-recreate postgres redis` |

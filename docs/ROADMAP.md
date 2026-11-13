@@ -110,6 +110,7 @@ Cada hito termina con una demostración en staging y una lista de requisitos de 
 - **Hecho cuando:** `apps/api` ya no existe, `pnpm e2e` pasa contra el despliegue en k3d y se cumple la condición de «hecho» de M0 en k3d.
 - **Progreso:**
   - ✅ F0 (12-nov-2026): ADR-029, ADR-030 y D-07; documentación actualizada.
+  - ✅ F3 (13-nov-2026): el PSP y el software de caja simulados como servicios aparte (`services/fake-psp`, `services/fake-pos`), con las primeras rutas internas entre servicios.
   - ✅ F2 (13-nov-2026): paquetes compartidos (`service-kit`, `auth-client`, `contracts`, `pos-connectors`) y gateway nginx en `:4000`, con la API en `:4100`.
   - ✅ F1 (12-nov-2026): fronteras dentro del monolito.
     - dependency-cruiser con 0 violaciones;

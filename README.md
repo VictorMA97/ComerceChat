@@ -83,7 +83,7 @@ Git hooks (Husky, se instalan con `pnpm install`): el `pre-commit` pasa ESLint y
 | `pnpm db:reset` | **Borra** la base de datos local entera, migra y carga el seed. Necesario una vez si tu base es anterior a la migración F1.6 (un esquema de Postgres por contexto) |
 | `pnpm poc:keys [--force]` | Genera `.env.local` desde `.env.example` |
 | `pnpm poc:tunnel [--stop]` | Túnel HTTPS para abrir la web QR desde el móvil |
-| `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4100 |
+| `pnpm poc:stop` | Para lo que quede en marcha en los puertos 3000/3001/4100/4108/4109 |
 | `pnpm poc:totp` | Código actual del doble factor de los OWNER de prueba (ADR-025) |
 | `pnpm e2e` | Recorrido completo en navegador (Playwright). **Recarga los datos de prueba.** La primera vez: `pnpm --filter @comercechat/e2e e2e:install` |
 
@@ -97,6 +97,8 @@ packages/shared-types  enums y contratos de la API compartidos
 packages/service-kit   núcleo común de los servicios (colas, outbox, auditoría, telemetría…)
 packages/auth-client   guards de sesión · packages/contracts eventos · packages/pos-connectors caja
 deploy/gateway         gateway nginx de la API (:4000)
+services/fake-psp      PSP simulado como servicio aparte (:4108)
+services/fake-pos      software de caja simulado como servicio aparte (:4109)
 ```
 
 Documentación de diseño en [`docs/`](docs): [SPEC](docs/SPEC.md) · [ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ROADMAP](docs/ROADMAP.md) · [DEMO](docs/DEMO.md) · [STRIDE](docs/STRIDE.md) · [MIGRACION](docs/MIGRACION.md).

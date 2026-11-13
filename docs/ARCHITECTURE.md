@@ -426,6 +426,8 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
  │  ├─ apps/merchant-panel  :3001  (+ /pos-simulator)        │          Stripe en modo de pruebas)
  │  ├─ apps/api (HTTP)      :4100  (/v1, /docs fuera de prod)│
  │  │   detrás del gateway nginx :4000 (docker compose, MS F2) │
+ │  ├─ services/fake-psp    :4108  (PSP simulado, MS F3)     │
+ │  ├─ services/fake-pos    :4109  (caja simulada, MS F3)    │
  │  └─ apps/api (worker)           (BullMQ)                  │
  │                                                           │
  │ docker compose                                            │
@@ -454,7 +456,7 @@ Alcance funcional en [SPEC.md §3.3](SPEC.md#poc). Decisiones en [DECISIONS.md �
 | Terraform / AWS / ECS | No aplica (sustituido por Kubernetes local con k3d, ADR-030) | — |
 | App móvil (Expo) | No aplica | — |
 
-**Regla de código:** las implementaciones simuladas viven en `apps/api/src/fake-pos/` y `apps/api/src/fake-psp/` (y el adaptador `apps/api/src/table-payments/payments/providers/fake-payment.provider.ts`) y **no se pueden activar en producción**. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
+**Regla de código:** los simuladores son servicios aparte desde MS F3, `services/fake-psp` y `services/fake-pos`, y sus adaptadores en la API son `apps/api/src/table-payments/payments/providers/fake-payment.provider.ts` y `FakePosHttpConnector` (`packages/pos-connectors`). **No se pueden activar en producción**: los simuladores se niegan a arrancar con `NODE_ENV=production`. Si `NODE_ENV=production`, el arranque falla cuando algún selector vale `fake` o `console`.
 
 <a id="poc-fakes"></a>
 ### 16.3 Simuladores

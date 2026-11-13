@@ -1,6 +1,6 @@
 # MIGRACIÓN: del monolito modular a microservicios
 
-> **Estado:** v0.5 (13-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0, F1 y F2 hechas** (F2 en la rama `ms/f2-paquetes-gateway`); la siguiente fase es F3.
+> **Estado:** v0.6 (13-nov-2026). Aprobado; decisiones en [ADR-029](DECISIONS.md#adr-029) y [ADR-030](DECISIONS.md#adr-030). **F0 a F3 hechas** (F2 en `ms/f2-paquetes-gateway` y F3 en `ms/f3-simuladores`, que sale de F2); la siguiente fase es F4.
 > **Documentos relacionados:** [ARCHITECTURE.md](ARCHITECTURE.md) · [DECISIONS.md](DECISIONS.md) · [ROADMAP.md](ROADMAP.md) · [STRIDE.md](STRIDE.md)
 >
 > Las afirmaciones sobre el código actual llevan `[HECHO]` (comprobadas en el repositorio a fecha de este documento). Las estimaciones y elecciones de diseño de este plan, `[HIPÓTESIS]`.
@@ -80,7 +80,7 @@ Decisiones tomadas con el propietario del proyecto (12-nov-2026):
                                                        ├─► fake-psp          (esquema fake_psp)   ← simulador
                                                        └─► fake-pos          (esquema fake_pos)   ← simulador
 
- Entre servicios: REST /internal/* (no enrutado por el gateway) · eventos: outbox de cada servicio → cola por consumidor
+ Entre servicios: REST /v1/internal/* (no enrutado por el gateway; InternalAuthGuard) · eventos: outbox de cada servicio → cola por consumidor
  Compartido: PostgreSQL 16 + PostGIS (un clúster, un esquema y un rol por servicio) · Redis (prefijo por servicio) · SQS/BullMQ
 ```
 
@@ -260,7 +260,18 @@ Todo sigue en `apps/api` y desplegado como uno. Es la fase de más riesgo y la q
 - Crear `deploy/gateway/nginx.conf` con la tabla de rutas y el servicio `gateway` en docker compose. Al principio todas las rutas apuntan a `apps/api`, que pasa a escuchar en otro puerto.
 - **Hecho cuando:** web-qr y panel funcionan a través del gateway y todo está en verde.
 
-### F3. Simuladores (1–2 días)
+### F3. Simuladores (1–2 días) · ✅ hecha el 13-nov-2026
+
+**Resultado** (rama `ms/f3-simuladores`):
+- F3.1: `services/fake-psp` (puerto 4108): app Nest propia con su configuración, su esquema `fake_psp` y sus migraciones, y la entrega de webhooks. La API le llama por `/v1/internal/psp/*` y le pasa en cada sesión la URL del webhook. `service-kit` gana `InternalAuthGuard` e `InternalHttpClient` (secreto `INTERNAL_SERVICE_SECRET`, timeout, `traceparent` y errores RFC 9457).
+- F3.2: `services/fake-pos` (puerto 4109): la pantalla del TPV del panel y la interfaz de caja (`/v1/internal/pos/*`). La API usa `FakePosHttpConnector` (`pos-connectors`) y ofrece al simulador sus primeras rutas internas: sesiones del panel (identity), locales y mesas (merchant-venues) y QR de cobro (table-payments). `HttpMerchantSessionVerifier` en `auth-client`.
+- F3.3: la firma del webhook del PSP simulado pasa a `contracts` y el seed a `apps/api/scripts/seed.ts`, para que la API no dependa en ejecución de ningún servicio de `services/`. Sin eso, `pnpm dev` reiniciaba la API al arrancar (encontrado con el E2E).
+- Las rutas internas son `/v1/internal/*` (el prefijo global de Nest), no `/internal/*`. El gateway no las enruta.
+- Migraciones: cada simulador tiene las suyas, con su tabla de control en su esquema; las 0002 y 0003 de la API quitan esos esquemas de su línea base. `pnpm db:migrate` aplica primero las de la API y después las de `services/*`.
+- Tests de la API: cada fichero levanta en su proceso la API y los dos simuladores (puertos fijos por worker de Vitest) y siguen escribiendo directamente en las tablas de la caja. Esto adelanta parte de las pruebas de sistema de §5.
+- Verde: lint, typecheck, unitarios, 53 de integración (con el modo caos y la caja caída), `pnpm e2e` y trazas en Jaeger que unen API, caja y PSP en la misma traza.
+
+**Plan original:**
 - `fake-psp` y `fake-pos` como servicios; `FakePaymentProvider` y `FakePosConnector` pasan a ser clientes HTTP.
 - **Hecho cuando:** el modo caos (`FAKE_PSP_CHAOS=on`) y la caída simulada de la caja siguen pasando sus tests.
 
