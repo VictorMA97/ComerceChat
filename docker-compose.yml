@@ -41,7 +41,8 @@ services:
 
   # Gateway de la API (ADR-030): enruta /v1 al servicio dueño de cada ruta. Lo llaman las apps Next
   # (API_BASE_URL=http://localhost:4000). Hasta separar los servicios, todos son apps/api en el
-  # puerto 4100 del host. Tabla de rutas en deploy/gateway/default.conf.template.
+  # puerto 4100 del host, salvo los simuladores (MS F3): PSP en el 4108 y caja en el 4109. Tabla de rutas en
+  # deploy/gateway/default.conf.template.
   gateway:
     image: nginx:1.28-alpine
     ports:
@@ -55,7 +56,7 @@ services:
       REALTIME_URL: http://host.docker.internal:4100
       AUDIT_URL: http://host.docker.internal:4100
       ANALYTICS_URL: http://host.docker.internal:4100
-      FAKE_PSP_URL: http://host.docker.internal:4100
+      FAKE_PSP_URL: http://host.docker.internal:4108
       FAKE_POS_URL: http://host.docker.internal:4100
     volumes:
       - ./deploy/gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro

@@ -15,6 +15,13 @@
       "when": 1794516404079,
       "tag": "0001_outbox_trace_context",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794560929602,
+      "tag": "0002_fake_psp_service",
+      "breakpoints": true
     }
   ]
 }

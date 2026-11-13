@@ -13,11 +13,8 @@ import { CLIENT_IP_HEADER, PROXY_AUTH_HEADER } from '@comercechat/service-kit';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import {
-  FAKE_PSP_SIGNATURE_HEADER,
-  signFakePspPayload,
-} from '../src/fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/fake-psp/signature';
+import { apiPort, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { OTP_SENDER } from '../src/identity/users/otp-sender.js';
 import { merchantLogin, testMfaColumns } from './merchant-session.js';
@@ -50,6 +47,7 @@ describe('Seguridad (E2E)', () => {
   const codes = new Map<string, string>();
   const env = loadEnv();
   const http = () => request(app.getHttpServer());
+  let simulators: { close: () => Promise<void> } | undefined;
   /** Petición como si llegara desde Next con la IP `ip` del navegador. */
   const via = <T extends request.Test>(r: T, ip = freshIp()) =>
     r.set(PROXY_AUTH_HEADER, env.INTERNAL_PROXY_SECRET).set(CLIENT_IP_HEADER, ip);
@@ -108,18 +106,14 @@ describe('Seguridad (E2E)', () => {
   };
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(OTP_SENDER)
       .useValue({ send: async (p: string, c: string) => void codes.set(p, c) })
       .compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
     configureApi(app, env);
-    await app.listen(0);
-    app
-      .get(FakePspService)
-      .setWebhookTarget(
-        `${(await app.getUrl()).replace('[::1]', 'localhost')}/v1/webhooks/psp/fake`,
-      );
+    await app.listen(apiPort());
     db = app.get<Database>(DB);
     const [m] = await db
       .insert(s.merchants)
@@ -146,6 +140,7 @@ describe('Seguridad (E2E)', () => {
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 

@@ -9,7 +9,7 @@
 // `pnpm lint` falla con cualquier violación nueva. Al terminar F1 ese fichero queda vacío.
 
 const CONTEXTS =
-  'identity|merchant-venues|table-payments|loyalty|audit|analytics|realtime|fake-psp|fake-pos';
+  'identity|merchant-venues|table-payments|loyalty|audit|analytics|realtime|fake-pos';
 const SHARED = 'config|db|pos';
 
 /** Ficheros que montan la aplicación o el esquema completos: pueden importar cualquier contexto. */

@@ -24,5 +24,3 @@ export * from '../../analytics/schema/pg-schema.js';
 export * from '../../analytics/schema/analytics.js';
 export * from '../../fake-pos/schema/pg-schema.js';
 export * from '../../fake-pos/schema/fake-pos.js';
-export * from '../../fake-psp/schema/pg-schema.js';
-export * from '../../fake-psp/schema/fake-psp.js';

@@ -1,10 +1,10 @@
-// Para la PoC local: termina los procesos que escuchan en los puertos de la app (3000, 3001, 4100) y
+// Para la PoC local: termina los procesos que escuchan en los puertos de la app (3000, 3001, 4100 y los simuladores 4108/4109) y
 // los procesos de la API que hayan quedado huérfanos. Útil si `pnpm dev` no se cerró del todo.
 // Uso: pnpm poc:stop
 import { execFileSync } from 'node:child_process';
 
 // El 4000 es del gateway nginx (docker compose): no se toca.
-const PORTS = [3000, 3001, 4100];
+const PORTS = [3000, 3001, 4100, 4108, 4109];
 
 function pidsListening() {
   let out;
@@ -23,7 +23,7 @@ function orphanApis() {
   const out = execFileSync('ps', ['-eo', 'pid=,args='], { encoding: 'utf8' });
   return out
     .split('\n')
-    .filter((l) => /apps\/api\/dist\/main/.test(l))
+    .filter((l) => /(apps\/api|services\/[a-z-]+)\/dist\/main/.test(l))
     .map((l) => Number(l.trim().split(/\s+/)[0]))
     .filter((pid) => pid !== process.pid);
 }

@@ -61,13 +61,14 @@ class RedactingSpanProcessor implements SpanProcessor {
  * (`OTEL_EXPORTER_OTLP_ENDPOINT`, por defecto http://localhost:4318; `OTEL_TRACES_SAMPLER`…).
  * Devuelve la función que vacía y cierra el exportador.
  */
-export function startTelemetry(env: Env): () => Promise<void> {
+/** `service`: nombre del servicio en las trazas (se le añade el rol del proceso). */
+export function startTelemetry(env: Env, service = 'comercechat-api'): () => Promise<void> {
   if (env.TELEMETRY !== 'on') return () => Promise.resolve();
   register('@opentelemetry/instrumentation/hook.mjs', import.meta.url);
 
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? `comercechat-api-${env.PROCESS_ROLE}`,
+      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? `${service}-${env.PROCESS_ROLE}`,
       [ATTR_SERVICE_VERSION]: process.env.npm_package_version ?? '0.0.0',
       'deployment.environment.name': env.NODE_ENV,
     }),

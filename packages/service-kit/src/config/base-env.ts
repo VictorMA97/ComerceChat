@@ -37,6 +37,8 @@ export const baseEnvSchema = z.object({
    * sin él, la API solo vería la IP del servidor de Next y los límites por IP no servirían.
    */
   INTERNAL_PROXY_SECRET: secret,
+  /** Secreto de las llamadas entre servicios (`/v1/internal/*`, MIGRACION §3.3). Distinto del anterior. */
+  INTERNAL_SERVICE_SECRET: secret,
 });
 
 export type Env = z.infer<typeof baseEnvSchema>;

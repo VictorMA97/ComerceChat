@@ -14,7 +14,14 @@ export default defineConfig({
       // Sin dependencias externas: se ejecutan en el pre-push y Turbo los cachea.
       { extends: true, test: { name: 'unit', include: ['src/**/*.spec.ts'] } },
       // Postgres y Redis reales de .env.local (requieren Docker).
-      { extends: true, test: { name: 'integration', include: ['test/**/*.e2e-spec.ts'] } },
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          include: ['test/**/*.e2e-spec.ts'],
+          setupFiles: ['test/setup-ports.ts'],
+        },
+      },
     ],
   },
 });

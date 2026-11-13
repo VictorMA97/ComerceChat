@@ -1,8 +1,10 @@
-import { fakePspSchema } from './pg-schema.js';
-import { bigint, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, pgSchema, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { createdAt } from '@comercechat/service-kit/db';
 
-/** Sesiones de pago del PSP simulado. */
+/** Esquema de Postgres del PSP simulado (ADR-029). Nunca existe en producción (ADR-018). */
+export const fakePspSchema = pgSchema('fake_psp');
+
+/** Sesiones de pago del PSP simulado. `notify_url`: adónde se entrega el webhook de esta sesión. */
 export const fakePspSessions = fakePspSchema.table('fake_psp_sessions', {
   id: text('id').primaryKey(),
   paymentId: uuid('payment_id').notNull(),
@@ -15,6 +17,7 @@ export const fakePspSessions = fakePspSchema.table('fake_psp_sessions', {
     .notNull()
     .default('OPEN'),
   returnUrl: text('return_url').notNull(),
+  notifyUrl: text('notify_url').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: createdAt(),
 });

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
 import { IdempotencyModule } from '@comercechat/service-kit';
-import { FakePspModule } from '../../fake-psp/public/fake-psp.js';
 import { CouponsModule } from '../coupons/coupons.module.js';
 import { DynamicQrModule } from '../dynamic-qr/dynamic-qr.module.js';
 import { TablesModule } from '../tables/tables.module.js';
@@ -13,7 +12,7 @@ import { PosSyncService } from './pos-sync.service.js';
 import { FakePaymentProvider } from './providers/fake-payment.provider.js';
 
 @Module({
-  imports: [TablesModule, DynamicQrModule, CouponsModule, IdempotencyModule, FakePspModule],
+  imports: [TablesModule, DynamicQrModule, CouponsModule, IdempotencyModule],
   controllers: [PaymentsController],
   providers: [
     FakePaymentProvider,

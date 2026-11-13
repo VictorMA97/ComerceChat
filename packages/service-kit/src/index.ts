@@ -14,6 +14,8 @@ export * from './db/index.js';
 export * from './http/bootstrap.js';
 export * from './http/client-ip.js';
 export * from './http/health.controller.js';
+export * from './http/internal-auth.guard.js';
+export * from './http/internal-client.js';
 export * from './http/problem.filter.js';
 export * from './http/throttling.js';
 export * from './idempotency/idempotency.module.js';

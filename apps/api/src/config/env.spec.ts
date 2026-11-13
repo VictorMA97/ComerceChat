@@ -12,6 +12,7 @@ const base = {
   FAKE_PSP_WEBHOOK_SECRET: 'w'.repeat(32),
   PAYMENT_STATUS_SECRET: 'v'.repeat(32),
   INTERNAL_PROXY_SECRET: 'u'.repeat(32),
+  INTERNAL_SERVICE_SECRET: 'v'.repeat(32),
   QR_SIGNING_KEY: 'k'.repeat(48),
 };
 

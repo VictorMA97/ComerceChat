@@ -15,7 +15,7 @@ import { hashPassword } from '../src/identity/auth/passwords.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { apiPort, fakePsp, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { RealtimeService } from '../src/realtime/realtime.service.js';
 
@@ -42,6 +42,7 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
   let locationId: string;
   let token: string;
   const http = () => request(app.getHttpServer());
+  let simulators: { close: () => Promise<void> } | undefined;
 
   async function tableWithBill(label: string, items: [string, number, number][]) {
     const qrService = app.get(QrService);
@@ -71,7 +72,7 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
     http().post('/v1/payment-sessions').set('Idempotency-Key', key).send(body);
   const sessionIdOf = (checkoutUrl: string) => checkoutUrl.split('/').pop()!;
   const complete = (checkoutUrl: string, outcome = 'succeed') =>
-    http()
+    fakePsp()
       .post(`/v1/fake-psp/sessions/${sessionIdOf(checkoutUrl)}/complete`)
       .send({ outcome });
   const bill = (code: string) =>
@@ -80,17 +81,14 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
       .then((r) => r.body);
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const env = loadEnv();
-    expect(env.FAKE_PSP_CHAOS).toBe('on');
+    // El modo caos lo lee el PSP simulado, que se levanta en este proceso (simulators.ts).
+    expect(process.env.FAKE_PSP_CHAOS).toBe('on');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
     configureApi(app, env);
-    await app.listen(0);
-    app
-      .get(FakePspService)
-      .setWebhookTarget(
-        `${(await app.getUrl()).replace('[::1]', 'localhost')}/v1/webhooks/psp/fake`,
-      );
+    await app.listen(apiPort());
     db = app.get<Database>(DB);
 
     const [m] = await db
@@ -128,6 +126,7 @@ describe('P3: dividir la cuenta, tiempo real y QR de cobro de la caja (E2E)', ()
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 

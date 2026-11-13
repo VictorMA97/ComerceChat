@@ -24,7 +24,11 @@ const PROVIDER_SELECTORS = [
  */
 const envSchema = baseEnvSchema.extend({
   SMTP_URL: z.string().url().default('smtp://localhost:1025'),
+  /** URL pública de la API (el gateway): la usan los webhooks del PSP simulado. */
   API_BASE_URL: z.string().url().default('http://localhost:4000'),
+  /** Simuladores como servicios aparte (MS F3): sus rutas /v1/internal/*. */
+  FAKE_PSP_URL: z.string().url().default('http://localhost:4108'),
+  FAKE_POS_URL: z.string().url().default('http://localhost:4109'),
   WEB_QR_BASE_URL: z.string().url(),
   MERCHANT_PANEL_BASE_URL: z.string().url(),
   PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
@@ -51,8 +55,6 @@ const envSchema = baseEnvSchema.extend({
   FAKE_PSP_WEBHOOK_SECRET: secret,
   /** HMAC del token de estado de un pago (ADR-021). Distinto de JWT_SECRET: una clave, un uso. */
   PAYMENT_STATUS_SECRET: secret,
-  /** Modo caos del PSP simulado: webhooks retrasados, duplicados y desordenados (ARCHITECTURE §16.3). */
-  FAKE_PSP_CHAOS: z.enum(['on', 'off']).default('off'),
   // Comisión de plataforma (FR-PAY-10). Valores provisionales hasta cerrar D-05.
   PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(1000).default(50),
   PLATFORM_FEE_FIXED_CENTS: z.coerce.number().int().min(0).default(0),

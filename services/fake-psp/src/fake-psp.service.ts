@@ -3,12 +3,13 @@ import type { FakeCheckoutOutcome, FakeCheckoutSession } from '@comercechat/shar
 import { and, eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
 import { AppError, randomBase62, QueueName, QueueService } from '@comercechat/service-kit';
-import { ENV, type Env } from '../config/env.js';
-import { DB, type Database } from '../db/client.js';
-import { fakePspSessions } from './schema/fake-psp.js';
+import { ENV, type Env } from './config/env.js';
+import { DB, type Database } from './db/db.module.js';
+import { fakePspSessions } from './db/schema.js';
 import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from './fake-psp-signature.js';
 
 interface DeliveryJob {
+  url: string;
   body: string;
 }
 
@@ -16,28 +17,22 @@ interface DeliveryJob {
 const fakePspFee = (totalCents: number) => Math.round(totalCents * 0.014) + 15;
 
 /**
- * El "PSP externo" simulado (ARCHITECTURE §16.3). Guarda sus sesiones en fake_psp_sessions y envía
- * webhooks firmados por HTTP a la API, igual que un PSP real (incluidos reintentos).
+ * El "PSP externo" simulado (ARCHITECTURE §16.3), como servicio aparte (MS F3). Guarda sus sesiones
+ * en fake_psp.fake_psp_sessions y envía webhooks firmados por HTTP a la URL que indicó la API al
+ * crear cada sesión, igual que un PSP real (incluidos reintentos).
  */
 @Injectable()
 export class FakePspService {
   private readonly logger = new Logger(FakePspService.name);
-  private webhookTarget: string;
 
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
     private readonly queues: QueueService,
   ) {
-    this.webhookTarget = `${env.API_BASE_URL.replace(/\/$/, '')}/v1/webhooks/psp/fake`;
     this.queues.registerWorker(QueueName.FAKE_PSP_WEBHOOKS, (job) =>
       this.deliver(job.data as DeliveryJob),
     );
-  }
-
-  /** Los tests E2E escuchan en un puerto efímero y redirigen aquí los webhooks. */
-  setWebhookTarget(url: string): void {
-    this.webhookTarget = url;
   }
 
   async createSession(input: {
@@ -47,6 +42,7 @@ export class FakePspService {
     amountCents: number;
     platformFeeCents: number;
     returnUrl: string;
+    notifyUrl: string;
     expiresAt: Date;
   }): Promise<string> {
     const id = `fps_${randomBase62(20)}`;
@@ -126,23 +122,24 @@ export class FakePspService {
               }),
         },
         returnUrl: s.returnUrl,
+        notifyUrl: s.notifyUrl,
       };
     });
 
-    const { returnUrl, ...payload } = event;
-    await this.enqueueDelivery(JSON.stringify(payload));
+    const { returnUrl, notifyUrl, ...payload } = event;
+    await this.enqueueDelivery(notifyUrl, JSON.stringify(payload));
     return { returnUrl };
   }
 
   /** En modo caos el webhook se retrasa 0–10 s y se envía 1–3 veces. */
-  private async enqueueDelivery(body: string): Promise<void> {
+  private async enqueueDelivery(url: string, body: string): Promise<void> {
     const chaos = this.env.FAKE_PSP_CHAOS === 'on';
     const copies = chaos ? randomInt(1, 4) : 1;
     for (let i = 0; i < copies; i++) {
       await this.queues.add(
         QueueName.FAKE_PSP_WEBHOOKS,
         'deliver',
-        { body } satisfies DeliveryJob,
+        { url, body } satisfies DeliveryJob,
         {
           delayMs: chaos ? randomInt(0, 10_000) : 0,
           attempts: 8,
@@ -152,8 +149,8 @@ export class FakePspService {
     }
   }
 
-  private async deliver({ body }: DeliveryJob): Promise<void> {
-    const res = await fetch(this.webhookTarget, {
+  private async deliver({ url, body }: DeliveryJob): Promise<void> {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -162,7 +159,7 @@ export class FakePspService {
       body,
     });
     if (!res.ok) {
-      throw new Error(`El webhook respondió ${res.status} en ${this.webhookTarget}`);
+      throw new Error(`El webhook respondió ${res.status} en ${url}`);
     }
     this.logger.debug(`Webhook entregado: ${body.slice(0, 60)}…`);
   }

@@ -12,11 +12,9 @@ import { hashPassword } from '../src/identity/auth/passwords.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import {
-  FAKE_PSP_SIGNATURE_HEADER,
-  signFakePspPayload,
-} from '../src/fake-psp/fake-psp-signature.js';
-import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/fake-psp/signature';
+import { fakePspSessions } from '@comercechat/fake-psp';
+import { apiPort, fakePsp, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { OTP_SENDER } from '../src/identity/users/otp-sender.js';
 import { merchantLogin, testMfaColumns } from './merchant-session.js';
@@ -48,6 +46,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
   const codes = new Map<string, string>();
   const phone = `+34699${rnd()}`;
   const http = () => request(app.getHttpServer());
+  let simulators: { close: () => Promise<void> } | undefined;
 
   async function tableWithBill(label: string, items: [string, number, number][]) {
     const qrService = app.get(QrService);
@@ -79,7 +78,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     return r.send(body);
   };
   const complete = (checkoutUrl: string) =>
-    http()
+    fakePsp()
       .post(`/v1/fake-psp/sessions/${checkoutUrl.split('/').pop()}/complete`)
       .send({ outcome: 'succeed' });
   const receipt = (id: string, t: string) =>
@@ -90,6 +89,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     http()[method](path).set('authorization', `Bearer ${userToken}`);
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const env = loadEnv();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(OTP_SENDER)
@@ -97,12 +97,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
       .compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
     configureApi(app, env);
-    await app.listen(0);
-    app
-      .get(FakePspService)
-      .setWebhookTarget(
-        `${(await app.getUrl()).replace('[::1]', 'localhost')}/v1/webhooks/psp/fake`,
-      );
+    await app.listen(apiPort());
     db = app.get<Database>(DB);
 
     const [m] = await db
@@ -157,6 +152,7 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 
@@ -250,9 +246,10 @@ describe('P4: usuarios, puntos, cupones y analítica (E2E)', () => {
     // Cubre 25 €, el cupón paga 5 €, el comensal 20 € + 10 % de propina sobre lo que paga.
     expect(session.body).toMatchObject({ amountCents: 2_500, discountCents: 500, tipCents: 200 });
 
-    const fakeSession = await db.query.fakePspSessions.findFirst({
-      where: eq(s.fakePspSessions.paymentId, session.body.paymentId),
-    });
+    const [fakeSession] = await db
+      .select()
+      .from(fakePspSessions)
+      .where(eq(fakePspSessions.paymentId, session.body.paymentId));
     expect(fakeSession!.amountCents).toBe(2_200);
     const body = JSON.stringify({
       id: `evt_l2_${suffix}`,

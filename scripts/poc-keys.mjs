@@ -21,6 +21,8 @@ const secrets = {
   FAKE_PSP_WEBHOOK_SECRET: randomBytes(32).toString('base64url'),
   PAYMENT_STATUS_SECRET: randomBytes(32).toString('base64url'),
   INTERNAL_PROXY_SECRET: randomBytes(32).toString('base64url'),
+  // Llamadas entre servicios (/v1/internal/*, MS F3).
+  INTERNAL_SERVICE_SECRET: randomBytes(32).toString('base64url'),
 };
 
 /**

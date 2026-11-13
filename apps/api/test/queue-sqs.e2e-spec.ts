@@ -13,7 +13,7 @@ import { QueueName, SqsTransport } from '@comercechat/service-kit';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { FakePspService } from '../src/fake-psp/fake-psp.service.js';
+import { apiPort, fakePsp, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 
 // Cada fichero de test corre en su propio proceso: el entorno se lee al crear la app.
@@ -124,17 +124,16 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
   let db: Database;
   let code: string;
   const http = () => request(app.getHttpServer());
+  let simulators: { close: () => Promise<void> } | undefined;
 
   beforeAll(async () => {
+    simulators = await startSimulators();
     const env = loadEnv();
     expect(env.QUEUE_DRIVER).toBe('sqs');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
     configureApi(app, env);
-    await app.listen(0);
-    app
-      .get(FakePspService)
-      .setWebhookTarget(`${await app.getUrl()}/v1/webhooks/psp/fake`.replace('[::1]', 'localhost'));
+    await app.listen(apiPort());
     db = app.get<Database>(DB);
 
     const [m] = await db
@@ -175,6 +174,7 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
   });
 
   afterAll(async () => {
+    await simulators?.close();
     await app?.close();
   });
 
@@ -189,7 +189,7 @@ describe('Cobro completo con QUEUE_DRIVER=sqs', () => {
       });
     expect(session.status).toBe(201);
     const sessionId = session.body.checkoutUrl.split('/').pop();
-    const done = await http()
+    const done = await fakePsp()
       .post(`/v1/fake-psp/sessions/${sessionId}/complete`)
       .send({ outcome: 'succeed' });
     expect(done.status).toBe(200);
