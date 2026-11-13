@@ -10,7 +10,7 @@
 
 const CONTEXTS =
   'identity|merchant-venues|table-payments|loyalty|audit|analytics|realtime|fake-psp|fake-pos';
-const SHARED = 'common|config|contracts|db|redis|queue|outbox|health|pos';
+const SHARED = 'config|db|pos';
 
 /** Ficheros que montan la aplicación o el esquema completos: pueden importar cualquier contexto. */
 const COMPOSITION_ROOTS = [

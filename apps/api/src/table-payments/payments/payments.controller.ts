@@ -1,3 +1,4 @@
+import { CurrentUserId, OptionalUserGuard } from '@comercechat/auth-client';
 import {
   Body,
   Controller,
@@ -46,8 +47,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import { RATE_LIMITS } from '../../common/throttling.js';
-import { CurrentUserId, OptionalUserGuard } from '../../identity/public/session.js';
+import { RATE_LIMITS } from '@comercechat/service-kit';
 import type { Request } from 'express';
 import { PaymentEventsService } from './payment-events.service.js';
 import { PaymentsService } from './payments.service.js';

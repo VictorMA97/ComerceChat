@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
+// Subruta sin Nest: main.ts carga esta configuración antes de arrancar la telemetría (ADR-027).
+import { baseEnvSchema, baseProductionViolations, secret } from '@comercechat/service-kit/config';
 import { z } from 'zod';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -16,38 +18,20 @@ const PROVIDER_SELECTORS = [
   'AUTH_PROVIDER',
 ] as const;
 
-const secret = z.string().min(32, 'debe tener al menos 32 caracteres (ejecuta pnpm poc:keys)');
-
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url(),
+/**
+ * Configuración de la API: la común a todos los servicios (`baseEnvSchema`, service-kit) más la
+ * propia. Al separar los servicios, cada uno ampliará el base solo con lo suyo (MIGRACION §3.2).
+ */
+const envSchema = baseEnvSchema.extend({
   SMTP_URL: z.string().url().default('smtp://localhost:1025'),
-  API_PORT: z.coerce.number().int().positive().default(4000),
   API_BASE_URL: z.string().url().default('http://localhost:4000'),
-  /** all = HTTP + workers en el mismo proceso (PoC); http / worker para separarlos (ARCHITECTURE §2). */
-  PROCESS_ROLE: z.enum(['all', 'http', 'worker']).default('all'),
-  /** Prefijo de las colas en Redis: permite que los tests no compartan colas con `pnpm dev`. */
-  QUEUE_PREFIX: z.string().min(1).default('cc'),
   WEB_QR_BASE_URL: z.string().url(),
   MERCHANT_PANEL_BASE_URL: z.string().url(),
   PAYMENT_PROVIDER: z.enum(['fake', 'stripe']).default('fake'),
   POS_CONNECTOR: z.enum(['fake', 'manual']).default('fake'),
   OTP_SENDER: z.enum(['console']).default('console'),
-  /** Colas de trabajo: BullMQ sobre Redis (PoC) o SQS (MVP). Las tareas periódicas siguen en BullMQ. */
-  QUEUE_DRIVER: z.enum(['bullmq', 'sqs']).default('bullmq'),
-  AWS_REGION: z.string().min(1).default('eu-south-2'),
-  /** Endpoint de SQS compatible en local (ElasticMQ: http://localhost:9324). Vacío = AWS. */
-  SQS_ENDPOINT: z.string().url().optional(),
-  /** Crea las colas y sus DLQ si faltan. Solo local: en AWS las crea Terraform. */
-  SQS_CREATE_QUEUES: z.enum(['on', 'off']).default('off'),
-  /** Espera máxima de cada ReceiveMessage (long polling, 0–20 s). */
-  SQS_WAIT_SECONDS: z.coerce.number().int().min(0).max(20).default(20),
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   AUTH_PROVIDER: z.enum(['local']).default('local'),
-  TELEMETRY: z.enum(['on', 'off']).default('off'),
-  /** Límites de peticiones por IP. `off` solo para los tests E2E; prohibido en producción. */
-  RATE_LIMITS: z.enum(['on', 'off']).default('on'),
   JWT_SECRET: secret,
   /** Sesión del comensal en la web QR (PoC: 30 días, sin token de renovación). */
   JWT_USER_TTL_SECONDS: z.coerce
@@ -67,11 +51,6 @@ const envSchema = z.object({
   FAKE_PSP_WEBHOOK_SECRET: secret,
   /** HMAC del token de estado de un pago (ADR-021). Distinto de JWT_SECRET: una clave, un uso. */
   PAYMENT_STATUS_SECRET: secret,
-  /**
-   * Lo envían las apps Next (que son quienes llaman a la API, ADR-021) junto con la IP del cliente:
-   * sin él, la API solo vería la IP del servidor de Next y los límites por IP no servirían.
-   */
-  INTERNAL_PROXY_SECRET: secret,
   /** Modo caos del PSP simulado: webhooks retrasados, duplicados y desordenados (ARCHITECTURE §16.3). */
   FAKE_PSP_CHAOS: z.enum(['on', 'off']).default('off'),
   // Comisión de plataforma (FR-PAY-10). Valores provisionales hasta cerrar D-05.
@@ -102,7 +81,7 @@ export function productionViolations(
     (typeof PROVIDER_SELECTORS)[number] | 'RATE_LIMITS' | 'QUEUE_DRIVER' | 'SQS_CREATE_QUEUES'
   >,
 ): string[] {
-  const out: string[] = [];
+  const out: string[] = baseProductionViolations(env);
   const simulated = PROVIDER_SELECTORS.filter((key) => SIMULATED_VALUES.has(env[key]));
   if (simulated.length > 0) {
     out.push(
@@ -110,13 +89,6 @@ export function productionViolations(
         .map((k) => `${k}=${env[k]}`)
         .join(', ')} (ADR-018)`,
     );
-  }
-  if (env.RATE_LIMITS === 'off') out.push('RATE_LIMITS=off no está permitido en producción');
-  if (env.QUEUE_DRIVER !== 'sqs') {
-    out.push('En producción las colas van en SQS (QUEUE_DRIVER=sqs, ADR-026)');
-  }
-  if (env.SQS_CREATE_QUEUES === 'on') {
-    out.push('SQS_CREATE_QUEUES=on no está permitido en producción: las colas las crea Terraform');
   }
   return out;
 }
@@ -173,4 +145,5 @@ export function webQrBaseUrl(env: Env): string {
   return webQrBase.url;
 }
 
-export const ENV = Symbol('ENV');
+// El mismo token que inyectan los módulos de @comercechat/service-kit.
+export { ENV } from '@comercechat/service-kit/config';

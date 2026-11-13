@@ -5,7 +5,7 @@ import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
-import { POS_CONNECTOR, type PosConnector, PosUnavailableError } from '../../pos/pos-connector.js';
+import { POS_CONNECTOR, type PosConnector, PosUnavailableError } from '@comercechat/pos-connectors';
 import { TableBillService } from './table-bill.service.js';
 
 /** Una mesa se muestra como «Pagada» durante este tiempo tras cerrarse su cuenta. */

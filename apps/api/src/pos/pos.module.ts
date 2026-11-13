@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ENV, type Env } from '../config/env.js';
 import { FakePosConnector } from '../fake-pos/fake-pos.connector.js';
 import { FakePosModule } from '../fake-pos/fake-pos.module.js';
-import { POS_CONNECTOR } from './pos-connector.js';
+import { POS_CONNECTOR } from '@comercechat/pos-connectors';
 
 /** Elige el adaptador del software de caja (ARCHITECTURE §6.2). Raíz de composición. */
 @Global()

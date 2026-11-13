@@ -9,16 +9,16 @@ import type { MessageEvent } from '@nestjs/common';
 import type { RealtimeEvent } from '@comercechat/shared-types';
 import { EventEmitter } from 'node:events';
 import type { Redis } from 'ioredis';
+import { REALTIME_CHANNEL_PREFIX, REDIS } from '@comercechat/service-kit';
 import { filter, fromEvent, interval, map, merge, type Observable, startWith } from 'rxjs';
-import { REDIS } from '../redis/redis.module.js';
 
-const CHANNEL_PREFIX = 'rt:location:';
 /** Comentario SSE periódico: evita que proxies y túneles corten la conexión por inactividad. */
 const HEARTBEAT_MS = 15_000;
 
 /**
- * Tiempo real (ARCHITECTURE §12): los cambios se publican en Redis por local y cada proceso los
- * reparte a sus conexiones SSE. El evento solo avisa; el cliente vuelve a pedir los datos.
+ * Tiempo real (ARCHITECTURE §12): cualquier servicio publica en Redis con `RealtimePublisher`
+ * (service-kit) y este reparte los avisos de cada local a sus conexiones SSE. El evento solo avisa;
+ * el cliente vuelve a pedir los datos.
  */
 @Injectable()
 export class RealtimeService implements OnModuleInit, OnModuleDestroy {
@@ -39,34 +39,11 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn(`Evento de tiempo real inválido: ${String(err)}`);
       }
     });
-    await this.subscriber.psubscribe(`${CHANNEL_PREFIX}*`);
+    await this.subscriber.psubscribe(`${REALTIME_CHANNEL_PREFIX}*`);
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.subscriber?.quit().catch(() => undefined);
-  }
-
-  /** Publica un cambio. Nunca falla hacia fuera: el tiempo real no debe romper un pago. */
-  async publish(event: Omit<RealtimeEvent, 'at'>): Promise<void> {
-    const payload: RealtimeEvent = { ...event, at: new Date().toISOString() };
-    await this.redis
-      .publish(`${CHANNEL_PREFIX}${event.locationId}`, JSON.stringify(payload))
-      .catch((err: unknown) =>
-        this.logger.warn(`No se pudo publicar en tiempo real: ${String(err)}`),
-      );
-  }
-
-  publishTable(
-    locationId: string,
-    tableId: string | null | undefined,
-    reason: string,
-  ): Promise<void> {
-    return this.publish({
-      type: 'table.updated',
-      locationId,
-      tableId: tableId ?? undefined,
-      reason,
-    });
   }
 
   /**

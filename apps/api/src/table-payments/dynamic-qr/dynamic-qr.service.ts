@@ -1,16 +1,14 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { DynamicQrResolution, DynamicQrView } from '@comercechat/shared-types';
 import { and, desc, eq, gt, inArray } from 'drizzle-orm';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import type { MerchantPrincipal } from '../../identity/public/session.js';
-import { AppError } from '../../common/app-error.js';
-import { newId, randomBase62 } from '../../common/ids.js';
+import { AuditEmitter, AppError, newId, randomBase62 } from '@comercechat/service-kit';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { payments } from '../schema/payments.js';
 import { paymentQrCodes } from '../schema/payment-qr.js';
-import { RealtimeService } from '../../realtime/public/realtime.js';
+import { RealtimePublisher } from '@comercechat/service-kit';
 import { DynamicQrKeys, signDynamicQr, verifyDynamicQr } from './dynamic-qr-token.js';
 
 /** El simulador sigue mostrando el QR de cobro de una mesa durante este tiempo tras crearlo. */
@@ -44,7 +42,7 @@ export class DynamicQrService {
     @Inject(DB) private readonly db: Database,
     @Inject(ENV) private readonly env: Env,
     private readonly audit: AuditEmitter,
-    private readonly realtime: RealtimeService,
+    private readonly realtime: RealtimePublisher,
     private readonly venues: VenuesDirectory,
   ) {
     this.keys = new DynamicQrKeys(env.QR_SIGNING_KEY);

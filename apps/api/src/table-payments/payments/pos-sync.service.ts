@@ -4,9 +4,9 @@ import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
 import { orders } from '../schema/orders.js';
 import { payments } from '../schema/payments.js';
-import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
-import { POS_CONNECTOR, type PosConnector } from '../../pos/pos-connector.js';
-import { RealtimeService } from '../../realtime/public/realtime.js';
+import { OutboxRelayService } from '@comercechat/service-kit';
+import { POS_CONNECTOR, type PosConnector } from '@comercechat/pos-connectors';
+import { RealtimePublisher } from '@comercechat/service-kit';
 
 /**
  * Registra en el software de caja los pagos capturados (FR-POS-04). Si el TPV falla, el job se
@@ -20,7 +20,7 @@ export class PosSyncService implements OnModuleInit {
     @Inject(DB) private readonly db: Database,
     @Inject(POS_CONNECTOR) private readonly pos: PosConnector,
     private readonly relay: OutboxRelayService,
-    private readonly realtime: RealtimeService,
+    private readonly realtime: RealtimePublisher,
     private readonly venues: VenuesDirectory,
   ) {}
 

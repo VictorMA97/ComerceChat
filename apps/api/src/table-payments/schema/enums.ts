@@ -7,7 +7,7 @@ import {
   QrCodeStatus,
   TransactionType,
 } from '@comercechat/shared-types';
-import { enumValues } from '../../db/schema/columns.js';
+import { enumValues } from '@comercechat/service-kit/db';
 import { paymentsSchema } from './pg-schema.js';
 
 export const orderSource = paymentsSchema.enum('order_source', enumValues(OrderSource));

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Redis } from 'ioredis';
-import { REDIS } from '../../redis/redis.module.js';
+import { REDIS } from '@comercechat/service-kit';
 
 const key = (jti: string) => `jwt:revoked:${jti}`;
 

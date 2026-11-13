@@ -14,9 +14,14 @@ import {
   type TipRequest,
 } from '@comercechat/shared-types';
 import { and, eq, gt, lt } from 'drizzle-orm';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
-import { safeErrorForLog } from '../../common/safe-error.js';
+import {
+  AppError,
+  newId,
+  safeErrorForLog,
+  QueueName,
+  QueueService,
+  IdempotencyService,
+} from '@comercechat/service-kit';
 import { ENV, type Env, webQrBaseUrl } from '../../config/env.js';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { coupons } from '../schema/coupons.js';
@@ -24,11 +29,9 @@ import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.j
 import { orderAllocations, payments } from '../schema/payments.js';
 import { paymentQrCodes } from '../schema/payment-qr.js';
 import { DynamicQrService } from '../dynamic-qr/dynamic-qr.service.js';
-import { QueueName, QueueService } from '../../queue/queue.service.js';
-import { RealtimeService } from '../../realtime/public/realtime.js';
+import { RealtimePublisher } from '@comercechat/service-kit';
 import { TableBillService } from '../tables/table-bill.service.js';
 import { platformFeeCents, statementDescriptor } from './fees.js';
-import { IdempotencyService } from '../../common/idempotency.service.js';
 import { PAYMENT_PROVIDER, type PaymentProvider } from './payment-provider.js';
 import { paymentStatusToken, isValidPaymentStatusToken } from './status-token.js';
 import { CouponsService } from '../coupons/coupons.service.js';
@@ -70,7 +73,7 @@ export class PaymentsService implements OnApplicationBootstrap {
     private readonly dynamicQr: DynamicQrService,
     private readonly idempotency: IdempotencyService,
     private readonly queues: QueueService,
-    private readonly realtime: RealtimeService,
+    private readonly realtime: RealtimePublisher,
     private readonly coupons: CouponsService,
     private readonly loyalty: LoyaltyDirectory,
     private readonly venues: VenuesDirectory,

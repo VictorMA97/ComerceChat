@@ -1,18 +1,16 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import {
+  CurrentMerchant,
+  MerchantAuthGuard,
+  MerchantRoles,
+  type MerchantPrincipal,
+} from '@comercechat/auth-client';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { MerchantLoginResult, MerchantMe } from '@comercechat/shared-types';
 import { Throttle } from '@nestjs/throttler';
 import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { AppError } from '../../common/app-error.js';
-import { ClientIp } from '../../common/client-ip.js';
-import { RATE_LIMITS } from '../../common/throttling.js';
+import { AppError, ClientIp, RATE_LIMITS } from '@comercechat/service-kit';
 import { IdentityDirectory } from '../../identity/public/identity-directory.js';
-import {
-  CurrentMerchant,
-  MerchantAuthGuard,
-  type MerchantPrincipal,
-  MerchantRoles,
-} from '../../identity/public/session.js';
 import { VenuesDirectory } from '../public/venues-directory.js';
 import { MerchantsService } from './merchants.service.js';
 

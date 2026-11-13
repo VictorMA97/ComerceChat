@@ -1,9 +1,9 @@
 import { Controller, Get, HttpStatus, Query, UseGuards } from '@nestjs/common';
+import { CurrentUserId, UserAuthGuard } from '@comercechat/auth-client';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { CouponView } from '@comercechat/shared-types';
 import { isUUID } from 'class-validator';
-import { AppError } from '../../common/app-error.js';
-import { CurrentUserId, UserAuthGuard } from '../../identity/public/session.js';
+import { AppError } from '@comercechat/service-kit';
 import { CouponsService } from './coupons.service.js';
 
 /** Cupones del comensal que puede usar al pagar (FR-CPN-04). */

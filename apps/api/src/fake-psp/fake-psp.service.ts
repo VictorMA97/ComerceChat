@@ -2,12 +2,10 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import type { FakeCheckoutOutcome, FakeCheckoutSession } from '@comercechat/shared-types';
 import { and, eq } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
-import { AppError } from '../common/app-error.js';
-import { randomBase62 } from '../common/ids.js';
+import { AppError, randomBase62, QueueName, QueueService } from '@comercechat/service-kit';
 import { ENV, type Env } from '../config/env.js';
 import { DB, type Database } from '../db/client.js';
 import { fakePspSessions } from './schema/fake-psp.js';
-import { QueueName, QueueService } from '../queue/queue.service.js';
 import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from './fake-psp-signature.js';
 
 interface DeliveryJob {

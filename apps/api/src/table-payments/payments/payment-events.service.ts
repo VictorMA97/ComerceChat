@@ -1,14 +1,17 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import { AppError } from '../../common/app-error.js';
+import {
+  AuditEmitter,
+  AppError,
+  OutboxService,
+  QueueName,
+  QueueService,
+} from '@comercechat/service-kit';
 import { DB, type Database } from '../../db/client.js';
 import { orderAllocations, payments, pspWebhookEvents, transactions } from '../schema/payments.js';
 import { paymentQrCodes } from '../schema/payment-qr.js';
-import { OutboxService } from '../../outbox/outbox.service.js';
-import { QueueName, QueueService } from '../../queue/queue.service.js';
 import { CouponsService } from '../coupons/coupons.service.js';
-import { RealtimeService } from '../../realtime/public/realtime.js';
+import { RealtimePublisher } from '@comercechat/service-kit';
 import { TableBillService } from '../tables/table-bill.service.js';
 import {
   InvalidWebhookSignatureError,
@@ -31,7 +34,7 @@ export class PaymentEventsService {
     private readonly queues: QueueService,
     private readonly outbox: OutboxService,
     private readonly audit: AuditEmitter,
-    private readonly realtime: RealtimeService,
+    private readonly realtime: RealtimePublisher,
   ) {
     this.queues.registerWorker(QueueName.PSP_EVENTS, (job) =>
       this.process((job.data as { eventId: string }).eventId),

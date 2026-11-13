@@ -1,5 +1,5 @@
 import { ConsentType, MerchantUserRole, UserStatus } from '@comercechat/shared-types';
-import { enumValues } from '../../db/schema/columns.js';
+import { enumValues } from '@comercechat/service-kit/db';
 import { identitySchema } from './pg-schema.js';
 
 export const merchantUserRole = identitySchema.enum(

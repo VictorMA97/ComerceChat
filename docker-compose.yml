@@ -39,6 +39,29 @@ services:
       - '127.0.0.1:8025:8025'
       - '127.0.0.1:1025:1025'
 
+  # Gateway de la API (ADR-030): enruta /v1 al servicio dueño de cada ruta. Lo llaman las apps Next
+  # (API_BASE_URL=http://localhost:4000). Hasta separar los servicios, todos son apps/api en el
+  # puerto 4100 del host. Tabla de rutas en deploy/gateway/default.conf.template.
+  gateway:
+    image: nginx:1.28-alpine
+    ports:
+      - '127.0.0.1:4000:4000'
+    environment:
+      API_URL: http://host.docker.internal:4100
+      IDENTITY_URL: http://host.docker.internal:4100
+      MERCHANT_VENUES_URL: http://host.docker.internal:4100
+      TABLE_PAYMENTS_URL: http://host.docker.internal:4100
+      LOYALTY_URL: http://host.docker.internal:4100
+      REALTIME_URL: http://host.docker.internal:4100
+      AUDIT_URL: http://host.docker.internal:4100
+      ANALYTICS_URL: http://host.docker.internal:4100
+      FAKE_PSP_URL: http://host.docker.internal:4100
+      FAKE_POS_URL: http://host.docker.internal:4100
+    volumes:
+      - ./deploy/gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
   # SQS compatible para probar QUEUE_DRIVER=sqs en local (ADR-026). En memoria: las colas se crean
   # al arrancar la API (SQS_CREATE_QUEUES=on) y desaparecen al recrear el contenedor.
   # Interfaz de consulta en http://localhost:9325.

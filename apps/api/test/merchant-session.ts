@@ -3,7 +3,7 @@ import type request from 'supertest';
 import { expect } from 'vitest';
 import { POC_TOTP_SECRET } from '../src/identity/auth/poc-mfa.js';
 import { totp } from '../src/identity/auth/totp.js';
-import { encryptPii } from '../src/common/pii.js';
+import { encryptPii } from '@comercechat/service-kit';
 import type { Env } from '../src/config/env.js';
 
 /** Columnas para insertar un usuario del comercio con el doble factor ya activado. */

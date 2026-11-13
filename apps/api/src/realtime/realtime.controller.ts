@@ -1,12 +1,12 @@
 import { Controller, HttpStatus, type MessageEvent, Param, Sse, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Observable } from 'rxjs';
-import { AppError } from '../common/app-error.js';
 import {
   CurrentMerchant,
   MerchantAuthGuard,
   type MerchantPrincipal,
-} from '../identity/public/session.js';
+} from '@comercechat/auth-client';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Observable } from 'rxjs';
+import { AppError } from '@comercechat/service-kit';
 import { VenuesDirectory } from '../merchant-venues/public/venues-directory.js';
 import { RealtimeService } from './realtime.service.js';
 

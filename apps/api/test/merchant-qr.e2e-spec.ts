@@ -1,13 +1,13 @@
 // Prueba E2E contra Postgres y Redis reales (DATABASE_URL / REDIS_URL de .env.local).
 // Crea su propio comercio con emails únicos, así que no interfiere con los datos de `pnpm db:seed`.
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { hashPassword } from '../src/identity/auth/passwords.js';
-import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -26,7 +26,7 @@ describe('Comercio: autenticación, mesas y QR (E2E)', () => {
     const env = loadEnv();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
-    configureApp(app, env);
+    configureApi(app, env);
     // Servidor escuchando en un puerto efímero: evita que supertest abra y cierre uno por petición.
     await app.listen(0);
 

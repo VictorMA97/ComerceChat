@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from
 import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { FakeCheckoutOutcome, FakeCheckoutSession } from '@comercechat/shared-types';
 import { IsIn } from 'class-validator';
-import { AppError } from '../common/app-error.js';
+import { AppError } from '@comercechat/service-kit';
 import { ENV, type Env } from '../config/env.js';
 import { FakePspService } from './fake-psp.service.js';
 

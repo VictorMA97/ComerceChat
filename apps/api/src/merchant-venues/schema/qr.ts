@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { char, index, integer, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { merchantLocations, tables } from './merchants.js';
-import { createdAt, id } from '../../db/schema/columns.js';
+import { createdAt, id } from '@comercechat/service-kit/db';
 import { qrCodeStatus, qrCodeType } from './enums.js';
 
 /** QR estáticos de mesa (FR-QR-01). Los de cobro desde la caja están en payments.payment_qr_codes. */

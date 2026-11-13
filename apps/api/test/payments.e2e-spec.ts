@@ -1,12 +1,12 @@
 // Flujo de pago de P2 de extremo a extremo con Postgres, Redis y colas reales (ROADMAP §2, P2).
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
-import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -81,7 +81,7 @@ describe('Pago de la cuenta de una mesa (E2E)', () => {
     expect(env.QUEUE_PREFIX).toMatch(/^cc-test-/);
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false, rawBody: true });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     app
       .get(FakePspService)

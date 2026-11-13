@@ -1,13 +1,11 @@
 import { HttpStatus, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { CouponView } from '@comercechat/shared-types';
 import { and, eq, gt, inArray, lte } from 'drizzle-orm';
-import { AppError } from '../../common/app-error.js';
-import { formatEur } from '../../common/money.js';
+import { AppError, formatEur, OutboxRelayService } from '@comercechat/service-kit';
 import { DB, type Database, type Tx } from '../../db/client.js';
 import { couponRedemptions, coupons } from '../schema/coupons.js';
-import type { CouponIssuedV1 } from '../../contracts/events.js';
+import type { CouponIssuedV1 } from '@comercechat/contracts';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';
-import { OutboxRelayService } from '../../outbox/outbox-relay.service.js';
 
 type Reader = Pick<Database, 'select'>;
 type CouponRow = typeof coupons.$inferSelect;

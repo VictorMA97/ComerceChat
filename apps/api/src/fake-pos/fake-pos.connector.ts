@@ -13,7 +13,7 @@ import {
   type PosConnector,
   type PosPaymentInput,
   PosUnavailableError,
-} from '../pos/pos-connector.js';
+} from '@comercechat/pos-connectors';
 import { FAKE_POS_MENU } from './fake-pos-menu.js';
 
 /**

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { loadEnv } from './config/env.js';
-import { startTelemetry } from './telemetry.js';
+import { startTelemetry } from '@comercechat/service-kit/telemetry';
 
 // Valida el entorno antes de levantar nada: falla si hay simuladores en producción (ADR-018).
 const env = loadEnv();

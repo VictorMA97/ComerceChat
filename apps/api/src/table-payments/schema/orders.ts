@@ -1,7 +1,7 @@
 import { paymentsSchema } from './pg-schema.js';
 import { relations, sql } from 'drizzle-orm';
 import { bigint, index, integer, jsonb, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 import { orderSource, orderStatus } from './enums.js';
 
 /**

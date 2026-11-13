@@ -1,6 +1,6 @@
 import { identitySchema } from './pg-schema.js';
 import { boolean, date, index, integer, text, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 import { consentType, userStatus } from './enums.js';
 
 export const users = identitySchema.table('users', {

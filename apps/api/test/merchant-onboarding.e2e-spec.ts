@@ -1,5 +1,6 @@
 // M0: un comercio se registra con doble factor y crea un local con mesas (ROADMAP §3, ADR-025).
 import 'reflect-metadata';
+import { configureApi } from '../src/configure-api.js';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { eq } from 'drizzle-orm';
@@ -9,7 +10,6 @@ import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/identity/auth/auth.service.js';
 import { hashPassword } from '../src/identity/auth/passwords.js';
 import { totp } from '../src/identity/auth/totp.js';
-import { configureApp } from '../src/bootstrap.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
@@ -29,7 +29,7 @@ describe('M0: registro del comercio con doble factor y alta de local y mesas (E2
     const env = loadEnv();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication({ logger: false });
-    configureApp(app, env);
+    configureApi(app, env);
     await app.listen(0);
     db = app.get<Database>(DB);
   });

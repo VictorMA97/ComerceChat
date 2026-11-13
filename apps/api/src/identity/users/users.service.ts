@@ -1,8 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type { ConsentsInput, MeView } from '@comercechat/shared-types';
 import { and, desc, eq } from 'drizzle-orm';
-import { AppError } from '../../common/app-error.js';
-import { encryptPii, decryptPii, hashPii } from '../../common/pii.js';
+import { AppError, encryptPii, decryptPii, hashPii } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { VenuesDirectory } from '../../merchant-venues/public/venues-directory.js';

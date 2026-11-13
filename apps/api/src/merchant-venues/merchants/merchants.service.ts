@@ -1,9 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { type MerchantPrincipal } from '@comercechat/auth-client';
 import type { MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
+import { AuditEmitter, AppError, newId } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import {
@@ -11,7 +10,6 @@ import {
   IdentityDirectory,
   normalizeEmail,
 } from '../../identity/public/identity-directory.js';
-import type { MerchantPrincipal } from '../../identity/public/session.js';
 import { merchants } from '../schema/merchants.js';
 
 export interface MerchantRegistration {

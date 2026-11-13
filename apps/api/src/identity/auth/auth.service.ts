@@ -1,16 +1,13 @@
+import type { MerchantSessionVerifier } from '@comercechat/auth-client';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { LoginResponse, MerchantLoginResult } from '@comercechat/shared-types';
 import { eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { AuditEmitter } from '../../outbox/audit-emitter.js';
-import { AppError } from '../../common/app-error.js';
-import { newId } from '../../common/ids.js';
-import { hashPii } from '../../common/pii.js';
+import { AuditEmitter, AppError, newId, hashPii, REDIS } from '@comercechat/service-kit';
 import { ENV, type Env } from '../../config/env.js';
 import { DB, type Database } from '../../db/client.js';
 import { merchantUsers } from '../schema/merchant-users.js';
-import { REDIS } from '../../redis/redis.module.js';
 import {
   MERCHANT_AUTH_PROVIDER,
   type MerchantAuthProvider,
@@ -37,7 +34,7 @@ interface MerchantJwtPayload {
 }
 
 @Injectable()
-export class AuthService {
+export class AuthService implements MerchantSessionVerifier {
   constructor(
     @Inject(MERCHANT_AUTH_PROVIDER) private readonly provider: MerchantAuthProvider,
     @Inject(ENV) private readonly env: Env,

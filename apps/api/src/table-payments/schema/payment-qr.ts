@@ -1,5 +1,5 @@
 import { bigint, char, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { createdAt, id } from '../../db/schema/columns.js';
+import { createdAt, id } from '@comercechat/service-kit/db';
 import { paymentQrStatus } from './enums.js';
 import { paymentsSchema } from './pg-schema.js';
 

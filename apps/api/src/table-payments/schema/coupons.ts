@@ -1,7 +1,7 @@
 import { paymentsSchema } from './pg-schema.js';
 import { bigint, index, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { payments } from './payments.js';
-import { createdAt, id, updatedAt } from '../../db/schema/columns.js';
+import { createdAt, id, updatedAt } from '@comercechat/service-kit/db';
 
 /**
  * Cupón de un solo uso vinculado a un usuario (FR-CPN-04). Lo financia el comercio (REG-04). Lo emite

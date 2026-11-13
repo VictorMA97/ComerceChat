@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { IdempotencyModule } from '../common/idempotency.module.js';
+import { IdempotencyModule } from '@comercechat/service-kit';
 import { CouponIssuer } from './coupon-issuer.service.js';
 import { LoyaltyMeController } from './loyalty-me.controller.js';
 import { LoyaltyService } from './loyalty.service.js';

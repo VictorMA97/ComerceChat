@@ -2,7 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env.js';
 import { ConsoleOtpSender, OTP_SENDER } from './otp-sender.js';
 import { OtpService } from './otp.service.js';
-import { OptionalUserGuard, UserAuthGuard, UserTokens } from './user-auth.js';
+import { USER_SESSION_VERIFIER } from '@comercechat/auth-client';
+import { UserTokens } from './user-auth.js';
 import { UsersController } from './users.controller.js';
 import { UsersService } from './users.service.js';
 
@@ -13,8 +14,8 @@ import { UsersService } from './users.service.js';
     UsersService,
     OtpService,
     UserTokens,
-    UserAuthGuard,
-    OptionalUserGuard,
+    // Los guards de @comercechat/auth-client validan las sesiones del comensal con UserTokens.
+    { provide: USER_SESSION_VERIFIER, useExisting: UserTokens },
     ConsoleOtpSender,
     {
       provide: OTP_SENDER,
@@ -23,6 +24,6 @@ import { UsersService } from './users.service.js';
       useFactory: (_env: Env, sender: ConsoleOtpSender) => sender,
     },
   ],
-  exports: [UserTokens, UserAuthGuard, OptionalUserGuard],
+  exports: [UserTokens, USER_SESSION_VERIFIER],
 })
 export class UsersModule {}
