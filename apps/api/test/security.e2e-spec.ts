@@ -14,7 +14,7 @@ import { CLIENT_IP_HEADER, PROXY_AUTH_HEADER } from '@comercechat/service-kit';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/fake-psp/signature';
+import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/contracts';
 import { apiPort, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';
 import { OTP_SENDER } from '../src/identity/users/otp-sender.js';

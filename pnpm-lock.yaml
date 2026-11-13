@@ -205,9 +205,6 @@ importers:
       '@comercechat/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@comercechat/fake-psp':
-        specifier: workspace:*
-        version: link:../../services/fake-psp
       '@comercechat/pos-connectors':
         specifier: workspace:*
         version: link:../../packages/pos-connectors
@@ -272,6 +269,9 @@ importers:
       '@comercechat/fake-pos':
         specifier: workspace:*
         version: link:../../services/fake-pos
+      '@comercechat/fake-psp':
+        specifier: workspace:*
+        version: link:../../services/fake-psp
       '@nestjs/cli':
         specifier: ^12.0.8
         version: 12.0.8(@swc/core@1.16.18(@swc/helpers@0.5.23))(@types/node@22.20.5)(prettier@3.9.10)(tsconfig-paths-webpack-plugin@4.2.0)
@@ -454,9 +454,15 @@ importers:
         specifier: workspace:*
         version: link:../shared-types
     devDependencies:
+      '@types/node':
+        specifier: ^22.20.5
+        version: 22.20.5
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/pos-connectors:
     dependencies:
@@ -679,6 +685,9 @@ importers:
 
   services/fake-psp:
     dependencies:
+      '@comercechat/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@comercechat/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit

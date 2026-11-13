@@ -1,3 +1,5 @@
+// Firma de los webhooks del PSP simulado, al estilo de Stripe (ARCHITECTURE §16.3): la usan el
+// simulador para firmar y el adaptador FakePaymentProvider de la API para verificar.
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const FAKE_PSP_SIGNATURE_HEADER = 'fake-psp-signature';

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { PaymentMethod } from '@comercechat/shared-types';
-import { FAKE_PSP_SIGNATURE_HEADER, verifyFakePspSignature } from '@comercechat/fake-psp/signature';
+import { FAKE_PSP_SIGNATURE_HEADER, verifyFakePspSignature } from '@comercechat/contracts';
 import { InternalHttpClient } from '@comercechat/service-kit';
 import { ENV, type Env, webQrBaseUrl } from '../../../config/env.js';
 import {

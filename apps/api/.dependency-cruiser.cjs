@@ -19,7 +19,6 @@ const COMPOSITION_ROOTS = [
   '^src/pos/pos\\.module\\.ts$',
   '^src/db/schema/index\\.ts$',
   '^src/db/client\\.ts$',
-  '^src/db/seed\\.ts$',
   '^src/db/migrate\\.ts$',
   '^src/db/reset\\.ts$',
 ];

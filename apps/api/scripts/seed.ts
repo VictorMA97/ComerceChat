@@ -2,16 +2,16 @@
 // Uso: pnpm db:seed. Crece con cada hito (P2: caja simulada con carta y cuentas abiertas;
 // P4: fidelización, recompensas, promoción «Vuelve y te invitamos», cupones e historial de pagos).
 import { sql } from 'drizzle-orm';
-import { hashPassword } from '../identity/auth/passwords.js';
-import { POC_TOTP_SECRET } from '../identity/auth/poc-mfa.js';
+import { hashPassword } from '../src/identity/auth/passwords.js';
+import { POC_TOTP_SECRET } from '../src/identity/auth/poc-mfa.js';
 import { newId, encryptPii, hashPii } from '@comercechat/service-kit';
-import { loadEnv } from '../config/env.js';
+import { loadEnv } from '../src/config/env.js';
 // El simulador de caja es un servicio aparte (MS F3); el seed local escribe también sus tablas.
 import * as pos from '@comercechat/fake-pos/schema';
 import { FAKE_POS_MENU } from '@comercechat/fake-pos';
-import { generateShortCode, qrUrl, signQr } from '../merchant-venues/qr/qr-signature.js';
-import { createDatabase } from './client.js';
-import * as s from './schema/index.js';
+import { generateShortCode, qrUrl, signQr } from '../src/merchant-venues/qr/qr-signature.js';
+import { createDatabase } from '../src/db/client.js';
+import * as s from '../src/db/schema/index.js';
 
 const env = loadEnv();
 if (env.NODE_ENV === 'production') throw new Error('El seed no puede ejecutarse en producción');

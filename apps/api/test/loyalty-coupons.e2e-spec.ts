@@ -13,7 +13,7 @@ import { hashPassword } from '../src/identity/auth/passwords.js';
 import { loadEnv } from '../src/config/env.js';
 import { DB, type Database } from '../src/db/client.js';
 import * as s from '../src/db/schema/index.js';
-import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/fake-psp/signature';
+import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/contracts';
 import { fakePspSessions } from '@comercechat/fake-psp';
 import { apiPort, fakePsp, startSimulators } from './simulators.js';
 import { QrService } from '../src/merchant-venues/qr/qr.service.js';

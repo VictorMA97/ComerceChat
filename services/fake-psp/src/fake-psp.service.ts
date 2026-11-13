@@ -6,7 +6,7 @@ import { AppError, randomBase62, QueueName, QueueService } from '@comercechat/se
 import { ENV, type Env } from './config/env.js';
 import { DB, type Database } from './db/db.module.js';
 import { fakePspSessions } from './db/schema.js';
-import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from './fake-psp-signature.js';
+import { FAKE_PSP_SIGNATURE_HEADER, signFakePspPayload } from '@comercechat/contracts';
 
 interface DeliveryJob {
   url: string;
